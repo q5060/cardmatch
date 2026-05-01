@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { MATCH_STATUS, BATTLE_OUTCOME, QUEUE_MODE } from "@/lib/constants";
+import { countActiveMatchesForUser } from "@/lib/queries";
 import { tryRandomPair } from "@/lib/matchmaking";
 
 async function requireUserId() {
@@ -18,6 +19,10 @@ function isParticipant(m: { playerAId: string; playerBId: string }, userId: stri
 
 export async function joinRandomQueue(lat: number, lng: number, radiusKm: number) {
   const userId = await requireUserId();
+
+  if ((await countActiveMatchesForUser(userId)) > 0) {
+    throw new Error("已有進行中的約戰，無法加入隨機排隊");
+  }
 
   await prisma.matchQueueEntry.deleteMany({ where: { userId } });
   await prisma.matchQueueEntry.create({
@@ -52,6 +57,13 @@ export async function sendLobbyInvite(targetUserId: string) {
     where: { userId: targetUserId, looking: true, active: true },
   });
   if (!mySpot || !theirSpot) throw new Error("雙方都需公開約戰地點到大廳");
+
+  if ((await countActiveMatchesForUser(userId)) > 0) {
+    throw new Error("你已有進行中的約戰");
+  }
+  if ((await countActiveMatchesForUser(targetUserId)) > 0) {
+    throw new Error("對方已有進行中的約戰");
+  }
 
   const playerAId = userId < targetUserId ? userId : targetUserId;
   const playerBId = userId < targetUserId ? targetUserId : userId;
@@ -162,44 +174,6 @@ export async function cancelMatch(matchId: string) {
   });
 
   revalidatePath("/battle");
-}
-
-export async function submitBattleResult(matchId: string, outcome: string) {
-  const userId = await requireUserId();
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
-  if (match.status !== MATCH_STATUS.IN_PROGRESS) {
-    throw new Error("對戰尚未開始或已結束");
-  }
-
-  const o =
-    outcome === BATTLE_OUTCOME.LOSS
-      ? BATTLE_OUTCOME.LOSS
-      : outcome === BATTLE_OUTCOME.DRAW
-        ? BATTLE_OUTCOME.DRAW
-        : BATTLE_OUTCOME.WIN;
-
-  await prisma.$transaction(async (tx) => {
-    await tx.battleResult.upsert({
-      where: { matchId },
-      create: {
-        matchId,
-        reporterId: userId,
-        outcome: o,
-      },
-      update: {
-        reporterId: userId,
-        outcome: o,
-      },
-    });
-    await tx.match.update({
-      where: { id: matchId },
-      data: { status: MATCH_STATUS.COMPLETED },
-    });
-  });
-
-  revalidatePath("/battle");
-  revalidatePath("/profile");
 }
 
 export async function finishMatch(

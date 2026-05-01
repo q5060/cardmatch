@@ -1,6 +1,6 @@
 import prisma from "./prisma";
 import { distanceKm, midpoint } from "./geo";
-import { MATCH_STATUS } from "./constants";
+import { MATCH_ACTIVE_STATUSES, MATCH_STATUS } from "./constants";
 
 /** Attempt to pair `userId` with another waiting user within both radii. Returns match id or null. */
 export async function tryRandomPair(userId: string): Promise<string | null> {
@@ -28,6 +28,22 @@ export async function tryRandomPair(userId: string): Promise<string | null> {
     }
 
     if (!partner) return null;
+
+    const [meActive, partnerActive] = await Promise.all([
+      tx.match.count({
+        where: {
+          OR: [{ playerAId: me.userId }, { playerBId: me.userId }],
+          status: { in: MATCH_ACTIVE_STATUSES },
+        },
+      }),
+      tx.match.count({
+        where: {
+          OR: [{ playerAId: partner.userId }, { playerBId: partner.userId }],
+          status: { in: MATCH_ACTIVE_STATUSES },
+        },
+      }),
+    ]);
+    if (meActive > 0 || partnerActive > 0) return null;
 
     const [u1, u2] =
       me.userId < partner.userId

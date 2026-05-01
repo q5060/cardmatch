@@ -48,7 +48,15 @@ export async function GET(
     },
   });
 
-  return NextResponse.json({ messages });
+  return NextResponse.json({
+    messages: messages.map((m) => ({
+      id: m.id,
+      senderId: m.senderId,
+      body: m.body,
+      createdAt: m.createdAt,
+      sender: m.sender,
+    })),
+  });
 }
 
 export async function POST(

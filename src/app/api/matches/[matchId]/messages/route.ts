@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { MATCH_CHAT_ALLOWED_STATUSES } from "@/lib/constants";
+
+const CHAT_OK = new Set<string>(MATCH_CHAT_ALLOWED_STATUSES);
 
 async function assertParticipant(matchId: string, userId: string) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match || (match.playerAId !== userId && match.playerBId !== userId)) {
     return null;
   }
+  if (!CHAT_OK.has(match.status)) return null;
   return match;
 }
 
@@ -44,7 +48,15 @@ export async function GET(
     },
   });
 
-  return NextResponse.json({ messages });
+  return NextResponse.json({
+    messages: messages.map((m) => ({
+      id: m.id,
+      senderId: m.senderId,
+      body: m.body,
+      createdAt: m.createdAt,
+      sender: m.sender,
+    })),
+  });
 }
 
 export async function POST(

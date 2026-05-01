@@ -104,11 +104,11 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
               >
                 {user.displayName}
               </span>
-              <button
-                type="button"
+              <Link
+                href="/battle"
                 className="btn btn-ghost relative text-foreground"
-                title="通知"
-                aria-label="通知"
+                title={pendingInvites > 0 ? `約戰邀請（${pendingInvites}）` : "對戰大廳"}
+                aria-label={pendingInvites > 0 ? `約戰邀請 ${pendingInvites} 筆，前往對戰` : "前往對戰"}
               >
                 <Bell className="h-5 w-5" strokeWidth={1.75} />
                 {pendingInvites > 0 ? (
@@ -116,7 +116,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                     {pendingInvites > 9 ? "9+" : pendingInvites}
                   </span>
                 ) : null}
-              </button>
+              </Link>
               <button
                 type="button"
                 onClick={() => void logout()}

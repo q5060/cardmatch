@@ -24,6 +24,7 @@ export function FriendsClient({
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
 
   const selected = friendships.find((f) => f.id === selectedId);
 
@@ -32,9 +33,22 @@ export function FriendsClient({
   }
 
   function run(fn: () => Promise<void>) {
+    setErr(null);
     startTransition(async () => {
-      await fn();
-      router.refresh();
+      try {
+        await fn();
+        router.refresh();
+      } catch (e) {
+        const msg =
+          e instanceof Error
+            ? e.message === "NOT_FOUND"
+              ? "找不到資料或無權限"
+              : e.message === "UNAUTHORIZED"
+                ? "請先登入"
+                : e.message
+            : "操作失敗";
+        setErr(msg);
+      }
     });
   }
 
@@ -48,6 +62,14 @@ export function FriendsClient({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,280px)_1fr]">
+      {err ? (
+        <p
+          className="lg:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          role="alert"
+        >
+          {err}
+        </p>
+      ) : null}
       <aside className="card card-hover space-y-6 p-4">
         {pendingIn.length > 0 ? (
           <div>

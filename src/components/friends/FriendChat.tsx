@@ -4,10 +4,16 @@ import { useEffect, useRef, useState } from "react";
 
 type Msg = {
   id: string;
+  senderId?: string;
   body: string;
   createdAt: string;
   sender: { id: string; displayName: string };
 };
+
+function isOwnMessage(m: Msg, currentUserId: string): boolean {
+  const sid = m.senderId ?? m.sender?.id;
+  return Boolean(sid && currentUserId && String(sid) === String(currentUserId));
+}
 
 export function FriendChat({
   friendshipId,
@@ -70,21 +76,21 @@ export function FriendChat({
 
   return (
     <div className="card flex min-h-[360px] flex-col overflow-hidden p-0">
-      <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3 text-sm">
+      <div
+        dir="ltr"
+        className="flex min-w-0 flex-1 flex-col space-y-2 overflow-y-auto px-3 py-3 text-sm"
+      >
         {messages.length === 0 ? (
           <p className="text-muted-foreground">尚無訊息。</p>
         ) : (
           messages.map((m) => {
-            const mine = m.sender.id === currentUserId;
+            const mine = isOwnMessage(m, currentUserId);
             return (
-              <div
-                key={m.id}
-                className={`flex ${mine ? "justify-end" : "justify-start"}`}
-              >
+              <div key={m.id} className="flex w-full min-w-0 justify-start">
                 <div
-                  className={`max-w-[85%] rounded-xl px-3 py-2 shadow-sm ${
+                  className={`max-w-[85%] shrink-0 rounded-xl px-3 py-2 shadow-sm ${
                     mine
-                      ? "bg-primary text-white"
+                      ? "ml-auto bg-primary text-white"
                       : "bg-[var(--bubble-other)] text-foreground ring-1 ring-black/[0.04]"
                   }`}
                 >

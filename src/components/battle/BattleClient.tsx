@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MeetMap, type MapPeerPin, type MapShopPin } from "@/components/map/MeetMap";
 import { MatchChat } from "@/components/battle/MatchChat";
@@ -69,6 +69,24 @@ export function BattleClient({
       })),
     [lobbyPeers],
   );
+
+  /** Server props only refresh after your own actions; poll so the opponent's ready state & status sync. */
+  useEffect(() => {
+    if (!activeMatch) return;
+    const syncStatuses = new Set<string>([
+      MATCH_STATUS.ACCEPTED,
+      MATCH_STATUS.INVITE_PENDING,
+      MATCH_STATUS.IN_PROGRESS,
+    ]);
+    if (!syncStatuses.has(activeMatch.status)) return;
+
+    const id = window.setInterval(() => {
+      router.refresh();
+    }, 2500);
+
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll keyed by match id + status only
+  }, [activeMatch?.id, activeMatch?.status, router]);
 
   function refresh() {
     router.refresh();
@@ -197,6 +215,9 @@ export function BattleClient({
               <strong className="mx-0.5">{myReady ? "已準備" : "未準備"}</strong>
               ，對方：
               <strong className="mx-0.5">{theirReady ? "已準備" : "未準備"}</strong>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              對方按下準備後，此處約每 2.5 秒自動同步；仍不符時請重新整理頁面。
             </p>
             <div className="flex flex-wrap gap-2">
               <button

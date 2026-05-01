@@ -4,10 +4,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 
+/** Same-origin relative path only; blocks protocol-relative and odd schemes. */
+function safeLoginRedirect(raw: string | null): string {
+  if (!raw) return "/";
+  const t = raw.trim();
+  if (!t.startsWith("/") || t.startsWith("//")) return "/";
+  if (t.includes("\\") || t.includes("\0")) return "/";
+  return t;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/";
+  const next = safeLoginRedirect(searchParams.get("next"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
