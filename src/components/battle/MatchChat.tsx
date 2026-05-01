@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 type Msg = {
   id: string;
@@ -116,7 +117,14 @@ export function MatchChat({
                   }`}
                 >
                   {!mine ? (
-                    <div className="mb-1 text-xs opacity-70">{m.sender.displayName}</div>
+                    <div className="mb-1 text-xs opacity-70">
+                      <Link
+                        href={`/profile/${m.sender.id}`}
+                        className="underline-offset-2 hover:underline"
+                      >
+                        {m.sender.displayName}
+                      </Link>
+                    </div>
                   ) : null}
                   <div className="whitespace-pre-wrap">{m.body}</div>
                 </div>

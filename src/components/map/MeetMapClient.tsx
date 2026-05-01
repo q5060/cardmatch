@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import {
   MapContainer,
   TileLayer,
@@ -23,6 +24,7 @@ export type MapShopPin = {
 export type MapPeerPin = {
   userId: string;
   displayName: string;
+  avatarUrl?: string | null;
   lat: number;
   lng: number;
   label: string;
@@ -108,6 +110,14 @@ export function MeetMapClient({
               <Popup>
                 <strong>{p.displayName}</strong>
                 <div className="text-xs">{p.label}</div>
+                <div className="mt-2">
+                  <Link
+                    href={`/profile/${p.userId}`}
+                    className="text-xs font-semibold text-primary underline underline-offset-2"
+                  >
+                    查看個人檔案
+                  </Link>
+                </div>
               </Popup>
             </Marker>
           ))}

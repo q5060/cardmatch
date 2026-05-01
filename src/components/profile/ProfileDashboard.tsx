@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Calendar,
@@ -14,16 +15,25 @@ import {
 } from "lucide-react";
 import type { ProfileBattleStats, ProfileMatchFeedRow } from "@/lib/queries";
 
-const TABS = [
+const TABS_SELF = [
   { id: "overview" as const, label: "總覽" },
   { id: "decks" as const, label: "牌組" },
   { id: "spots" as const, label: "約戰地點" },
   { id: "settings" as const, label: "設定" },
 ];
 
-type TabId = (typeof TABS)[number]["id"];
+const TABS_OTHER = [
+  { id: "overview" as const, label: "總覽" },
+  { id: "decks" as const, label: "牌組" },
+];
 
-function normalizeTab(raw: string | null): TabId {
+export type ProfileTabId = (typeof TABS_SELF)[number]["id"];
+
+function normalizeTab(raw: string | null, variant: "self" | "other"): ProfileTabId {
+  if (variant === "other") {
+    if (raw === "decks") return "decks";
+    return "overview";
+  }
   if (raw === "decks" || raw === "spots" || raw === "settings") return raw;
   return "overview";
 }
@@ -89,6 +99,9 @@ function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, numb
 }
 
 export type ProfileDashboardProps = {
+  variant?: "self" | "other";
+  /** Tab URLs use this base (e.g. `/profile` or `/profile/[userId]`). */
+  profileBasePath?: string;
   user: {
     displayName: string;
     bio: string;
@@ -101,11 +114,13 @@ export type ProfileDashboardProps = {
   meetSpotCount: number;
   feed: ProfileMatchFeedRow[];
   decksSlot: ReactNode;
-  spotsSlot: ReactNode;
-  settingsSlot: ReactNode;
+  spotsSlot?: ReactNode | null;
+  settingsSlot?: ReactNode | null;
 };
 
 export function ProfileDashboard({
+  variant = "self",
+  profileBasePath = "/profile",
   user,
   battleStats,
   deckCount,
@@ -113,22 +128,24 @@ export function ProfileDashboard({
   meetSpotCount,
   feed,
   decksSlot,
-  spotsSlot,
-  settingsSlot,
+  spotsSlot = null,
+  settingsSlot = null,
 }: ProfileDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tab = normalizeTab(searchParams.get("tab"));
+  const tab = normalizeTab(searchParams.get("tab"), variant);
+  const tabs = variant === "other" ? TABS_OTHER : TABS_SELF;
 
   const setTab = useCallback(
-    (next: TabId) => {
+    (next: ProfileTabId) => {
       const q = new URLSearchParams(searchParams.toString());
       if (next === "overview") q.delete("tab");
       else q.set("tab", next);
       const s = q.toString();
-      router.replace(s ? `/profile?${s}` : "/profile", { scroll: false });
+      const path = s ? `${profileBasePath}?${s}` : profileBasePath;
+      router.replace(path, { scroll: false });
     },
-    [router, searchParams],
+    [router, searchParams, profileBasePath],
   );
 
   const joined = useMemo(
@@ -141,46 +158,91 @@ export function ProfileDashboard({
     [user.createdAt],
   );
 
-  const statTiles = [
-    {
-      icon: Swords,
-      value: battleStats.completedTotal,
-      label: "已完成對戰",
-      hint:
-        battleStats.recordedTotal > 0
-          ? `已紀錄戰果 ${battleStats.recordedTotal} 場`
-          : undefined,
-    },
-    {
-      icon: Trophy,
-      value: battleStats.recordedTotal > 0 ? `${battleStats.wins}-${battleStats.losses}-${battleStats.draws}` : "—",
-      label: battleStats.recordedTotal > 0 ? "勝-敗-平" : "尚無戰果統計",
-      hint:
-        battleStats.completedWithoutResult > 0
-          ? `${battleStats.completedWithoutResult} 場未紀錄戰果`
-          : undefined,
-    },
-    {
-      icon: Layers,
-      value: deckCount,
-      label: "牌組",
-      hint: `${publicDeckCount} 公開`,
-    },
-    {
-      icon: MapPin,
-      value: meetSpotCount,
-      label: "約戰地點",
-    },
-  ];
+  const statTiles = useMemo(() => {
+    const deckHint =
+      variant === "other"
+        ? publicDeckCount > 0
+          ? "皆為公開"
+          : undefined
+        : `${publicDeckCount} 公開`;
+
+    const base = [
+      {
+        icon: Swords,
+        value: battleStats.completedTotal,
+        label: "已完成對戰",
+        hint:
+          battleStats.recordedTotal > 0
+            ? `已紀錄戰果 ${battleStats.recordedTotal} 場`
+            : undefined,
+      },
+      {
+        icon: Trophy,
+        value:
+          battleStats.recordedTotal > 0
+            ? `${battleStats.wins}-${battleStats.losses}-${battleStats.draws}`
+            : "—",
+        label: battleStats.recordedTotal > 0 ? "勝-敗-平" : "尚無戰果統計",
+        hint:
+          battleStats.completedWithoutResult > 0
+            ? `${battleStats.completedWithoutResult} 場未紀錄戰果`
+            : undefined,
+      },
+      {
+        icon: Layers,
+        value: deckCount,
+        label: "牌組",
+        hint: deckHint,
+      },
+    ];
+
+    if (variant === "self") {
+      base.push({
+        icon: MapPin,
+        value: meetSpotCount,
+        label: "約戰地點",
+        hint: undefined,
+      });
+    }
+
+    return base;
+  }, [variant, battleStats, deckCount, publicDeckCount, meetSpotCount]);
+
+  const eyebrow =
+    variant === "other" ? (
+      <p className="text-xs font-semibold uppercase tracking-wider text-primary">使用者檔案</p>
+    ) : (
+      <p className="text-xs font-semibold uppercase tracking-wider text-primary">個人中心</p>
+    );
+
+  const title =
+    variant === "other" ? (
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        {user.displayName}
+      </h1>
+    ) : (
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+        個人檔案
+      </h1>
+    );
+
+  const subtitle =
+    variant === "other" ? (
+      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        檢視對方公開資訊（對戰統計與公開牌組）。
+      </p>
+    ) : (
+      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+        檢視對戰統計、管理牌組與約戰地點。
+      </p>
+    );
 
   return (
     <div className="space-y-8">
       <header className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">個人中心</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">個人檔案</h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          檢視對戰統計、管理牌組與約戰地點。
-        </p>
+        {eyebrow}
+        {title}
+        {subtitle}
       </header>
 
       <div className="card card-hover overflow-hidden p-0 shadow-none">
@@ -207,9 +269,11 @@ export function ProfileDashboard({
               )}
             </div>
             <div className="min-w-0 flex-1 pb-1 pt-2 sm:pt-0">
-              <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-                {user.displayName}
-              </h2>
+              {variant === "self" ? (
+                <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  {user.displayName}
+                </h2>
+              ) : null}
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" aria-hidden />
@@ -219,7 +283,9 @@ export function ProfileDashboard({
               {user.bio ? (
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">{user.bio}</p>
               ) : (
-                <p className="mt-3 text-sm italic text-muted-foreground">尚未填寫自我介紹</p>
+                <p className="mt-3 text-sm italic text-muted-foreground">
+                  {variant === "other" ? "對方尚未填寫自我介紹" : "尚未填寫自我介紹"}
+                </p>
               )}
             </div>
           </div>
@@ -228,7 +294,7 @@ export function ProfileDashboard({
             className="mt-6 flex gap-1 overflow-x-auto border-b border-border sm:gap-2"
             aria-label="個人檔案分頁"
           >
-            {TABS.map((t) => {
+            {tabs.map((t) => {
               const active = tab === t.id;
               return (
                 <button
@@ -253,7 +319,11 @@ export function ProfileDashboard({
         {tab === "overview" && (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
             <div className="space-y-6">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div
+                className={`grid gap-3 sm:grid-cols-2 ${
+                  variant === "other" ? "lg:grid-cols-3" : "lg:grid-cols-4"
+                }`}
+              >
                 {statTiles.map(({ icon: Icon, value, label, hint }) => (
                   <div key={label} className="card card-hover flex gap-3 p-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
@@ -285,7 +355,15 @@ export function ProfileDashboard({
                         className="flex gap-3 rounded-xl border border-border bg-black/[0.02] px-4 py-3"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="font-medium text-foreground">vs {row.otherDisplayName}</div>
+                          <div className="font-medium text-foreground">
+                            vs{" "}
+                            <Link
+                              href={`/profile/${row.otherUserId}`}
+                              className="text-primary underline-offset-2 hover:underline"
+                            >
+                              {row.otherDisplayName}
+                            </Link>
+                          </div>
                           <div className="mt-0.5 text-xs text-muted-foreground">
                             {row.meetLabel} ·{" "}
                             {new Date(row.updatedAt).toLocaleString("zh-Hant", {
@@ -322,9 +400,13 @@ export function ProfileDashboard({
 
         {tab === "decks" && <div className="space-y-6">{decksSlot}</div>}
 
-        {tab === "spots" && <div className="space-y-6">{spotsSlot}</div>}
+        {variant === "self" && tab === "spots" && spotsSlot ? (
+          <div className="space-y-6">{spotsSlot}</div>
+        ) : null}
 
-        {tab === "settings" && <div className="mx-auto max-w-xl space-y-6">{settingsSlot}</div>}
+        {variant === "self" && tab === "settings" && settingsSlot ? (
+          <div className="mx-auto max-w-xl space-y-6">{settingsSlot}</div>
+        ) : null}
       </div>
     </div>
   );

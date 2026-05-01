@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FriendChat } from "@/components/friends/FriendChat";
 import { acceptFriendship, rejectFriendship } from "@/actions/friends";
@@ -79,7 +80,12 @@ export function FriendsClient({
             <ul className="mt-2 space-y-2">
               {pendingIn.map((f) => (
                 <li key={f.id} className="rounded-lg border border-border bg-gray-50/90 p-3">
-                  <div className="text-sm font-medium text-foreground">{f.requester.displayName}</div>
+                  <Link
+                    href={`/profile/${f.requester.id}`}
+                    className="text-sm font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    {f.requester.displayName}
+                  </Link>
                   <div className="mt-2 flex gap-2">
                     <button
                       type="button"
@@ -138,17 +144,29 @@ export function FriendsClient({
                 const sel = selectedId === f.id;
                 return (
                   <li key={f.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(f.id)}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                        sel
-                          ? "bg-primary font-semibold text-white shadow-md shadow-primary/20"
-                          : "text-foreground hover:bg-black/[0.04]"
+                    <div
+                      className={`flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors ${
+                        sel ? "bg-primary/10 ring-1 ring-primary/25" : ""
                       }`}
                     >
-                      {o.displayName}
-                    </button>
+                      <Link
+                        href={`/profile/${o.id}`}
+                        className="min-w-0 flex-1 truncate text-sm font-medium text-primary underline-offset-2 hover:underline"
+                      >
+                        {o.displayName}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(f.id)}
+                        className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                          sel
+                            ? "bg-primary text-white shadow-sm"
+                            : "bg-black/[0.06] text-foreground hover:bg-black/[0.08]"
+                        }`}
+                      >
+                        聊天
+                      </button>
+                    </div>
                   </li>
                 );
               })
@@ -161,7 +179,14 @@ export function FriendsClient({
         {selected && selected.status === "ACCEPTED" ? (
           <div>
             <h2 className="mb-3 text-lg font-semibold text-foreground">
-              與 {other(selected).displayName} 的對話
+              與{" "}
+              <Link
+                href={`/profile/${other(selected).id}`}
+                className="text-primary underline-offset-2 hover:underline"
+              >
+                {other(selected).displayName}
+              </Link>
+              的對話
             </h2>
             <FriendChat friendshipId={selected.id} currentUserId={userId} />
           </div>

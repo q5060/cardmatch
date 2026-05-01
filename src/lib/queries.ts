@@ -17,13 +17,14 @@ export async function getLobbyPeers(excludeUserId: string) {
       userId: { not: excludeUserId },
     },
     include: {
-      user: { select: { id: true, displayName: true } },
+      user: { select: { id: true, displayName: true, avatarUrl: true } },
     },
   });
 
   return spots.map((s) => ({
     userId: s.userId,
     displayName: s.user.displayName,
+    avatarUrl: s.user.avatarUrl,
     lat: s.lat,
     lng: s.lng,
     label: s.label,
@@ -67,8 +68,8 @@ export async function getMatchHistory(userId: string, take = 15) {
     orderBy: { updatedAt: "desc" },
     take,
     include: {
-      playerA: { select: { displayName: true } },
-      playerB: { select: { displayName: true } },
+      playerA: { select: { id: true, displayName: true } },
+      playerB: { select: { id: true, displayName: true } },
       battleResults: true,
     },
   });
@@ -148,6 +149,7 @@ export type ProfileMatchFeedRow = {
   updatedAt: string;
   meetLabel: string;
   otherDisplayName: string;
+  otherUserId: string;
   outcomeLabel: string | null;
 };
 
@@ -159,6 +161,8 @@ export async function getProfileMatchFeed(
   return rows.map((m) => {
     const otherName =
       m.playerAId === userId ? m.playerB.displayName : m.playerA.displayName;
+    const otherUserId =
+      m.playerAId === userId ? m.playerB.id : m.playerA.id;
     const br = m.battleResults[0];
     let outcomeLabel: string | null = null;
     if (br) {
@@ -183,6 +187,7 @@ export async function getProfileMatchFeed(
       updatedAt: m.updatedAt.toISOString(),
       meetLabel: m.meetLabel,
       otherDisplayName: otherName,
+      otherUserId,
       outcomeLabel,
     };
   });

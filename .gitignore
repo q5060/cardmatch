@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# user uploads (avatars, etc.)
+/public/uploads/
+
 # prisma local db
 /prisma/dev.db
 /prisma/dev.db-journal

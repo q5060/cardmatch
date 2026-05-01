@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { UserRound } from "lucide-react";
 import { MeetMap, type MapPeerPin, type MapShopPin } from "@/components/map/MeetMap";
 import { MatchChat } from "@/components/battle/MatchChat";
 import {
@@ -63,6 +66,7 @@ export function BattleClient({
       lobbyPeers.map((p) => ({
         userId: p.userId,
         displayName: p.displayName,
+        avatarUrl: p.avatarUrl,
         lat: p.lat,
         lng: p.lng,
         label: p.label,
@@ -110,6 +114,12 @@ export function BattleClient({
       : activeMatch.playerA
     : null;
 
+  const otherPlayerId = activeMatch
+    ? activeMatch.playerAId === userId
+      ? activeMatch.playerBId
+      : activeMatch.playerAId
+    : null;
+
   const iAmA = activeMatch ? activeMatch.playerAId === userId : false;
   const myReady = activeMatch
     ? iAmA
@@ -130,7 +140,19 @@ export function BattleClient({
         <div className="card card-hover p-5">
           <h2 className="text-lg font-semibold text-foreground">進行中的約戰</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            對手：{otherPlayer?.displayName} · {activeMatch.meetLabel}
+            對手：
+            {otherPlayerId && otherPlayer ? (
+              <Link
+                href={`/profile/${otherPlayerId}`}
+                className="font-medium text-primary underline-offset-2 hover:underline"
+              >
+                {otherPlayer.displayName}
+              </Link>
+            ) : (
+              otherPlayer?.displayName
+            )}
+            {" · "}
+            {activeMatch.meetLabel}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
             座標：{activeMatch.meetLat.toFixed(4)}, {activeMatch.meetLng.toFixed(4)}
@@ -151,7 +173,19 @@ export function BattleClient({
               <p className="text-foreground">已送出邀請，等待對方回應。</p>
             ) : (
               <>
-                <p className="text-foreground">{otherPlayer?.displayName} 邀請你約戰。</p>
+                <p className="text-foreground">
+                  {otherPlayerId && otherPlayer ? (
+                    <Link
+                      href={`/profile/${otherPlayerId}`}
+                      className="font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      {otherPlayer.displayName}
+                    </Link>
+                  ) : (
+                    otherPlayer?.displayName
+                  )}
+                  邀請你約戰。
+                </p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -348,10 +382,37 @@ export function BattleClient({
                 key={p.userId}
                 className="card card-hover flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div>
-                  <div className="font-medium text-foreground">{p.displayName}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {p.label} · {p.timeNote || "未填時段"}
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Link
+                    href={`/profile/${p.userId}`}
+                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border bg-neutral-100"
+                    aria-label={`${p.displayName} 的個人檔案`}
+                  >
+                    {p.avatarUrl ? (
+                      <Image
+                        src={p.avatarUrl}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <UserRound className="h-5 w-5" strokeWidth={1.5} />
+                      </span>
+                    )}
+                  </Link>
+                  <div className="min-w-0">
+                    <Link
+                      href={`/profile/${p.userId}`}
+                      className="font-medium text-foreground underline-offset-2 hover:underline"
+                    >
+                      {p.displayName}
+                    </Link>
+                    <div className="text-xs text-muted-foreground">
+                      {p.label} · {p.timeNote || "未填時段"}
+                    </div>
                   </div>
                 </div>
                 <button
