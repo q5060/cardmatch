@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite: store as string; validate in app with TS unions in lib/constants.ts
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  displayName   String
+  bio           String   @default("")
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  decks              Deck[]
+  meetSpots          MeetSpot[]
+  queueEntry         MatchQueueEntry?
+  matchesAsPlayerA   Match[]          @relation("PlayerA")
+  matchesAsPlayerB   Match[]          @relation("PlayerB")
+  messages           Message[]
+  friendMessages     FriendMessage[]
+  friendshipsSent    Friendship[]     @relation("Requester")
+  friendshipsRecv    Friendship[]     @relation("Addressee")
+  battleResults      BattleResult[]
+}
+
+model Deck {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  notes      String   @default("")
+  visibility String   @default("PUBLIC") // PUBLIC | PRIVATE
+  deckJson   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model MeetSpot {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lat       Float
+  lng       Float
+  label     String
+  timeNote  String   @default("")
+  active    Boolean  @default(true)
+  looking   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Shop {
+  id          String  @id @default(cuid())
+  name        String
+  lat         Float
+  lng         Float
+  addressNote String  @default("")
+  matches     Match[]
+}
+
+model MatchQueueEntry {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode      String   @default("RANDOM") // PUBLIC_LOBBY | RANDOM
+  lat       Float
+  lng       Float
+  radiusKm  Float    @default(5)
+  createdAt DateTime @default(now())
+}
+
+model Match {
+  id           String   @id @default(cuid())
+  playerAId    String
+  playerBId    String
+  playerA      User     @relation("PlayerA", fields: [playerAId], references: [id], onDelete: Cascade)
+  playerB      User     @relation("PlayerB", fields: [playerBId], references: [id], onDelete: Cascade)
+  invitedById  String
+  status       String   @default("INVITE_PENDING") // INVITE_PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED
+  playerAReady Boolean  @default(false)
+  playerBReady Boolean  @default(false)
+  meetLat      Float
+  meetLng      Float
+  meetLabel    String
+  shopId       String?
+  shop         Shop?    @relation(fields: [shopId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  messages      Message[]
+  battleResults BattleResult[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model Friendship {
+  id          String   @id @default(cuid())
+  requesterId String
+  addresseeId String
+  requester   User     @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User     @relation("Addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  status      String   @default("PENDING") // PENDING | ACCEPTED
+  messages    FriendMessage[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([requesterId, addresseeId])
+}
+
+model FriendMessage {
+  id           String     @id @default(cuid())
+  friendshipId String
+  friendship   Friendship @relation(fields: [friendshipId], references: [id], onDelete: Cascade)
+  senderId     String
+  sender       User       @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body         String
+  createdAt    DateTime   @default(now())
+}
+
+model BattleResult {
+  id         String   @id @default(cuid())
+  matchId    String   @unique
+  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  outcome    String // WIN | LOSS | DRAW (reporter perspective)
+  createdAt  DateTime @default(now())
+}

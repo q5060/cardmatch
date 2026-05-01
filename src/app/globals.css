@@ -1,0 +1,249 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f9f9f9;
+  --card: #ffffff;
+  --text: #171717;
+  --muted: #737373;
+  --border: rgb(0 0 0 / 0.06);
+  --nav: #ffffff;
+  --primary: #14b8a6;
+  --primary-hover: #0d9488;
+  --btn-neutral-bg: #f1f5f9;
+  --btn-neutral-bg-hover: #e2e8f0;
+  --secondary-fg: #334155;
+  --ring: #2dd4bf;
+  --success-fg: #166534;
+  --success-bg: #dcfce7;
+  --bubble-other: #f4f4f5;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--card);
+  --color-muted-foreground: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: #475569;
+  --color-secondary-hover: #334155;
+  --color-nav: var(--nav);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+@layer components {
+  .card {
+    border-radius: 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+    background-color: var(--card);
+    box-shadow:
+      0 4px 24px rgb(0 0 0 / 0.06),
+      0 1px 3px rgb(0 0 0 / 0.04);
+    transition:
+      box-shadow 0.25s ease,
+      border-color 0.25s ease,
+      transform 0.2s ease;
+  }
+
+  .card-hover:hover {
+    box-shadow:
+      0 8px 32px rgb(0 0 0 / 0.08),
+      0 2px 8px rgb(0 0 0 / 0.04);
+    border-color: color-mix(in srgb, var(--primary) 22%, transparent);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    transition:
+      color 0.15s ease,
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.12s ease;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .btn:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px color-mix(in srgb, var(--ring) 65%, transparent);
+  }
+
+  .btn:disabled {
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  .btn-primary {
+    background-color: var(--primary);
+    color: white;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    box-shadow:
+      0 4px 14px color-mix(in srgb, var(--primary) 45%, transparent),
+      0 1px 2px rgb(0 0 0 / 0.05);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--primary-hover);
+    box-shadow:
+      0 6px 20px color-mix(in srgb, var(--primary) 50%, transparent),
+      0 2px 4px rgb(0 0 0 / 0.06);
+  }
+
+  .btn-secondary {
+    background-color: var(--btn-neutral-bg);
+    color: var(--secondary-fg);
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--btn-neutral-bg-hover);
+  }
+
+  .btn-outline {
+    border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+    background-color: var(--card);
+    color: var(--text);
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+
+  .btn-outline:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--btn-neutral-bg) 90%, white);
+  }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: inherit;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    border-radius: 9999px;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background-color: rgb(0 0 0 / 0.05);
+  }
+
+  .btn-lg {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9375rem;
+  }
+
+  .btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+
+  .btn-block {
+    width: 100%;
+  }
+
+  .input-field {
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+    background-color: white;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--text);
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .input-field::placeholder {
+    color: color-mix(in srgb, var(--muted) 80%, transparent);
+  }
+
+  .input-field:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, var(--primary) 55%, var(--text));
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px color-mix(in srgb, var(--ring) 35%, transparent);
+  }
+
+  .link-primary {
+    color: var(--primary-hover);
+    font-weight: 600;
+    text-underline-offset: 3px;
+  }
+
+  .link-primary:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  .link-secondary {
+    color: var(--secondary-fg);
+    font-weight: 600;
+    text-underline-offset: 3px;
+  }
+
+  .link-secondary:hover {
+    color: var(--text);
+    text-decoration: underline;
+  }
+
+  .skeleton-shimmer {
+    animation: skeleton-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  @keyframes soft-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-soft-spin {
+    animation: soft-spin 1s linear infinite;
+  }
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 1.25rem;
+  box-shadow:
+    0 4px 24px rgb(0 0 0 / 0.06),
+    0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
