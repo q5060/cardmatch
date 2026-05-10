@@ -1,11 +1,42 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ProfileDashboard } from "@/components/profile/ProfileDashboard";
 import { PublicDeckList } from "@/components/profile/PublicDeckList";
 import { getProfileBattleStats, getProfileMatchFeed } from "@/lib/queries";
 import { DECK_VISIBILITY } from "@/lib/constants";
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ userId: string }> }
+): Promise<Metadata> {
+  const { userId } = await params;
+  
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { displayName: true },
+    });
+    
+    if (!user) {
+      return {
+        title: "使用者不存在 | CardMatch",
+        description: "此使用者檔案不存在",
+      };
+    }
+    
+    return {
+      title: `${user.displayName}的檔案 | CardMatch`,
+      description: `檢視 ${user.displayName} 的個人檔案、對戰統計和公開牌組`,
+    };
+  } catch {
+    return {
+      title: "個人檔案 | CardMatch",
+      description: "檢視使用者個人檔案",
+    };
+  }
+}
 
 function ProfilePageSkeleton() {
   return (
@@ -47,7 +78,7 @@ export default async function OtherProfilePage({
   if (!viewer) redirect("/login");
   if (viewer.id === userId) redirect("/profile");
 
-  const [profile, battleStats, feed] = await Promise.all([
+  const [profile, battleStats, feed, friendship] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -64,6 +95,15 @@ export default async function OtherProfilePage({
     }),
     getProfileBattleStats(userId),
     getProfileMatchFeed(userId, 15),
+    prisma.friendship.findFirst({
+      where: {
+        OR: [
+          { requesterId: viewer.id, addresseeId: userId },
+          { requesterId: userId, addresseeId: viewer.id },
+        ],
+      },
+      select: { id: true, status: true, requesterId: true },
+    }),
   ]);
 
   if (!profile) notFound();
@@ -76,6 +116,9 @@ export default async function OtherProfilePage({
       <ProfileDashboard
         variant="other"
         profileBasePath={`/profile/${userId}`}
+        viewedUserId={userId}
+        viewerId={viewer.id}
+        friendshipStatus={friendship}
         user={{
           displayName: profile.displayName,
           bio: profile.bio,

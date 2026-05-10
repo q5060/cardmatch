@@ -133,3 +133,37 @@ export async function removeAvatar() {
   revalidatePath("/profile");
   revalidatePath(`/profile/${userId}`);
 }
+
+export async function sendFriendRequest(targetUserId: string) {
+  const session = await getSession();
+  if (!session.userId) throw new Error("UNAUTHORIZED");
+
+  if (session.userId === targetUserId) {
+    throw new Error("CANNOT_ADD_SELF");
+  }
+
+  // 检查是否已有友谊关系
+  const existing = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { requesterId: session.userId, addresseeId: targetUserId },
+        { requesterId: targetUserId, addresseeId: session.userId },
+      ],
+    },
+  });
+
+  if (existing) {
+    throw new Error("ALREADY_EXISTS");
+  }
+
+  const friendship = await prisma.friendship.create({
+    data: {
+      requesterId: session.userId,
+      addresseeId: targetUserId,
+      status: "PENDING",
+    },
+  });
+
+  revalidatePath(`/profile/${targetUserId}`);
+  return friendship;
+}

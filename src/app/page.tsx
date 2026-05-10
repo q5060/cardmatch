@@ -24,12 +24,6 @@ function MapPreview() {
 function QueuePreview() {
   return (
     <div className="relative flex flex-1 flex-col justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-b from-neutral-100/90 to-neutral-50 px-5 py-5">
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div
-          className="h-9 w-9 rounded-full border-2 border-primary/30 border-t-primary animate-soft-spin"
-          aria-hidden
-        />
-      </div>
       {["休閒標準", "輕鬆對戰", "新手友善"].map((line, i) => (
         <div
           key={line}

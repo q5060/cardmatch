@@ -59,3 +59,30 @@ export async function updateDeckVisibility(deckId: string, visibility: string) {
 
   revalidatePath("/profile");
 }
+
+export async function updateDeck(deckId: string, formData: FormData) {
+  const session = await getSession();
+  if (!session.userId) throw new Error("UNAUTHORIZED");
+
+  const title = String(formData.get("title") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+  const visibility = String(formData.get("visibility") ?? "PUBLIC");
+  const deckJson = String(formData.get("deckJson") ?? "").trim() || null;
+
+  if (!title) throw new Error("INVALID_TITLE");
+
+  await prisma.deck.updateMany({
+    where: { id: deckId, userId: session.userId },
+    data: {
+      title: title.slice(0, 120),
+      notes: notes.slice(0, 2000),
+      visibility:
+        visibility === DECK_VISIBILITY.PRIVATE
+          ? DECK_VISIBILITY.PRIVATE
+          : DECK_VISIBILITY.PUBLIC,
+      deckJson: deckJson ? deckJson.slice(0, 50_000) : null,
+    },
+  });
+
+  revalidatePath("/profile");
+}

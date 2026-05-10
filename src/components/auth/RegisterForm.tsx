@@ -23,13 +23,23 @@ export function RegisterForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, displayName }),
       });
-      const data = (await res.json()) as { error?: string };
+      
       if (!res.ok) {
-        setError(data.error ?? "註冊失敗");
+        let errorMsg = "註冊失敗";
+        try {
+          const data = (await res.json()) as { error?: string };
+          if (data.error) errorMsg = data.error;
+        } catch {
+          // ignore parsing error if response is not JSON
+        }
+        setError(errorMsg);
         return;
       }
+
       router.push("/profile");
       router.refresh();
+    } catch (err) {
+      setError("發生錯誤，請稍後再試或檢查網路連線");
     } finally {
       setLoading(false);
     }

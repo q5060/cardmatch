@@ -10,14 +10,20 @@ datasource db {
 // SQLite: store as string; validate in app with TS unions in lib/constants.ts
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  passwordHash  String
-  displayName   String
-  bio           String   @default("")
-  avatarUrl     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String
+  displayName     String
+  bio             String   @default("")
+  avatarUrl       String?
+  defaultShopId   String?  // 常去的店家
+  
+  // 隱私設定
+  battleRecordVisibility String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
+  winrateVisibility      String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   decks              Deck[]
   meetSpots          MeetSpot[]
@@ -29,6 +35,7 @@ model User {
   friendshipsSent    Friendship[]     @relation("Requester")
   friendshipsRecv    Friendship[]     @relation("Addressee")
   battleResults      BattleResult[]
+  notifications      Notification[]
 }
 
 model Deck {
@@ -37,7 +44,7 @@ model Deck {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title      String
   notes      String   @default("")
-  visibility String   @default("PUBLIC") // PUBLIC | PRIVATE
+  visibility String   @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
   deckJson   String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -141,4 +148,14 @@ model BattleResult {
   reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
   outcome    String // WIN | LOSS | DRAW (reporter perspective)
   createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // MATCH_CREATED | MATCH_COMPLETED | FRIEND_REQUEST | etc
+  referenceId String? // References match ID, friendship ID, etc
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

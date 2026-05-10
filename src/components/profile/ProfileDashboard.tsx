@@ -19,7 +19,6 @@ const TABS_SELF = [
   { id: "overview" as const, label: "總覽" },
   { id: "decks" as const, label: "牌組" },
   { id: "spots" as const, label: "約戰地點" },
-  { id: "settings" as const, label: "設定" },
 ];
 
 const TABS_OTHER = [
@@ -34,7 +33,7 @@ function normalizeTab(raw: string | null, variant: "self" | "other"): ProfileTab
     if (raw === "decks") return "decks";
     return "overview";
   }
-  if (raw === "decks" || raw === "spots" || raw === "settings") return raw;
+  if (raw === "decks" || raw === "spots") return raw;
   return "overview";
 }
 
@@ -102,6 +101,14 @@ export type ProfileDashboardProps = {
   variant?: "self" | "other";
   /** Tab URLs use this base (e.g. `/profile` or `/profile/[userId]`). */
   profileBasePath?: string;
+  /** For viewing other's profile */
+  viewedUserId?: string;
+  viewerId?: string;
+  friendshipStatus?: {
+    id: string;
+    status: string;
+    requesterId: string;
+  } | null;
   user: {
     displayName: string;
     bio: string;
@@ -121,6 +128,9 @@ export type ProfileDashboardProps = {
 export function ProfileDashboard({
   variant = "self",
   profileBasePath = "/profile",
+  viewedUserId,
+  viewerId,
+  friendshipStatus,
   user,
   battleStats,
   deckCount,
@@ -288,6 +298,55 @@ export function ProfileDashboard({
                 </p>
               )}
             </div>
+
+            {/* 好友操作按鈕（僅訪問他人檔案時顯示） */}
+            {variant === "other" && viewedUserId && viewerId && (
+              <div className="flex gap-2">
+                {!friendshipStatus ? (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const { sendFriendRequest } = await import("@/actions/profile");
+                        await sendFriendRequest(viewedUserId);
+                        window.location.reload();
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : "操作失敗");
+                      }
+                    }}
+                    className="btn btn-primary"
+                  >
+                    加入好友
+                  </button>
+                ) : friendshipStatus.status === "PENDING" ? (
+                  <>
+                    {friendshipStatus.requesterId === viewerId ? (
+                      <button disabled className="btn btn-secondary">
+                        待審核
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { acceptFriendship } = await import("@/actions/friends");
+                            await acceptFriendship(friendshipStatus.id);
+                            window.location.reload();
+                          } catch (e) {
+                            alert(e instanceof Error ? e.message : "操作失敗");
+                          }
+                        }}
+                        className="btn btn-primary"
+                      >
+                        接受邀請
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <Link href={`/friends?chat=${friendshipStatus.id}`} className="btn btn-primary">
+                    私訊
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
 
           <nav
@@ -402,10 +461,6 @@ export function ProfileDashboard({
 
         {variant === "self" && tab === "spots" && spotsSlot ? (
           <div className="space-y-6">{spotsSlot}</div>
-        ) : null}
-
-        {variant === "self" && tab === "settings" && settingsSlot ? (
-          <div className="mx-auto max-w-xl space-y-6">{settingsSlot}</div>
         ) : null}
       </div>
     </div>
