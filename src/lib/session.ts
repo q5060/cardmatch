@@ -1,7 +1,7 @@
 import type { SessionOptions } from "iron-session";
 
 export type SessionData = {
-  userId?: string;
+  userId?: number;
 };
 
 if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {

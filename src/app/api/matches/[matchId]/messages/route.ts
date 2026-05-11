@@ -5,8 +5,9 @@ import { MATCH_CHAT_ALLOWED_STATUSES } from "@/lib/constants";
 
 const CHAT_OK = new Set<string>(MATCH_CHAT_ALLOWED_STATUSES);
 
-async function assertParticipant(matchId: string, userId: string) {
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
+async function assertParticipant(matchId: string, userId: number) {
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
   if (!match || (match.playerAId !== userId && match.playerBId !== userId)) {
     return null;
   }
@@ -24,6 +25,7 @@ export async function GET(
   }
 
   const { matchId } = await ctx.params;
+  const id = parseInt(matchId);
   const match = await assertParticipant(matchId, session.userId);
   if (!match) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -38,7 +40,7 @@ export async function GET(
 
   const messages = await prisma.message.findMany({
     where: {
-      matchId,
+      matchId: id,
       ...(afterDate ? { createdAt: { gt: afterDate } } : {}),
     },
     orderBy: { createdAt: "asc" },
@@ -69,6 +71,7 @@ export async function POST(
   }
 
   const { matchId } = await ctx.params;
+  const id = parseInt(matchId);
   const match = await assertParticipant(matchId, session.userId);
   if (!match) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -88,7 +91,7 @@ export async function POST(
 
   const msg = await prisma.message.create({
     data: {
-      matchId,
+      matchId: id,
       senderId: session.userId,
       body: text.slice(0, 4000),
     },

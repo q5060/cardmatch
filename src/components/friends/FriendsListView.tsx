@@ -103,41 +103,52 @@ export function FriendsListView({ friends, onSelectFriend }: FriendsListViewProp
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="space-y-2">
           {filtered.map((friend) => (
-            <div
+            <li
               key={friend.id}
-              onClick={() => onSelectFriend?.(friend.id)}
-              className="card card-hover group cursor-pointer overflow-hidden transition-all"
+              className="card card-hover flex items-center gap-3 p-3 transition-all"
             >
-              <div className="relative aspect-square bg-gradient-to-br from-primary/10 to-teal-100/20">
+              {/* 頭像 */}
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-neutral-100">
                 {friend.avatarUrl ? (
                   <Image
                     src={friend.avatarUrl}
                     alt={friend.displayName}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform"
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <UserCircle className="h-16 w-16 text-muted-foreground opacity-30" />
+                    <UserCircle className="h-6 w-6 text-muted-foreground opacity-50" />
                   </div>
                 )}
               </div>
-              <div className="p-4">
-                <h3 className="font-medium truncate text-foreground group-hover:text-primary transition-colors">
+
+              {/* 名字和按鈕 */}
+              <div className="min-w-0 flex-1">
+                <h3 className="font-medium truncate text-sm text-foreground">
                   {friend.displayName}
                 </h3>
-                {friend.lastMessageAt && (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    最後聊天：
-                    {new Date(friend.lastMessageAt).toLocaleDateString("zh-TW")}
-                  </p>
-                )}
+                <div className="mt-1.5 flex gap-2">
+                  <Link
+                    href={`/profile/${friend.id}`}
+                    className="btn btn-outline btn-xs"
+                  >
+                    檔案
+                  </Link>
+                  <button
+                    onClick={() => onSelectFriend?.(friend.id)}
+                    className="btn btn-primary btn-xs"
+                  >
+                    聊天
+                  </button>
+                </div>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

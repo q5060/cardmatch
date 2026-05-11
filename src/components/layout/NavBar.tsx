@@ -31,7 +31,7 @@ const links: {
 ];
 
 type Props = {
-  user?: { id: string; displayName: string } | null;
+  user?: { id: number; displayName: string; avatarUrl: string | null } | null;
   pendingInvites?: number;
 };
 
@@ -128,10 +128,20 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
         <div className="flex shrink-0 items-center gap-2">
           {user ? (
             <>
+              {/* Search Button */}
+              <Link
+                href="/search"
+                className="btn btn-ghost text-foreground cursor-pointer"
+                title="搜尋"
+                aria-label="搜尋"
+              >
+                <Search className="h-5 w-5" strokeWidth={1.75} />
+              </Link>
+
               {/* Notification Dropdown */}
               <div className="relative" ref={notificationRef}>
                 <button
-                  className="btn btn-ghost relative text-foreground"
+                  className="btn btn-ghost relative text-foreground cursor-pointer"
                   onClick={() => setShowNotificationMenu(!showNotificationMenu)}
                   title={pendingInvites > 0 ? `${pendingInvites} 個通知` : "通知"}
                   aria-label="通知"
@@ -157,7 +167,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 </span>
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="btn btn-ghost p-1 text-foreground"
+                  className="btn btn-ghost p-1 text-foreground cursor-pointer"
                   aria-label="用戶選單"
                 >
                   <div className="relative h-10 w-10 rounded-full overflow-hidden bg-neutral-200">

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 
-async function assertFriendship(friendshipId: string, userId: string) {
+async function assertFriendship(friendshipId: string, userId: number) {
   const f = await prisma.friendship.findUnique({ where: { id: friendshipId } });
   if (
     !f ||

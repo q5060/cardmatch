@@ -4,15 +4,15 @@ import { useState, useEffect } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { User, Lock, Shield, LogOut, Plus, Edit2, Trash2 } from "lucide-react";
-import { updateProfile, removeAvatar } from "@/actions/profile";
+import { User, Lock, Shield, LogOut, Plus, Trash2, Edit2 } from "lucide-react";
 
 interface UserSettings {
-  id: string;
+  id: number;
   email: string;
   displayName: string;
   bio: string;
   avatarUrl: string | null;
+  bannerUrl: string | null;
   battleRecordVisibility: "PUBLIC" | "FRIENDS" | "PRIVATE";
   winrateVisibility: "PUBLIC" | "FRIENDS" | "PRIVATE";
   defaultShopId: string | null;
@@ -35,6 +35,8 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   
   // Privacy Settings State
@@ -68,7 +70,7 @@ export default function SettingsPage() {
         setBattleRecordVisibility(data.battleRecordVisibility || "PUBLIC");
         setWinrateVisibility(data.winrateVisibility || "PUBLIC");
         
-        // 載入牌組
+        // Load decks
         const decksRes = await fetch("/api/decks");
         if (decksRes.ok) {
           const decksData = await decksRes.json();
@@ -98,6 +100,23 @@ export default function SettingsPage() {
     }
   };
 
+  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) {
+        setMessage({ type: "error", text: "橫幅圖片大小不能超過 3MB" });
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setBannerPreview(event.target?.result as string);
+        setBannerFile(file);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -107,6 +126,9 @@ export default function SettingsPage() {
       formData.append("bio", bio);
       if (avatarFile) {
         formData.append("avatar", avatarFile);
+      }
+      if (bannerFile) {
+        formData.append("banner", bannerFile);
       }
       
       const res = await fetch("/api/auth/update-profile", {
@@ -123,6 +145,8 @@ export default function SettingsPage() {
       setUser(updatedUser);
       setAvatarPreview(null);
       setAvatarFile(null);
+      setBannerPreview(null);
+      setBannerFile(null);
       setMessage({ type: "success", text: "檔案已成功更新" });
     } catch (error: any) {
       setMessage({ type: "error", text: error.message });
@@ -273,173 +297,136 @@ export default function SettingsPage() {
                   </button>
                 );
               })}
-
-              <div className="hidden md:block my-4 border-t border-border"></div>
-
-              <button
-                onClick={handleLogout}
-                className="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors whitespace-nowrap md:whitespace-normal"
-              >
-                <LogOut className="w-5 h-5 mr-3 shrink-0" />
-                登出
-              </button>
             </nav>
           </div>
 
           {/* Content Area */}
-          <div className="flex-1 max-w-3xl">
-            
+          <div className="flex-1">
             {/* Account Settings Tab */}
             {activeTab === "account" && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="card card-hover space-y-5 p-6">
-                  <h2 className="text-lg font-semibold text-foreground">頭像</h2>
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                    <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-border bg-neutral-100">
-                      {avatarPreview ? (
+              <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+                <h2 className="text-xl font-semibold">帳戶設定</h2>
+                
+                <form onSubmit={handleProfileUpdate} className="space-y-6">
+                  {/* Display Name */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">顯示名稱</label>
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="輸入您的顯示名稱"
+                    />
+                  </div>
+
+                  {/* Bio */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">自我介紹</label>
+                    <textarea
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="用一段話介紹自己"
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Avatar */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">大頭貼</label>
+                    <p className="text-xs text-neutral-500 mb-3">支援 JPG、PNG 與 WebP，大小上限 2MB</p>
+                    <div className="flex items-end gap-4">
+                      {(avatarPreview || user?.avatarUrl) && (
                         <Image
-                          src={avatarPreview}
-                          alt="預覽"
-                          width={96}
-                          height={96}
-                          className="h-full w-full object-cover"
+                          src={avatarPreview || user?.avatarUrl || ""}
+                          alt="Avatar Preview"
+                          width={80}
+                          height={80}
+                          className="w-20 h-20 rounded-full object-cover"
                         />
-                      ) : user.avatarUrl ? (
-                        <Image
-                          src={user.avatarUrl}
-                          alt={user.displayName}
-                          width={96}
-                          height={96}
-                          unoptimized
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground font-bold">
-                          {user.displayName.charAt(0).toUpperCase()}
-                        </div>
                       )}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-3">
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/*"
                         onChange={handleAvatarChange}
-                        className="input-field"
+                        className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        支援 JPEG、PNG 或 WebP 格式，最多 2 MB
-                      </p>
                     </div>
                   </div>
-                </div>
 
-                <form onSubmit={handleProfileUpdate} className="space-y-6">
-                  <div className="card card-hover space-y-5 p-6">
-                    <h2 className="text-lg font-semibold text-foreground">基本資料</h2>
-                    
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">
-                        電子郵件
-                      </label>
+                  {/* Banner */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">個人檔案橫幅</label>
+                    <p className="text-xs text-neutral-500 mb-3">支援 JPG、PNG 與 WebP，大小上限 3MB</p>
+                    <div className="flex flex-col gap-4">
+                      {(bannerPreview || user?.bannerUrl) && (
+                        <Image
+                          src={bannerPreview || user?.bannerUrl || ""}
+                          alt="Banner Preview"
+                          width={400}
+                          height={150}
+                          className="w-full h-32 object-cover rounded-lg"
+                        />
+                      )}
                       <input
-                        id="email"
-                        type="email"
-                        value={user.email}
-                        disabled
-                        className="input-field disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">電子郵件無法更改</p>
-                    </div>
-
-                    <div>
-                      <label htmlFor="displayName" className="block text-sm font-medium text-foreground mb-1.5">
-                        顯示名稱
-                      </label>
-                      <input
-                        id="displayName"
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        maxLength={50}
-                        className="input-field"
-                        required
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBannerChange}
+                        className="px-3 py-2 border border-neutral-300 rounded-lg"
                       />
                     </div>
-
-                    <div>
-                      <label htmlFor="bio" className="block text-sm font-medium text-foreground mb-1.5">
-                        個人簡介
-                      </label>
-                      <textarea
-                        id="bio"
-                        value={bio}
-                        onChange={(e) => setBio(e.target.value)}
-                        maxLength={500}
-                        rows={4}
-                        className="input-field resize-none"
-                        placeholder="分享一些關於您的資訊..."
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">{bio.length}/500</p>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? "更新中..." : "保存變更"}
-                    </button>
                   </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "更新中..." : "保存變更"}
+                  </button>
                 </form>
               </div>
             )}
 
-            {/* Manage Decks Tab */}
+            {/* Decks Tab */}
             {activeTab === "decks" && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-foreground">我的牌組</h2>
-                  <Link href="/decks/new" className="btn btn-primary btn-sm">
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold">管理牌組</h2>
+                  <Link
+                    href="/decks/new"
+                    className="flex items-center gap-2 px-3 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary/90"
+                  >
                     <Plus className="w-4 h-4" />
                     新增牌組
                   </Link>
                 </div>
 
                 {decks.length === 0 ? (
-                  <div className="card card-hover text-center p-8">
-                    <p className="text-muted-foreground">您還沒有建立任何牌組</p>
-                    <Link href="/decks/new" className="btn btn-primary mt-4">
-                      建立第一個牌組
-                    </Link>
-                  </div>
+                  <p className="text-muted-foreground">您還沒有建立任何牌組</p>
                 ) : (
-                  <div className="grid gap-3">
+                  <div className="space-y-4">
                     {decks.map((deck) => (
-                      <div key={deck.id} className="card card-hover p-4 flex items-center justify-between">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-medium text-foreground truncate">{deck.name}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium">
-                              {deck.cardCount} 張卡牌
-                            </span>
-                            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              deck.visibility === "PUBLIC" ? "bg-green-50 text-green-700" :
-                              deck.visibility === "FRIENDS" ? "bg-blue-50 text-blue-700" :
-                              "bg-gray-50 text-gray-700"
-                            }`}>
-                              {deck.visibility === "PUBLIC" ? "公開" :
-                               deck.visibility === "FRIENDS" ? "好友可見" : "私密"}
-                            </span>
-                          </div>
+                      <div
+                        key={deck.id}
+                        className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg hover:bg-neutral-50"
+                      >
+                        <div>
+                          <h3 className="font-medium">{deck.name}</h3>
+                          <p className="text-sm text-muted-foreground">{deck.cardCount} 張牌卡 • {deck.visibility}</p>
                         </div>
-                        <div className="flex gap-2 shrink-0 ml-4">
-                          <Link href={`/decks/${deck.id}/edit`} className="btn btn-ghost btn-sm">
+                        <div className="flex gap-2">
+                          <Link
+                            href={`/decks/${deck.id}/edit`}
+                            className="p-2 hover:bg-neutral-200 rounded-lg"
+                          >
                             <Edit2 className="w-4 h-4" />
                           </Link>
                           <button
                             onClick={() => handleDeckDelete(deck.id)}
                             disabled={decksLoading}
-                            className="btn btn-ghost btn-sm text-red-600 hover:bg-red-50"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -453,119 +440,106 @@ export default function SettingsPage() {
 
             {/* Privacy Settings Tab */}
             {activeTab === "privacy" && (
-              <form onSubmit={(e) => { e.preventDefault(); handlePrivacyUpdate(); }} className="space-y-6 animate-in fade-in duration-300">
-                <div className="card card-hover space-y-5 p-6">
-                  <h2 className="text-lg font-semibold text-foreground">隱私設定</h2>
-                  <p className="text-sm text-muted-foreground">
-                    控制其他人能看到您的哪些資訊
-                  </p>
-
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-xl font-semibold mb-6">隱私設定</h2>
+                <div className="space-y-6">
+                  {/* Battle Record Visibility */}
                   <div>
-                    <label htmlFor="battleRecordVisibility" className="block text-sm font-medium text-foreground mb-1.5">
-                      對戰紀錄可見性
-                    </label>
+                    <label className="block text-sm font-medium mb-2">戰鬥紀錄可見性</label>
                     <select
-                      id="battleRecordVisibility"
                       value={battleRecordVisibility}
                       onChange={(e) => setBattleRecordVisibility(e.target.value as any)}
-                      className="input-field"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      <option value="PUBLIC">公開 - 所有人都能看到</option>
-                      <option value="FRIENDS">好友可見 - 僅好友能看到</option>
-                      <option value="PRIVATE">私密 - 只有您能看到</option>
+                      <option value="PUBLIC">公開</option>
+                      <option value="FRIENDS">僅好友</option>
+                      <option value="PRIVATE">私密</option>
                     </select>
                   </div>
 
+                  {/* Winrate Visibility */}
                   <div>
-                    <label htmlFor="winrateVisibility" className="block text-sm font-medium text-foreground mb-1.5">
-                      勝率可見性
-                    </label>
+                    <label className="block text-sm font-medium mb-2">勝率可見性</label>
                     <select
-                      id="winrateVisibility"
                       value={winrateVisibility}
                       onChange={(e) => setWinrateVisibility(e.target.value as any)}
-                      className="input-field"
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      <option value="PUBLIC">公開 - 所有人都能看到</option>
-                      <option value="FRIENDS">好友可見 - 僅好友能看到</option>
-                      <option value="PRIVATE">私密 - 只有您能看到</option>
+                      <option value="PUBLIC">公開</option>
+                      <option value="FRIENDS">僅好友</option>
+                      <option value="PRIVATE">私密</option>
                     </select>
                   </div>
 
                   <button
-                    type="submit"
+                    onClick={handlePrivacyUpdate}
                     disabled={loading}
                     className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? "更新中..." : "保存隱私設定"}
                   </button>
                 </div>
-              </form>
+              </div>
             )}
 
             {/* Security Tab */}
             {activeTab === "security" && (
-              <div className="space-y-6 animate-in fade-in duration-300">
-                <div className="card card-hover space-y-5 p-6">
-                  <h2 className="text-lg font-semibold text-foreground">更改密碼</h2>
-                  <p className="text-sm text-muted-foreground">
-                    確保您的帳戶安全，建議定期更改密碼。
-                  </p>
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-xl font-semibold mb-6">密碼與安全</h2>
+                <form onSubmit={handleChangePassword} className="space-y-6">
+                  {/* Current Password */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">目前密碼</label>
+                    <input
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
 
-                  <form onSubmit={handleChangePassword} className="space-y-4">
-                    <div>
-                      <label htmlFor="currentPassword" className="block text-sm font-medium text-foreground mb-1.5">
-                        目前密碼
-                      </label>
-                      <input
-                        id="currentPassword"
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="input-field"
-                        required
-                      />
-                    </div>
+                  {/* New Password */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">新密碼</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
 
-                    <div>
-                      <label htmlFor="newPassword" className="block text-sm font-medium text-foreground mb-1.5">
-                        新密碼
-                      </label>
-                      <input
-                        id="newPassword"
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="至少 8 個字元"
-                        className="input-field"
-                        required
-                      />
-                    </div>
+                  {/* Confirm Password */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">確認新密碼</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                      required
+                    />
+                  </div>
 
-                    <div>
-                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-1.5">
-                        確認新密碼
-                      </label>
-                      <input
-                        id="confirmPassword"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="input-field"
-                        required
-                      />
-                    </div>
+                  <button
+                    type="submit"
+                    disabled={loading || newPassword !== confirmPassword || newPassword.length < 8} 
+                    className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "更新中..." : "更改密碼"}
+                  </button>
+                </form>
 
-                    <button
-                      type="submit"
-                      disabled={
-                        loading || !currentPassword || !newPassword || !confirmPassword
-                      }
-                      className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? "更新中..." : "更新密碼"}
-                    </button>
-                  </form>
+                <div className="mt-8 pt-8 border-t">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    登出
+                  </button>
                 </div>
               </div>
             )}

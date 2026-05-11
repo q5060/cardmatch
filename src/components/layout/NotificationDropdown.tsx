@@ -145,10 +145,10 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
         )}
       </div>
 
-      {notifications.length > 0 && (
+      {(
         <div className="border-t border-border px-4 py-2">
           <Link
-            href="/friends"
+            href="/notifications"
             onClick={onClose}
             className="text-xs text-primary hover:underline"
           >

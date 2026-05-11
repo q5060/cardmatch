@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Save } from "lucide-react";
 import { createDeck } from "@/actions/decks";
 
@@ -35,7 +35,7 @@ export default function NewDeckPage() {
       formData.append("notes", notes);
       formData.append("visibility", visibility);
       await createDeck(formData);
-      router.push("/profile");
+      router.push("/settings?tab=decks");
       router.refresh();
     } catch (err: any) {
       setError(err.message || "建立牌組失敗");
@@ -49,12 +49,13 @@ export default function NewDeckPage() {
       <div className="max-w-2xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
-          <Link
-            href="/profile"
+          <button
+            onClick={() => router.back()}
             className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-neutral-200 transition-colors"
+            aria-label="返回"
           >
             <ArrowLeft className="w-5 h-5" />
-          </Link>
+          </button>
           <h1 className="text-2xl font-bold text-foreground">新增牌組</h1>
         </div>
 

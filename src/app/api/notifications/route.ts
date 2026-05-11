@@ -9,78 +9,49 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "未授權" }, { status: 401 });
     }
 
-    // 獲取待決的好友請求
-    const pendingFriendRequests = await prisma.friendship.findMany({
+    const { searchParams } = new URL(req.url);
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 200);
+    const skip = parseInt(searchParams.get("skip") || "0");
+
+    // Get notifications from database
+    const notifications = await prisma.notification.findMany({
       where: {
-        addresseeId: session.userId,
-        status: "PENDING",
-      },
-      include: {
-        requester: {
-          select: {
-            id: true,
-            displayName: true,
-            avatarUrl: true,
-          },
-        },
+        userId: session.userId,
       },
       orderBy: {
         createdAt: "desc",
       },
+      take: limit,
+      skip,
     });
 
-    // 獲取未讀消息計數
-    const unreadMessages = await prisma.friendMessage.count({
+    // Mark as read
+    await prisma.notification.updateMany({
       where: {
-        friendshipId: {
-          in: (
-            await prisma.friendship.findMany({
-              where: {
-                OR: [
-                  { requesterId: session.userId },
-                  { addresseeId: session.userId },
-                ],
-              },
-              select: { id: true },
-            })
-          ).map((f) => f.id),
-        },
-        // 假設我們有read欄位的話
+        userId: session.userId,
+      },
+      data: {
+        read: true,
       },
     });
 
-    // 構建通知物件
-    const notifications = [
-      ...pendingFriendRequests.map((req) => ({
-        id: `friend-request-${req.id}`,
-        type: "FRIEND_REQUEST" as const,
-        title: "新好友請求",
-        message: `${req.requester.displayName} 要求添加您為好友`,
-        user: req.requester,
-        timestamp: req.createdAt.toISOString(),
-        actionId: req.id,
-      })),
-      ...(unreadMessages > 0
-        ? [
-            {
-              id: "unread-messages",
-              type: "UNREAD_MESSAGE" as const,
-              title: "新訊息",
-              message: `您有 ${unreadMessages} 條未讀訊息`,
-              user: null,
-              timestamp: new Date().toISOString(),
-              actionId: null,
-            },
-          ]
-        : []),
-    ];
-
     return NextResponse.json({
-      notifications,
-      unreadCount: notifications.length,
+      notifications: notifications.map((n) => ({
+        id: n.id,
+        type: n.type,
+        senderId: n.senderId,
+        referenceId: n.referenceId,
+        data: n.data ? JSON.parse(n.data) : null,
+        read: n.read,
+        createdAt: n.createdAt.toISOString(),
+      })),
+      total: notifications.length,
     });
   } catch (error) {
-    console.error("通知獲取錯誤:", error);
-    return NextResponse.json({ error: "內部伺服器錯誤" }, { status: 500 });
+    console.error("Notification fetch error:", error);
+    return NextResponse.json(
+      { error: "無法獲取通知" },
+      { status: 500 }
+    );
   }
 }

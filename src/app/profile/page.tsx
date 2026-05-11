@@ -179,6 +179,7 @@ export default async function ProfilePage() {
           displayName: full.displayName,
           bio: full.bio,
           avatarUrl: full.avatarUrl,
+          bannerUrl: full.bannerUrl,
           createdAt: full.createdAt.toISOString(),
         }}
         battleStats={battleStats}
@@ -186,7 +187,7 @@ export default async function ProfilePage() {
         publicDeckCount={publicDeckCount}
         meetSpotCount={full.meetSpots.length}
         feed={feed}
-        decksSlot={<DeckSection decks={full.decks} />}
+        decksSlot={<DeckSection decks={full.decks} readOnly />}
         spotsSlot={spotsSlot}
         settingsSlot={settingsSlot}
       />

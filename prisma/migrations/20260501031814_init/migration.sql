@@ -93,8 +93,8 @@ CREATE TABLE "Message" (
 -- CreateTable
 CREATE TABLE "Friendship" (
     "id" TEXT NOT NULL PRIMARY KEY,
-    "requesterId" TEXT NOT NULL,
-    "addresseeId" TEXT NOT NULL,
+    "requesterId" INTEGER NOT NULL,
+    "addresseeId" INTEGER NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'PENDING',
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE "Friendship" (
 CREATE TABLE "FriendMessage" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "friendshipId" TEXT NOT NULL,
-    "senderId" TEXT NOT NULL,
+    "senderId" INTEGER NOT NULL,
     "body" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "FriendMessage_friendshipId_fkey" FOREIGN KEY ("friendshipId") REFERENCES "Friendship" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
@@ -117,7 +117,7 @@ CREATE TABLE "FriendMessage" (
 CREATE TABLE "BattleResult" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "matchId" TEXT NOT NULL,
-    "reporterId" TEXT NOT NULL,
+    "reporterId" INTEGER NOT NULL,
     "outcome" TEXT NOT NULL,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "BattleResult_matchId_fkey" FOREIGN KEY ("matchId") REFERENCES "Match" ("id") ON DELETE CASCADE ON UPDATE CASCADE,

@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
     const displayName = formData.get("displayName") as string;
     const bio = formData.get("bio") as string;
     const avatarFile = formData.get("avatar") as File | null;
+    const bannerFile = formData.get("banner") as File | null;
 
     // Validate inputs
     if (!displayName || displayName.trim().length === 0) {
@@ -42,7 +43,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const validTypes = ["image/jpeg", "image/png", "image/webp"];
+
     let avatarUrl: string | null = null;
+    let bannerUrl: string | null = null;
 
     // Handle avatar upload if provided
     if (avatarFile) {
@@ -68,6 +72,18 @@ export async function POST(request: NextRequest) {
       avatarUrl = `data:${avatarFile.type};base64,${base64}`;
     }
 
+    // Handle banner upload if provided
+    if (bannerFile) {
+      if (bannerFile.size > 3 * 1024 * 1024) {
+        return NextResponse.json({ error: "Banner file must be less than 3MB" }, { status: 400 });
+      }
+      if (!validTypes.includes(bannerFile.type)) {
+        return NextResponse.json({ error: "Banner must be JPEG, PNG, or WebP" }, { status: 400 });
+      }
+      const buffer = await bannerFile.arrayBuffer();
+      bannerUrl = `data:${bannerFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
+    }
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: session.userId },
@@ -75,6 +91,7 @@ export async function POST(request: NextRequest) {
         displayName: displayName.trim(),
         bio: bio ? bio.trim() : "",
         ...(avatarUrl && { avatarUrl }),
+        ...(bannerUrl && { bannerUrl }),
       },
       select: {
         id: true,
@@ -82,6 +99,7 @@ export async function POST(request: NextRequest) {
         displayName: true,
         bio: true,
         avatarUrl: true,
+        bannerUrl: true,
         battleRecordVisibility: true,
         winrateVisibility: true,
       },

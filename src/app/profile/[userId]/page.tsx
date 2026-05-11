@@ -11,7 +11,8 @@ import { DECK_VISIBILITY } from "@/lib/constants";
 export async function generateMetadata(
   { params }: { params: Promise<{ userId: string }> }
 ): Promise<Metadata> {
-  const { userId } = await params;
+  const { userId: userIdStr } = await params;
+  const userId = parseInt(userIdStr);
   
   try {
     const user = await prisma.user.findUnique({
@@ -73,7 +74,8 @@ export default async function OtherProfilePage({
 }: {
   params: Promise<{ userId: string }>;
 }) {
-  const { userId } = await params;
+  const { userId: userIdStr } = await params;
+  const userId = parseInt(userIdStr);
   const viewer = await getCurrentUser();
   if (!viewer) redirect("/login");
   if (viewer.id === userId) redirect("/profile");
@@ -85,6 +87,7 @@ export default async function OtherProfilePage({
         displayName: true,
         bio: true,
         avatarUrl: true,
+        bannerUrl: true,
         createdAt: true,
         decks: {
           where: { visibility: DECK_VISIBILITY.PUBLIC },
@@ -123,6 +126,7 @@ export default async function OtherProfilePage({
           displayName: profile.displayName,
           bio: profile.bio,
           avatarUrl: profile.avatarUrl,
+          bannerUrl: profile.bannerUrl,
           createdAt: profile.createdAt.toISOString(),
         }}
         battleStats={battleStats}

@@ -5,15 +5,15 @@ import Link from "next/link";
 
 type Msg = {
   id: string;
-  senderId?: string;
+  senderId?: number;
   body: string;
   createdAt: string;
-  sender: { id: string; displayName: string };
+  sender: { id: number; displayName: string };
 };
 
-function isOwnMessage(m: Msg, currentUserId: string): boolean {
+function isOwnMessage(m: Msg, currentUserId: number): boolean {
   const sid = m.senderId ?? m.sender?.id;
-  return Boolean(sid && currentUserId && String(sid) === String(currentUserId));
+  return Boolean(sid && currentUserId && sid === currentUserId);
 }
 
 export function FriendChat({
@@ -21,7 +21,7 @@ export function FriendChat({
   currentUserId,
 }: {
   friendshipId: string;
-  currentUserId: string;
+  currentUserId: number;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");

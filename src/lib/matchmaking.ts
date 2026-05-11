@@ -3,7 +3,7 @@ import { distanceKm, midpoint } from "./geo";
 import { MATCH_ACTIVE_STATUSES, MATCH_STATUS } from "./constants";
 
 /** Attempt to pair `userId` with another waiting user within both radii. Returns match id or null. */
-export async function tryRandomPair(userId: string): Promise<string | null> {
+export async function tryRandomPair(userId: number): Promise<number | null> {
   return prisma.$transaction(async (tx) => {
     const me = await tx.matchQueueEntry.findUnique({
       where: { userId },

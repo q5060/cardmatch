@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import {
   createDeck,
   deleteDeck,
@@ -13,7 +14,46 @@ type Deck = {
   visibility: string;
 };
 
-export function DeckSection({ decks }: { decks: Deck[] }) {
+export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOnly?: boolean }) {
+  if (readOnly) {
+    // Read-only mode: only show decks with a "New Deck" button
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-foreground">牌組</h3>
+          <Link href="/decks/new" className="btn btn-primary btn-sm">
+            <Plus className="h-4 w-4" />
+            新增牌組
+          </Link>
+        </div>
+
+        {decks.length === 0 ? (
+          <p className="text-sm text-muted-foreground">尚未建立任何牌組。</p>
+        ) : (
+          <ul className="space-y-3">
+            {decks.map((d) => (
+              <li
+                key={d.id}
+                className="card card-hover flex flex-col gap-2 p-4 sm:flex-row sm:items-start"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-foreground">{d.title}</div>
+                  {d.notes ? (
+                    <p className="mt-1 text-sm text-muted-foreground">{d.notes}</p>
+                  ) : null}
+                  <span className="mt-1 inline-block text-xs text-muted-foreground">
+                    {d.visibility === DECK_VISIBILITY.PRIVATE ? "私人" : "公開"}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  // Edit mode: show form and edit controls (for settings page)
   return (
     <div className="space-y-6">
       <form action={createDeck} className="card card-hover space-y-4 p-5">

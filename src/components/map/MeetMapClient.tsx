@@ -22,7 +22,7 @@ export type MapShopPin = {
 };
 
 export type MapPeerPin = {
-  userId: string;
+  userId: number;
   displayName: string;
   avatarUrl?: string | null;
   lat: number;

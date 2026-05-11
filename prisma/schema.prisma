@@ -10,12 +10,13 @@ datasource db {
 // SQLite: store as string; validate in app with TS unions in lib/constants.ts
 
 model User {
-  id              String   @id @default(cuid())
+  id              Int      @id @default(autoincrement())
   email           String   @unique
   passwordHash    String
   displayName     String
   bio             String   @default("")
   avatarUrl       String?
+  bannerUrl       String?  // 個人檔案橫幅
   defaultShopId   String?  // 常去的店家
   
   // 隱私設定
@@ -40,7 +41,7 @@ model User {
 
 model Deck {
   id         String   @id @default(cuid())
-  userId     String
+  userId     Int
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title      String
   notes      String   @default("")
@@ -52,7 +53,7 @@ model Deck {
 
 model MeetSpot {
   id        String   @id @default(cuid())
-  userId    String
+  userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   lat       Float
   lng       Float
@@ -75,7 +76,7 @@ model Shop {
 
 model MatchQueueEntry {
   id        String   @id @default(cuid())
-  userId    String   @unique
+  userId    Int      @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   mode      String   @default("RANDOM") // PUBLIC_LOBBY | RANDOM
   lat       Float
@@ -85,12 +86,12 @@ model MatchQueueEntry {
 }
 
 model Match {
-  id           String   @id @default(cuid())
-  playerAId    String
-  playerBId    String
+  id           Int      @id @default(autoincrement())
+  playerAId    Int
+  playerBId    Int
   playerA      User     @relation("PlayerA", fields: [playerAId], references: [id], onDelete: Cascade)
   playerB      User     @relation("PlayerB", fields: [playerBId], references: [id], onDelete: Cascade)
-  invitedById  String
+  invitedById  Int
   status       String   @default("INVITE_PENDING") // INVITE_PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED
   playerAReady Boolean  @default(false)
   playerBReady Boolean  @default(false)
@@ -108,9 +109,9 @@ model Match {
 
 model Message {
   id        String   @id @default(cuid())
-  matchId   String
+  matchId   Int
   match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  senderId  String
+  senderId  Int
   sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
   body      String
   createdAt DateTime @default(now())
@@ -118,8 +119,8 @@ model Message {
 
 model Friendship {
   id          String   @id @default(cuid())
-  requesterId String
-  addresseeId String
+  requesterId Int
+  addresseeId Int
   requester   User     @relation("Requester", fields: [requesterId], references: [id], onDelete: Cascade)
   addressee   User     @relation("Addressee", fields: [addresseeId], references: [id], onDelete: Cascade)
   status      String   @default("PENDING") // PENDING | ACCEPTED
@@ -134,28 +135,32 @@ model FriendMessage {
   id           String     @id @default(cuid())
   friendshipId String
   friendship   Friendship @relation(fields: [friendshipId], references: [id], onDelete: Cascade)
-  senderId     String
+  senderId     Int
   sender       User       @relation(fields: [senderId], references: [id], onDelete: Cascade)
   body         String
   createdAt    DateTime   @default(now())
 }
 
 model BattleResult {
-  id         String   @id @default(cuid())
-  matchId    String   @unique
-  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  reporterId String
-  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
-  outcome    String // WIN | LOSS | DRAW (reporter perspective)
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  matchId       Int      @unique
+  match         Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  winnerId      Int
+  winner        User     @relation(fields: [winnerId], references: [id], onDelete: Cascade)
+  playerAAgreed Boolean  @default(false)
+  playerBAgreed Boolean  @default(false)
+  status        String   @default("PENDING") // PENDING | AGREED
+  createdAt     DateTime @default(now())
 }
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // MATCH_CREATED | MATCH_COMPLETED | FRIEND_REQUEST | etc
-  referenceId String? // References match ID, friendship ID, etc
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // MATCH_CREATED | MATCH_COMPLETED | FRIEND_REQUEST | MESSAGE | BATTLE_RESULT | etc
+  referenceId String?  // References match ID, friendship ID, message ID, etc
+  senderId    Int?     // For MESSAGE and other notifications with a sender
+  data        String?  // JSON string for additional data like notification message
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }
