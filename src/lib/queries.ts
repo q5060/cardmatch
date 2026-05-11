@@ -9,7 +9,7 @@ export async function getShops() {
   return prisma.shop.findMany({ orderBy: { name: "asc" } });
 }
 
-export async function getLobbyPeers(excludeUserId: string) {
+export async function getLobbyPeers(excludeUserId: number) {
   const spots = await prisma.meetSpot.findMany({
     where: {
       looking: true,
@@ -34,17 +34,17 @@ export async function getLobbyPeers(excludeUserId: string) {
 }
 
 /** Active lobby/battle rows involving this user (excludes completed/cancelled). */
-export async function countActiveMatchesForUser(userId: string, excludeMatchId?: string) {
+export async function countActiveMatchesForUser(userId: number, excludeMatchId?: string) {
   return prisma.match.count({
     where: {
       OR: [{ playerAId: userId }, { playerBId: userId }],
       status: { in: MATCH_ACTIVE_STATUSES },
-      ...(excludeMatchId ? { NOT: { id: excludeMatchId } } : {}),
+      ...(excludeMatchId ? { NOT: { id: parseInt(excludeMatchId) } } : {}),
     },
   });
 }
 
-export async function getActiveMatchForUser(userId: string) {
+export async function getActiveMatchForUser(userId: number) {
   return prisma.match.findFirst({
     where: {
       OR: [{ playerAId: userId }, { playerBId: userId }],
@@ -59,7 +59,7 @@ export async function getActiveMatchForUser(userId: string) {
   });
 }
 
-export async function getMatchHistory(userId: string, take = 15) {
+export async function getMatchHistory(userId: number, take = 15) {
   return prisma.match.findMany({
     where: {
       OR: [{ playerAId: userId }, { playerBId: userId }],
@@ -75,7 +75,7 @@ export async function getMatchHistory(userId: string, take = 15) {
   });
 }
 
-export async function userInQueue(userId: string) {
+export async function userInQueue(userId: number) {
   return prisma.matchQueueEntry.findUnique({ where: { userId } });
 }
 
@@ -90,7 +90,7 @@ export type ProfileBattleStats = {
   activityByDay: Record<string, number>;
 };
 
-export async function getProfileBattleStats(userId: string): Promise<ProfileBattleStats> {
+export async function getProfileBattleStats(userId: number): Promise<ProfileBattleStats> {
   const matches = await prisma.match.findMany({
     where: {
       OR: [{ playerAId: userId }, { playerBId: userId }],
@@ -98,10 +98,7 @@ export async function getProfileBattleStats(userId: string): Promise<ProfileBatt
     },
     select: {
       updatedAt: true,
-      battleResults: {
-        select: { reporterId: true, outcome: true },
-        take: 1,
-      },
+      battleResults: true,
     },
   });
 
@@ -116,21 +113,13 @@ export async function getProfileBattleStats(userId: string): Promise<ProfileBatt
     activityByDay[day] = (activityByDay[day] ?? 0) + 1;
 
     const br = m.battleResults[0];
-    if (!br) continue;
+    if (!br || br.status !== "AGREED") continue;
     recordedTotal++;
-    let perspective: string;
-    if (br.reporterId === userId) {
-      perspective = br.outcome;
-    } else if (br.outcome === BATTLE_OUTCOME.WIN) {
-      perspective = BATTLE_OUTCOME.LOSS;
-    } else if (br.outcome === BATTLE_OUTCOME.LOSS) {
-      perspective = BATTLE_OUTCOME.WIN;
+    if (br.winnerId === userId) {
+      wins++;
     } else {
-      perspective = BATTLE_OUTCOME.DRAW;
+      losses++;
     }
-    if (perspective === BATTLE_OUTCOME.WIN) wins++;
-    else if (perspective === BATTLE_OUTCOME.LOSS) losses++;
-    else draws++;
   }
 
   return {
@@ -145,16 +134,16 @@ export async function getProfileBattleStats(userId: string): Promise<ProfileBatt
 }
 
 export type ProfileMatchFeedRow = {
-  id: string;
+  id: number;
   updatedAt: string;
   meetLabel: string;
   otherDisplayName: string;
-  otherUserId: string;
+  otherUserId: number;
   outcomeLabel: string | null;
 };
 
 export async function getProfileMatchFeed(
-  userId: string,
+  userId: number,
   take = 15,
 ): Promise<ProfileMatchFeedRow[]> {
   const rows = await getMatchHistory(userId, take);
@@ -165,22 +154,8 @@ export async function getProfileMatchFeed(
       m.playerAId === userId ? m.playerB.id : m.playerA.id;
     const br = m.battleResults[0];
     let outcomeLabel: string | null = null;
-    if (br) {
-      if (br.reporterId === userId) {
-        outcomeLabel =
-          br.outcome === BATTLE_OUTCOME.WIN
-            ? "勝利"
-            : br.outcome === BATTLE_OUTCOME.LOSS
-              ? "敗北"
-              : "平手";
-      } else {
-        outcomeLabel =
-          br.outcome === BATTLE_OUTCOME.WIN
-            ? "敗北"
-            : br.outcome === BATTLE_OUTCOME.LOSS
-              ? "勝利"
-              : "平手";
-      }
+    if (br && br.status === "AGREED") {
+      outcomeLabel = br.winnerId === userId ? "勝" : "敗";
     }
     return {
       id: m.id,

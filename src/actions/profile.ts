@@ -22,7 +22,7 @@ function avatarsDir(): string {
 /** Resolve a DB avatar URL to an absolute path only if it is this user's upload under avatars/. */
 function safeLocalAvatarAbsolutePath(
   avatarUrl: string | null | undefined,
-  userId: string,
+  userId: number,
 ): string | null {
   if (!avatarUrl?.startsWith(AVATAR_PREFIX)) return null;
   const rest = avatarUrl.slice(AVATAR_PREFIX.length);
@@ -31,7 +31,7 @@ function safeLocalAvatarAbsolutePath(
   if (dot <= 0) return null;
   const base = rest.slice(0, dot);
   const ext = rest.slice(dot + 1).toLowerCase();
-  if (base !== userId) return null;
+  if (base !== userId.toString()) return null;
   if (!["jpg", "jpeg", "png", "webp"].includes(ext)) return null;
 
   const root = path.resolve(avatarsDir());
@@ -40,7 +40,7 @@ function safeLocalAvatarAbsolutePath(
   return abs;
 }
 
-async function removeLocalAvatarIfOwned(userId: string, avatarUrl: string | null | undefined) {
+async function removeLocalAvatarIfOwned(userId: number, avatarUrl: string | null | undefined) {
   const abs = safeLocalAvatarAbsolutePath(avatarUrl, userId);
   if (!abs) return;
   try {
@@ -132,4 +132,38 @@ export async function removeAvatar() {
 
   revalidatePath("/profile");
   revalidatePath(`/profile/${userId}`);
+}
+
+export async function sendFriendRequest(targetUserId: number) {
+  const session = await getSession();
+  if (!session.userId) throw new Error("UNAUTHORIZED");
+
+  if (session.userId === targetUserId) {
+    throw new Error("CANNOT_ADD_SELF");
+  }
+
+  // 检查是否已有友谊关系
+  const existing = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { requesterId: session.userId, addresseeId: targetUserId },
+        { requesterId: targetUserId, addresseeId: session.userId },
+      ],
+    },
+  });
+
+  if (existing) {
+    throw new Error("ALREADY_EXISTS");
+  }
+
+  const friendship = await prisma.friendship.create({
+    data: {
+      requesterId: session.userId,
+      addresseeId: targetUserId,
+      status: "PENDING",
+    },
+  });
+
+  revalidatePath(`/profile/${targetUserId}`);
+  return friendship;
 }

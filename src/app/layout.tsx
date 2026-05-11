@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CardMatch · PTCG 實體約戰",
+  title: "首頁 | CardMatch",
   description: "為寶可夢卡牌休閒玩家打造的實體約戰與社交平台",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default async function RootLayout({

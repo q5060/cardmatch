@@ -9,17 +9,17 @@ import { acceptFriendship, rejectFriendship } from "@/actions/friends";
 type Row = {
   id: string;
   status: string;
-  requesterId: string;
-  addresseeId: string;
-  requester: { id: string; displayName: string };
-  addressee: { id: string; displayName: string };
+  requesterId: number;
+  addresseeId: number;
+  requester: { id: number; displayName: string };
+  addressee: { id: number; displayName: string };
 };
 
 export function FriendsClient({
   userId,
   friendships,
 }: {
-  userId: string;
+  userId: number;
   friendships: Row[];
 }) {
   const router = useRouter();

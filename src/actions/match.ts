@@ -13,7 +13,7 @@ async function requireUserId() {
   return session.userId;
 }
 
-function isParticipant(m: { playerAId: string; playerBId: string }, userId: string) {
+function isParticipant(m: { playerAId: number; playerBId: number }, userId: number) {
   return m.playerAId === userId || m.playerBId === userId;
 }
 
@@ -46,7 +46,7 @@ export async function leaveQueue() {
   revalidatePath("/battle");
 }
 
-export async function sendLobbyInvite(targetUserId: string) {
+export async function sendLobbyInvite(targetUserId: number) {
   const userId = await requireUserId();
   if (targetUserId === userId) throw new Error("無法邀請自己");
 
@@ -100,13 +100,14 @@ export async function sendLobbyInvite(targetUserId: string) {
 
 export async function acceptInvite(matchId: string) {
   const userId = await requireUserId();
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
   if (match.status !== MATCH_STATUS.INVITE_PENDING) throw new Error("邀請狀態已變更");
   if (match.invitedById === userId) throw new Error("不能接受自己發出的邀請");
 
   await prisma.match.update({
-    where: { id: matchId },
+    where: { id },
     data: { status: MATCH_STATUS.ACCEPTED, playerAReady: false, playerBReady: false },
   });
 
@@ -115,12 +116,13 @@ export async function acceptInvite(matchId: string) {
 
 export async function rejectInvite(matchId: string) {
   const userId = await requireUserId();
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
   if (match.status !== MATCH_STATUS.INVITE_PENDING) throw new Error("邀請狀態已變更");
 
   await prisma.match.update({
-    where: { id: matchId },
+    where: { id },
     data: { status: MATCH_STATUS.CANCELLED },
   });
 
@@ -129,7 +131,8 @@ export async function rejectInvite(matchId: string) {
 
 export async function setReady(matchId: string, ready: boolean) {
   const userId = await requireUserId();
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
   if (match.status !== MATCH_STATUS.ACCEPTED) throw new Error("目前無法切換準備狀態");
 
@@ -137,18 +140,18 @@ export async function setReady(matchId: string, ready: boolean) {
   const data = isA ? { playerAReady: ready } : { playerBReady: ready };
 
   await prisma.match.update({
-    where: { id: matchId },
+    where: { id },
     data,
   });
 
-  const updated = await prisma.match.findUnique({ where: { id: matchId } });
+  const updated = await prisma.match.findUnique({ where: { id } });
   if (
     updated?.status === MATCH_STATUS.ACCEPTED &&
     updated.playerAReady &&
     updated.playerBReady
   ) {
     await prisma.match.update({
-      where: { id: matchId },
+      where: { id },
       data: { status: MATCH_STATUS.IN_PROGRESS },
     });
   }
@@ -158,7 +161,8 @@ export async function setReady(matchId: string, ready: boolean) {
 
 export async function cancelMatch(matchId: string) {
   const userId = await requireUserId();
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
   if (
     match.status !== MATCH_STATUS.ACCEPTED &&
@@ -169,7 +173,7 @@ export async function cancelMatch(matchId: string) {
   }
 
   await prisma.match.update({
-    where: { id: matchId },
+    where: { id },
     data: { status: MATCH_STATUS.CANCELLED },
   });
 
@@ -178,43 +182,78 @@ export async function cancelMatch(matchId: string) {
 
 export async function finishMatch(
   matchId: string,
-  outcome: string,
+  winnerId: number,
   addFriend: boolean,
 ) {
   const userId = await requireUserId();
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
   if (match.status !== MATCH_STATUS.IN_PROGRESS) {
     throw new Error("請待雙方都準備完成、對戰開始後再紀錄結果");
   }
 
-  const o =
-    outcome === BATTLE_OUTCOME.LOSS
-      ? BATTLE_OUTCOME.LOSS
-      : outcome === BATTLE_OUTCOME.DRAW
-        ? BATTLE_OUTCOME.DRAW
-        : BATTLE_OUTCOME.WIN;
+  // winnerId must be one of the participants
+  if (winnerId !== match.playerAId && winnerId !== match.playerBId) {
+    throw new Error("無效的贏家ID");
+  }
 
   const otherId =
     match.playerAId === userId ? match.playerBId : match.playerAId;
 
   await prisma.$transaction(async (tx) => {
-    await tx.battleResult.upsert({
-      where: { matchId },
-      create: {
-        matchId,
-        reporterId: userId,
-        outcome: o,
-      },
-      update: {
-        reporterId: userId,
-        outcome: o,
-      },
-    });
-    await tx.match.update({
-      where: { id: matchId },
-      data: { status: MATCH_STATUS.COMPLETED },
-    });
+    const isPlayerA = userId === match.playerAId;
+    const isWinner = winnerId === userId;
+
+    // Create or update battle result
+    const existing = await tx.battleResult.findUnique({ where: { matchId: id } });
+    
+    if (!existing) {
+      // First submission - create with this player's agreement
+      await tx.battleResult.create({
+        data: {
+          matchId: id,
+          winnerId,
+          playerAAgreed: isPlayerA ? true : false,
+          playerBAgreed: !isPlayerA ? true : false,
+          status: "PENDING",
+        },
+      });
+    } else {
+      // Second submission - check if both agree on the winner
+      const playerAAgrees = isPlayerA ? true : existing.playerAAgreed;
+      const playerBAgrees = !isPlayerA ? true : existing.playerBAgreed;
+
+      const newStatus =
+        playerAAgrees && playerBAgrees && existing.winnerId === winnerId
+          ? "AGREED"
+          : "PENDING";
+
+      if (existing.winnerId === winnerId) {
+        // Both agreed on same winner
+        await tx.battleResult.update({
+          where: { matchId: id },
+          data: {
+            playerAAgreed: playerAAgrees,
+            playerBAgreed: playerBAgrees,
+            status: newStatus,
+          },
+        });
+      } else {
+        // Conflicting winners - keep the existing report
+        // In real scenario, might need dispute resolution
+      }
+    }
+
+    // Complete match once both agree
+    const battleResult = await tx.battleResult.findUnique({ where: { matchId: id } });
+    if (battleResult?.status === "AGREED") {
+      await tx.match.update({
+        where: { id },
+        data: { status: MATCH_STATUS.COMPLETED },
+      });
+    }
+
     if (addFriend) {
       const existing = await tx.friendship.findFirst({
         where: {
@@ -243,7 +282,8 @@ export async function finishMatch(
 
 export async function requestFriendAfterMatch(matchId: string) {
   const userId = await requireUserId();
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
   if (match.status !== MATCH_STATUS.COMPLETED) throw new Error("約戰尚未完成");
 

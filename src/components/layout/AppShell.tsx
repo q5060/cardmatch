@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { MATCH_STATUS } from "@/lib/constants";
 import { ExternalLink, MessageCircle, Share2 } from "lucide-react";
 
-type UserBrief = { id: string; displayName: string };
+type UserBrief = { id: number; displayName: string; avatarUrl: string | null };
 
 export async function AppShell({
   user,

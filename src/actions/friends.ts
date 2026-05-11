@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
-async function requireUserId() {
+async function requireUserId(): Promise<number> {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
   return session.userId;

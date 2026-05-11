@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  cardmatch-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=file:./data/cardmatch.db
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+      - cardmatch_dev_data:/app/data
+    restart: unless-stopped
+    command: pnpm run dev
+
+volumes:
+  cardmatch_dev_data:
+    driver: local

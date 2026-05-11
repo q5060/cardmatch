@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { removeAvatar, updateProfile } from "@/actions/profile";
@@ -14,6 +15,11 @@ import {
 } from "@/lib/queries";
 import { DECK_VISIBILITY } from "@/lib/constants";
 import type { MapShopPin } from "@/components/map/MeetMap";
+
+export const metadata: Metadata = {
+  title: "個人檔案 | CardMatch",
+  description: "查看和管理您的個人檔案、牌組和約戰地點",
+};
 
 function ProfilePageSkeleton() {
   return (
@@ -173,6 +179,7 @@ export default async function ProfilePage() {
           displayName: full.displayName,
           bio: full.bio,
           avatarUrl: full.avatarUrl,
+          bannerUrl: full.bannerUrl,
           createdAt: full.createdAt.toISOString(),
         }}
         battleStats={battleStats}
@@ -180,7 +187,7 @@ export default async function ProfilePage() {
         publicDeckCount={publicDeckCount}
         meetSpotCount={full.meetSpots.length}
         feed={feed}
-        decksSlot={<DeckSection decks={full.decks} />}
+        decksSlot={<DeckSection decks={full.decks} readOnly />}
         spotsSlot={spotsSlot}
         settingsSlot={settingsSlot}
       />

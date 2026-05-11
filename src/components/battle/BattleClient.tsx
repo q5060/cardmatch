@@ -20,18 +20,18 @@ import {
 import { MATCH_STATUS } from "@/lib/constants";
 
 export type ActiveMatchDTO = {
-  id: string;
+  id: number;
   status: string;
-  invitedById: string;
-  playerAId: string;
-  playerBId: string;
+  invitedById: number;
+  playerAId: number;
+  playerBId: number;
   playerAReady: boolean;
   playerBReady: boolean;
   meetLat: number;
   meetLng: number;
   meetLabel: string;
-  playerA: { id: string; displayName: string };
-  playerB: { id: string; displayName: string };
+  playerA: { id: number; displayName: string };
+  playerB: { id: number; displayName: string };
 };
 
 type LobbyPeer = MapPeerPin & { timeNote: string };
@@ -45,7 +45,7 @@ export function BattleClient({
   defaultLat,
   defaultLng,
 }: {
-  userId: string;
+  userId: number;
   shops: MapShopPin[];
   lobbyPeers: LobbyPeer[];
   activeMatch: ActiveMatchDTO | null;
@@ -192,7 +192,7 @@ export function BattleClient({
                     disabled={pending}
                     onClick={() =>
                       run(async () => {
-                        await acceptInvite(activeMatch.id);
+                        await acceptInvite(activeMatch.id.toString());
                       })
                     }
                     className="btn btn-primary"
@@ -204,7 +204,7 @@ export function BattleClient({
                     disabled={pending}
                     onClick={() =>
                       run(async () => {
-                        await rejectInvite(activeMatch.id);
+                        await rejectInvite(activeMatch.id.toString());
                       })
                     }
                     className="btn btn-outline border-red-200 font-semibold text-red-700 hover:bg-red-50"
@@ -219,7 +219,7 @@ export function BattleClient({
               disabled={pending}
               onClick={() =>
                 run(async () => {
-                  await cancelMatch(activeMatch.id);
+                  await cancelMatch(activeMatch.id.toString());
                 })
               }
               className="text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground"
@@ -238,7 +238,7 @@ export function BattleClient({
               zoom={14}
               height={280}
             />
-            <MatchChat matchId={activeMatch.id} currentUserId={userId} />
+            <MatchChat matchId={activeMatch.id.toString()} currentUserId={userId} />
           </div>
         )}
 
@@ -259,7 +259,7 @@ export function BattleClient({
                 disabled={pending}
                 onClick={() =>
                   run(async () => {
-                    await setReady(activeMatch.id, !myReady);
+                    await setReady(activeMatch.id.toString(), !myReady);
                   })
                 }
                 className="btn btn-primary"
@@ -271,7 +271,7 @@ export function BattleClient({
                 disabled={pending}
                 onClick={() =>
                   run(async () => {
-                    await cancelMatch(activeMatch.id);
+                    await cancelMatch(activeMatch.id.toString());
                   })
                 }
                 className="btn btn-outline"
@@ -316,7 +316,8 @@ export function BattleClient({
               disabled={pending}
               onClick={() =>
                 run(async () => {
-                  await finishMatch(activeMatch.id, outcome, addFriend);
+                  const winnerId = outcome === "WIN" ? userId : (outcome === "LOSS" ? (userId === activeMatch.playerAId ? activeMatch.playerBId : activeMatch.playerAId) : userId);
+                  await finishMatch(activeMatch.id.toString(), winnerId, addFriend);
                 })
               }
               className="btn btn-primary"

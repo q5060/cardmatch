@@ -19,7 +19,6 @@ const TABS_SELF = [
   { id: "overview" as const, label: "總覽" },
   { id: "decks" as const, label: "牌組" },
   { id: "spots" as const, label: "約戰地點" },
-  { id: "settings" as const, label: "設定" },
 ];
 
 const TABS_OTHER = [
@@ -34,7 +33,7 @@ function normalizeTab(raw: string | null, variant: "self" | "other"): ProfileTab
     if (raw === "decks") return "decks";
     return "overview";
   }
-  if (raw === "decks" || raw === "spots" || raw === "settings") return raw;
+  if (raw === "decks" || raw === "spots") return raw;
   return "overview";
 }
 
@@ -102,10 +101,19 @@ export type ProfileDashboardProps = {
   variant?: "self" | "other";
   /** Tab URLs use this base (e.g. `/profile` or `/profile/[userId]`). */
   profileBasePath?: string;
+  /** For viewing other's profile */
+  viewedUserId?: number;
+  viewerId?: number;
+  friendshipStatus?: {
+    id: string;
+    status: string;
+    requesterId: number;
+  } | null;
   user: {
     displayName: string;
     bio: string;
     avatarUrl: string | null;
+    bannerUrl?: string | null;
     createdAt: string;
   };
   battleStats: ProfileBattleStats;
@@ -121,6 +129,9 @@ export type ProfileDashboardProps = {
 export function ProfileDashboard({
   variant = "self",
   profileBasePath = "/profile",
+  viewedUserId,
+  viewerId,
+  friendshipStatus,
   user,
   battleStats,
   deckCount,
@@ -210,15 +221,15 @@ export function ProfileDashboard({
 
   const eyebrow =
     variant === "other" ? (
-      <p className="text-xs font-semibold uppercase tracking-wider text-primary">使用者檔案</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-primary">{user.displayName}</p>
     ) : (
-      <p className="text-xs font-semibold uppercase tracking-wider text-primary">個人中心</p>
+      <p className="text-xs font-semibold uppercase tracking-wider text-primary">{user.displayName}</p>
     );
 
-  const title =
+  const title = 
     variant === "other" ? (
       <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        {user.displayName}
+        個人檔案
       </h1>
     ) : (
       <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
@@ -226,16 +237,16 @@ export function ProfileDashboard({
       </h1>
     );
 
-  const subtitle =
-    variant === "other" ? (
-      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        檢視對方公開資訊（對戰統計與公開牌組）。
-      </p>
-    ) : (
-      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        檢視對戰統計、管理牌組與約戰地點。
-      </p>
-    );
+  const subtitle = null;
+    // variant === "other" ? (
+    //   <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+    //     檢視對方公開資訊（對戰統計與公開牌組）。
+    //   </p>
+    // ) : (
+    //   <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+    //     檢視對戰統計、管理牌組與約戰地點。
+    //   </p>
+    // );
 
   return (
     <div className="space-y-8">
@@ -247,7 +258,12 @@ export function ProfileDashboard({
 
       <div className="card card-hover overflow-hidden p-0 shadow-none">
         <div
-          className="h-28 bg-gradient-to-br from-primary/[0.14] via-teal-100/40 to-[var(--bg)] sm:h-36"
+          className="h-28 bg-cover bg-center bg-no-repeat sm:h-36"
+          style={{
+            backgroundImage: user.bannerUrl 
+              ? `linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.47)), url(${user.bannerUrl})`
+              : "linear-gradient(90deg, rgba(0, 200, 200, 0.2) 0%, rgba(0, 200, 200, 0.1) 30%, rgba(0, 200, 200, 0.3) 100%)",
+          }}
           aria-hidden
         />
         <div className="relative border-t border-black/[0.04] bg-card px-4 pb-4 sm:px-6">
@@ -268,12 +284,10 @@ export function ProfileDashboard({
                 </div>
               )}
             </div>
-            <div className="min-w-0 flex-1 pb-1 pt-2 sm:pt-0">
-              {variant === "self" ? (
+            <div className="min-w-0 flex-1 pb-1 pt-2 -translate-y-1 sm:pt-0">
                 <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                   {user.displayName}
                 </h2>
-              ) : null}
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" aria-hidden />
@@ -288,6 +302,56 @@ export function ProfileDashboard({
                 </p>
               )}
             </div>
+
+            {/* 好友操作按鈕（僅訪問他人檔案時顯示） */}
+            {variant === "other" && viewedUserId && viewerId && (
+              <div className="flex gap-2">
+                {!friendshipStatus ? (
+                  <button
+                    onClick={async () => {
+                      try {
+                        if (!viewedUserId) return;
+                        const { sendFriendRequest } = await import("@/actions/profile");
+                        await sendFriendRequest(viewedUserId);
+                        window.location.reload();
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : "操作失敗");
+                      }
+                    }}
+                    className="btn btn-primary"
+                  >
+                    加入好友
+                  </button>
+                ) : friendshipStatus.status === "PENDING" ? (
+                  <>
+                    {friendshipStatus.requesterId === viewerId ? (
+                      <button disabled className="btn btn-secondary">
+                        待審核
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { acceptFriendship } = await import("@/actions/friends");
+                            await acceptFriendship(friendshipStatus.id);
+                            window.location.reload();
+                          } catch (e) {
+                            alert(e instanceof Error ? e.message : "操作失敗");
+                          }
+                        }}
+                        className="btn btn-primary"
+                      >
+                        接受邀請
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <Link href={`/friends?chat=${friendshipStatus.id}`} className="btn btn-primary">
+                    私訊
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
 
           <nav
@@ -352,7 +416,7 @@ export function ProfileDashboard({
                     {feed.map((row) => (
                       <li
                         key={row.id}
-                        className="flex gap-3 rounded-xl border border-border bg-black/[0.02] px-4 py-3"
+                        className="flex items-center gap-3 rounded-xl border border-border bg-black/[0.02] px-4 py-3"
                       >
                         <div className="min-w-0 flex-1">
                           <div className="font-medium text-foreground">
@@ -402,10 +466,6 @@ export function ProfileDashboard({
 
         {variant === "self" && tab === "spots" && spotsSlot ? (
           <div className="space-y-6">{spotsSlot}</div>
-        ) : null}
-
-        {variant === "self" && tab === "settings" && settingsSlot ? (
-          <div className="mx-auto max-w-xl space-y-6">{settingsSlot}</div>
         ) : null}
       </div>
     </div>

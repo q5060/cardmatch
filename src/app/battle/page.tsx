@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import {
@@ -8,6 +9,11 @@ import {
   userInQueue,
 } from "@/lib/queries";
 import { BattleClient, type ActiveMatchDTO } from "@/components/battle/BattleClient";
+
+export const metadata: Metadata = {
+  title: "對戰 | CardMatch",
+  description: "開始與其他玩家進行寶可夢卡牌對戰",
+};
 
 function toActiveMatchDTO(m: NonNullable<Awaited<ReturnType<typeof getActiveMatchForUser>>>): ActiveMatchDTO {
   return {
