@@ -249,61 +249,66 @@ export function ProfileDashboard({
     // );
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-2">
-        {eyebrow}
-        {title}
-        {subtitle}
-      </header>
+      <div className="space-y-8">
+        <header className="space-y-2">
+          {eyebrow}
+          {title}
+          {subtitle}
+        </header>
 
-      <div className="card card-hover overflow-hidden p-0 shadow-none">
-        <div
-          className="h-28 bg-cover bg-center bg-no-repeat sm:h-36"
-          style={{
-            backgroundImage: user.bannerUrl 
-              ? `linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.47)), url(${user.bannerUrl})`
-              : "linear-gradient(90deg, rgba(0, 200, 200, 0.2) 0%, rgba(0, 200, 200, 0.1) 30%, rgba(0, 200, 200, 0.3) 100%)",
-          }}
-          aria-hidden
-        />
-        <div className="relative border-t border-black/[0.04] bg-card px-4 pb-4 sm:px-6">
-          <div className="-mt-12 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end sm:gap-6">
-            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border-4 border-card bg-neutral-100 shadow-lg ring-1 ring-black/[0.06] sm:h-28 sm:w-28">
-              {user.avatarUrl ? (
-                <Image
-                  src={user.avatarUrl}
-                  alt=""
-                  width={112}
-                  height={112}
-                  unoptimized
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                  <UserRound className="h-14 w-14 opacity-70" strokeWidth={1.25} />
-                </div>
-              )}
-            </div>
-            <div className="min-w-0 flex-1 pb-1 pt-2 -translate-y-1 sm:pt-0">
+        <div className="card card-hover overflow-hidden p-0 shadow-none">
+          <div
+            className="h-28 bg-cover bg-center bg-no-repeat sm:h-36"
+            style={{
+              backgroundImage: user.bannerUrl 
+                ? `linear-gradient(rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.47)), url(${user.bannerUrl})`
+                : "linear-gradient(90deg, rgba(0, 200, 200, 0.2) 0%, rgba(0, 200, 200, 0.1) 30%, rgba(0, 200, 200, 0.3) 100%)",
+            }}
+            aria-hidden
+          />
+          <div className="relative border-t border-black/[0.04] bg-card px-4 pb-4 sm:px-6">
+            <div className="flex flex-col sm:flex-row sm:gap-8">
+              
+              {/* Avatar */}
+              <div className="-mt-12 relative h-40 w-40 shrink-0 overflow-hidden rounded-xl border-4 border-card bg-neutral-100 shadow-lg ring-1 ring-black/[0.06] sm:-mt-14 sm:h-40 sm:w-40">
+                {user.avatarUrl ? (
+                  <Image
+                    src={user.avatarUrl}
+                    alt=""
+                    width={400}
+                    height={400}
+                    unoptimized
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                    <UserRound className="h-14 w-14 opacity-70" strokeWidth={1.25} />
+                  </div>
+                )}
+              </div>
+
+              {/* User Info */}
+              <div className="mt-4 min-w-0 flex-1 sm:mt-2 pb-1">
                 <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                   {user.displayName}
                 </h2>
-              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" aria-hidden />
-                  加入於 {joined}
-                </span>
-              </p>
-              {user.bio ? (
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">{user.bio}</p>
-              ) : (
-                <p className="mt-3 text-sm italic text-muted-foreground">
-                  {variant === "other" ? "對方尚未填寫自我介紹" : "尚未填寫自我介紹"}
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" aria-hidden />
+                    加入於 {joined}
+                  </span>
                 </p>
-              )}
-            </div>
+                
+                {user.bio ? (
+                  <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">{user.bio}</p>
+                ) : (
+                  <p className="mt-3 text-sm italic text-muted-foreground">
+                    {variant === "other" ? "對方尚未填寫自我介紹" : "尚未填寫自我介紹"}
+                  </p>
+                )}
+              </div>
 
-            {/* 好友操作按鈕（僅訪問他人檔案時顯示） */}
+            {/* Friend Operations */}
             {variant === "other" && viewedUserId && viewerId && (
               <div className="flex gap-2">
                 {!friendshipStatus ? (
@@ -346,9 +351,14 @@ export function ProfileDashboard({
                     )}
                   </>
                 ) : (
-                  <Link href={`/friends?chat=${friendshipStatus.id}`} className="btn btn-primary">
-                    私訊
-                  </Link>
+                  <div className="mt-4 flex shrink-0 sm:mt-8 sm:block">
+                    <Link 
+                      href={`/friends?chat=${friendshipStatus.id}`}
+                      className="btn btn-primary w-full sm:w-auto"
+                    >
+                      私訊
+                    </Link>
+                  </div>
                 )}
               </div>
             )}

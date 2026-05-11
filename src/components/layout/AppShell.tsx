@@ -32,10 +32,10 @@ export async function AppShell({
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground">CardMatch © 2026</p>
-            <p className="mt-1 text-xs text-muted-foreground">寶可夢卡牌實體約戰（MVP）</p>
+            <p className="mt-1 text-xs text-muted-foreground">寶可夢卡牌實體約戰</p>
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <Link
+            {/* <Link
               href="#"
               className="text-xs font-medium text-muted-foreground transition hover:text-primary"
             >
@@ -46,26 +46,26 @@ export async function AppShell({
               className="text-xs font-medium text-muted-foreground transition hover:text-primary"
             >
               Terms
-            </Link>
+            </Link> */}
             <div className="flex items-center gap-3 border-l border-black/[0.06] pl-6">
               <a
                 href="#"
                 className="text-muted-foreground transition hover:text-primary"
-                aria-label="社群連結（占位）"
+                aria-label="社群連結（Placeholder）"
               >
                 <Share2 className="h-4 w-4" strokeWidth={1.75} />
               </a>
               <a
                 href="#"
                 className="text-muted-foreground transition hover:text-primary"
-                aria-label="網站連結（占位）"
+                aria-label="網站連結（Placeholder）"
               >
                 <ExternalLink className="h-4 w-4" strokeWidth={1.75} />
               </a>
               <a
                 href="#"
                 className="text-muted-foreground transition hover:text-primary"
-                aria-label="聯絡（占位）"
+                aria-label="聯絡（Placeholder）"
               >
                 <MessageCircle className="h-4 w-4" strokeWidth={1.75} />
               </a>
