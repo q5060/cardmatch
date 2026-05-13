@@ -32,6 +32,15 @@ function toActiveMatchDTO(m: NonNullable<Awaited<ReturnType<typeof getActiveMatc
   };
 }
 
+export type BattleResultDTO = {
+  id: string;
+  matchId: number;
+  winnerId: number | null;
+  playerAAgreed: boolean;
+  playerBAgreed: boolean;
+  status: string;
+} | null;
+
 export default async function BattlePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -47,6 +56,23 @@ export default async function BattlePage() {
       take: 1,
     }),
   ]);
+
+  let battleResult: BattleResultDTO = null;
+  if (activeMatch) {
+    const result = await prisma.battleResult.findUnique({
+      where: { matchId: activeMatch.id },
+    });
+    if (result) {
+      battleResult = {
+        id: result.id,
+        matchId: result.matchId,
+        winnerId: result.winnerId,
+        playerAAgreed: result.playerAAgreed,
+        playerBAgreed: result.playerBAgreed,
+        status: result.status,
+      };
+    }
+  }
 
   const coord = spots[0];
   const defaultLat = coord?.lat ?? 25.033;
@@ -80,6 +106,7 @@ export default async function BattlePage() {
         inQueue={!!queue && queue.mode === "RANDOM"}
         defaultLat={defaultLat}
         defaultLng={defaultLng}
+        battleResult={battleResult}
       />
     </div>
   );

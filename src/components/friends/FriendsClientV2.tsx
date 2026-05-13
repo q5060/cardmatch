@@ -6,6 +6,7 @@ import { FriendsListView } from "./FriendsListView";
 import { FriendChat } from "./FriendChat";
 import { acceptFriendship, rejectFriendship } from "@/actions/friends";
 import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 type Row = {
   id: string;
@@ -125,9 +126,12 @@ export function FriendsClientV2({
                       key={f.id}
                       className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3"
                     >
-                      <span className="text-sm font-medium text-foreground">
+                      <Link 
+                        href={`/profile/${f.requesterId}`} 
+                        className="text-sm font-medium text-foreground hover:text-primary hover:underline transition-colors"
+                      >
                         {f.requester.displayName}
-                      </span>
+                      </Link>
                       <div className="flex gap-2">
                         <button
                           type="button"

@@ -20,7 +20,7 @@ interface FriendsListViewProps {
 
 type SortType = "recent" | "name";
 
-export function FriendsListView({ friends, onSelectFriend }: FriendsListViewProps) {
+export function FriendsListView({ friends, onSelectFriend, onDeleteFriend }: FriendsListViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortType, setSortType] = useState<SortType>("recent");
 
@@ -103,49 +103,58 @@ export function FriendsListView({ friends, onSelectFriend }: FriendsListViewProp
           </p>
         </div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((friend) => (
             <li
               key={friend.id}
-              className="card card-hover flex items-center gap-3 p-3 transition-all"
+              className="card card-hover flex flex-col items-center gap-4 p-6 transition-all h-full"
             >
               {/* 頭像 */}
-              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-neutral-100">
+              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-neutral-100">
                 {friend.avatarUrl ? (
                   <Image
                     src={friend.avatarUrl}
                     alt={friend.displayName}
-                    width={48}
-                    height={48}
+                    width={96}
+                    height={96}
                     className="h-full w-full object-cover"
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <UserCircle className="h-6 w-6 text-muted-foreground opacity-50" />
+                    <UserCircle className="h-12 w-12 text-muted-foreground opacity-50" />
                   </div>
                 )}
               </div>
 
-              {/* 名字和按鈕 */}
-              <div className="min-w-0 flex-1">
-                <h3 className="font-medium truncate text-sm text-foreground">
+              {/* 名字 */}
+              <div className="text-center flex-1 flex flex-col items-center justify-center">
+                <h3 className="font-semibold text-base text-foreground">
                   {friend.displayName}
                 </h3>
-                <div className="mt-1.5 flex gap-2">
-                  <Link
-                    href={`/profile/${friend.id}`}
-                    className="btn btn-outline btn-xs"
-                  >
-                    檔案
-                  </Link>
-                  <button
-                    onClick={() => onSelectFriend?.(friend.id)}
-                    className="btn btn-primary btn-xs"
-                  >
-                    聊天
-                  </button>
-                </div>
               </div>
+
+              {/* 按鈕 */}
+              <div className="w-full flex gap-2 relative z-10">
+                <Link
+                  href={`/profile/${friend.id}`}
+                  className="flex-1 btn btn-outline btn-sm"
+                >
+                  檔案
+                </Link>
+                <button
+                  onClick={() => onSelectFriend?.(friend.id)}
+                  className="flex-1 btn btn-primary btn-sm"
+                >
+                  聊天
+                </button>
+              </div>
+              
+              {/* 名字和頭像也可點擊進入個人檔案 */}
+              <Link
+                href={`/profile/${friend.id}`}
+                className="absolute inset-0 rounded-lg"
+                aria-hidden
+              />
             </li>
           ))}
         </ul>

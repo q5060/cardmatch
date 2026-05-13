@@ -164,6 +164,23 @@ export async function sendFriendRequest(targetUserId: number) {
     },
   });
 
+  // Send friend request notification with sender name
+  const requester = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { displayName: true },
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: targetUserId,
+      type: "FRIEND_REQUEST",
+      referenceId: friendship.id,
+      senderId: session.userId,
+      data: JSON.stringify(`${requester?.displayName} 邀請你加入好友`),
+      read: false,
+    },
+  });
+
   revalidatePath(`/profile/${targetUserId}`);
   return friendship;
 }

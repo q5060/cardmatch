@@ -39,11 +39,11 @@ function normalizeTab(raw: string | null, variant: "self" | "other"): ProfileTab
 
 function heatCellClass(count: number, max: number): string {
   if (count <= 0) return "bg-neutral-200";
-  const t = count / max;
-  if (t <= 0.33) return "bg-primary/40";
-  if (t <= 0.66) return "bg-primary/60";
-  if (t < 1) return "bg-primary/80";
-  return "bg-primary";
+  const t = Math.min(count / max, 1);
+  if (t <= 0.25) return "bg-blue-200";
+  if (t <= 0.5) return "bg-blue-400";
+  if (t <= 0.75) return "bg-blue-600";
+  return "bg-blue-800";
 }
 
 function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, number> }) {
@@ -310,7 +310,7 @@ export function ProfileDashboard({
 
             {/* Friend Operations */}
             {variant === "other" && viewedUserId && viewerId && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 relative z-10 flex-wrap items-start shrink-0 mt-6 pb-2">
                 {!friendshipStatus ? (
                   <button
                     onClick={async () => {
@@ -323,14 +323,14 @@ export function ProfileDashboard({
                         alert(e instanceof Error ? e.message : "操作失敗");
                       }
                     }}
-                    className="btn btn-primary"
+                    className="btn btn-primary btn-sm"
                   >
                     加入好友
                   </button>
                 ) : friendshipStatus.status === "PENDING" ? (
                   <>
                     {friendshipStatus.requesterId === viewerId ? (
-                      <button disabled className="btn btn-secondary">
+                      <button disabled className="btn btn-secondary btn-sm">
                         待審核
                       </button>
                     ) : (
@@ -344,21 +344,37 @@ export function ProfileDashboard({
                             alert(e instanceof Error ? e.message : "操作失敗");
                           }
                         }}
-                        className="btn btn-primary"
+                        className="btn btn-primary btn-sm"
                       >
                         接受邀請
                       </button>
                     )}
                   </>
                 ) : (
-                  <div className="mt-4 flex shrink-0 sm:mt-8 sm:block">
+                  <>
                     <Link 
                       href={`/friends?chat=${friendshipStatus.id}`}
-                      className="btn btn-primary w-full sm:w-auto"
+                      className="btn btn-primary btn-sm"
                     >
                       私訊
                     </Link>
-                  </div>
+                    <button
+                      onClick={async () => {
+                        if (confirm("確定要刪除此好友？")) {
+                          try {
+                            const { rejectFriendship } = await import("@/actions/friends");
+                            await rejectFriendship(friendshipStatus.id);
+                            window.location.reload();
+                          } catch (e) {
+                            alert(e instanceof Error ? e.message : "操作失敗");
+                          }
+                        }
+                      }}
+                      className="btn btn-outline btn-sm text-red-600 hover:bg-red-50"
+                    >
+                      刪除好友
+                    </button>
+                  </>
                 )}
               </div>
             )}

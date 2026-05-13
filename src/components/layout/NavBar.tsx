@@ -15,6 +15,7 @@ import {
   Plus,
   Mail,
   Users2,
+  Menu,
 } from "lucide-react";
 import { NotificationDropdown } from "./NotificationDropdown";
 
@@ -39,8 +40,10 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
   const pathname = usePathname();
   const [showNotificationMenu, setShowNotificationMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -53,13 +56,16 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setShowMobileMenu(false);
+      }
     }
 
-    if (showNotificationMenu || showUserMenu) {
+    if (showNotificationMenu || showUserMenu || showMobileMenu) {
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [showNotificationMenu, showUserMenu]);
+  }, [showNotificationMenu, showUserMenu, showMobileMenu]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -104,42 +110,21 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
           })}
         </nav>
 
-        <nav className="flex flex-1 flex-wrap items-center justify-center gap-1 md:hidden">
-          {links.map(({ href, label, auth, Icon }) => {
-            if (auth && !user) return null;
-            const active =
-              href === "/" ? pathname === "/" : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                title={label}
-                className={`rounded-full p-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] ${
-                  active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-black/[0.04]"
-                }`}
-              >
-                <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden />
-                <span className="sr-only">{label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
         <div className="flex shrink-0 items-center gap-2">
           {user ? (
             <>
-              {/* Search Button */}
+              {/* Desktop: Search Button */}
               <Link
                 href="/search"
-                className="btn btn-ghost text-foreground cursor-pointer"
+                className="hidden md:flex btn btn-ghost text-foreground cursor-pointer"
                 title="搜尋"
                 aria-label="搜尋"
               >
                 <Search className="h-5 w-5" strokeWidth={1.75} />
               </Link>
 
-              {/* Notification Dropdown */}
-              <div className="relative" ref={notificationRef}>
+              {/* Desktop: Notification Dropdown */}
+              <div className="relative hidden md:block" ref={notificationRef}>
                 <button
                   className="btn btn-ghost relative text-foreground cursor-pointer"
                   onClick={() => setShowNotificationMenu(!showNotificationMenu)}
@@ -157,8 +142,8 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 <NotificationDropdown isOpen={showNotificationMenu} onClose={() => setShowNotificationMenu(false)} />
               </div>
 
-              {/* Username and Avatar Menu */}
-              <div className="relative flex items-center gap-2" ref={userMenuRef}>
+              {/* Desktop: Username and Avatar Menu */}
+              <div className="relative hidden md:flex items-center gap-2" ref={userMenuRef}>
                 <span
                   className="hidden max-w-[9rem] truncate text-xs font-medium text-muted-foreground lg:inline"
                   title={user.displayName}
@@ -209,6 +194,98 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                       <LogOut className="h-4 w-4" strokeWidth={2} />
                       登出
                     </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile: Only the dropdown menu button */}
+              <div className="relative md:hidden" ref={mobileMenuRef}>
+                <button
+                  onClick={() => setShowMobileMenu(!showMobileMenu)}
+                  className="btn btn-ghost text-foreground cursor-pointer"
+                  title="菜單"
+                  aria-label="菜單"
+                >
+                  <Menu className="h-5 w-5" strokeWidth={1.75} />
+                </button>
+
+                {showMobileMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-56 rounded-lg bg-white border border-border shadow-lg z-50">
+                    {/* Nav Items */}
+                    {links.map(({ href, label, auth, Icon }) => {
+                      if (auth && !user) return null;
+                      const active =
+                        href === "/" ? pathname === "/" : pathname.startsWith(href);
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors border-b border-border last:border-b-0 ${
+                            active
+                              ? "bg-primary/12 text-primary"
+                              : "text-foreground hover:bg-black/[0.04]"
+                          }`}
+                          onClick={() => setShowMobileMenu(false)}
+                        >
+                          <Icon className="h-4 w-4" strokeWidth={1.75} />
+                          {label}
+                        </Link>
+                      );
+                    })}
+
+                    {user && (
+                      <>
+                        {/* Search */}
+                        <Link
+                          href="/search"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-black/[0.04] border-b border-border"
+                          onClick={() => setShowMobileMenu(false)}
+                        >
+                          <Search className="h-4 w-4" strokeWidth={1.75} />
+                          搜尋
+                        </Link>
+
+                        {/* Notification Badge with Link */}
+                        <Link
+                          href="/notifications"
+                          className="flex items-center justify-between px-4 py-3 border-b border-border text-foreground hover:bg-black/[0.04]"
+                          onClick={() => setShowMobileMenu(false)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Bell className="h-4 w-4" strokeWidth={1.75} />
+                            <span className="text-sm font-medium">通知</span>
+                          </div>
+                          {pendingInvites > 0 && (
+                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
+                              {pendingInvites > 9 ? "9+" : pendingInvites}
+                            </span>
+                          )}
+                        </Link>
+
+                        {/* Settings */}
+                        <Link
+                          href="/settings"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-black/[0.04] border-b border-border"
+                          onClick={() => setShowMobileMenu(false)}
+                        >
+                          <Settings className="h-4 w-4" strokeWidth={2} />
+                          設定
+                        </Link>
+
+                        {/* Logout */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowMobileMenu(false);
+                            logout();
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <LogOut className="h-4 w-4" strokeWidth={2} />
+                          登出
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

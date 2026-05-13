@@ -83,7 +83,7 @@ export async function sendLobbyInvite(targetUserId: number) {
   });
   if (existing) throw new Error("已有進行中或等待回應的約戰");
 
-  await prisma.match.create({
+  const match = await prisma.match.create({
     data: {
       playerAId,
       playerBId,
@@ -92,6 +92,23 @@ export async function sendLobbyInvite(targetUserId: number) {
       meetLat: theirSpot.lat,
       meetLng: theirSpot.lng,
       meetLabel: theirSpot.label,
+    },
+  });
+
+  // Send notification to target user with sender name
+  const inviter = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { displayName: true },
+  });
+  
+  await prisma.notification.create({
+    data: {
+      userId: targetUserId,
+      type: "MATCH_CREATED",
+      referenceId: match.id.toString(),
+      senderId: userId,
+      data: JSON.stringify(`${inviter?.displayName} 邀請你對戰`),
+      read: false,
     },
   });
 
@@ -109,6 +126,19 @@ export async function acceptInvite(matchId: string) {
   await prisma.match.update({
     where: { id },
     data: { status: MATCH_STATUS.ACCEPTED, playerAReady: false, playerBReady: false },
+  });
+
+  // Send notification to inviter
+  const inviterId = match.invitedById;
+  await prisma.notification.create({
+    data: {
+      userId: inviterId,
+      type: "MATCH_CREATED",
+      referenceId: id.toString(),
+      senderId: userId,
+      data: JSON.stringify(`對戰邀請已接受`),
+      read: false,
+    },
   });
 
   revalidatePath("/battle");
@@ -154,6 +184,19 @@ export async function setReady(matchId: string, ready: boolean) {
       where: { id },
       data: { status: MATCH_STATUS.IN_PROGRESS },
     });
+
+    // Send notification to both players when battle starts
+    const otherPlayerId = isA ? match.playerBId : match.playerAId;
+    await prisma.notification.create({
+      data: {
+        userId: otherPlayerId,
+        type: "MATCH_COMPLETED",
+        referenceId: id.toString(),
+        senderId: userId,
+        data: JSON.stringify(`對戰已成立，現在開始對戰`),
+        read: false,
+      },
+    });
   }
 
   revalidatePath("/battle");
@@ -182,7 +225,7 @@ export async function cancelMatch(matchId: string) {
 
 export async function finishMatch(
   matchId: string,
-  winnerId: number,
+  winnerId: number | null,
   addFriend: boolean,
 ) {
   const userId = await requireUserId();
@@ -193,8 +236,8 @@ export async function finishMatch(
     throw new Error("請待雙方都準備完成、對戰開始後再紀錄結果");
   }
 
-  // winnerId must be one of the participants
-  if (winnerId !== match.playerAId && winnerId !== match.playerBId) {
+  // winnerId must be one of the participants or null (for draw)
+  if (winnerId !== null && winnerId !== match.playerAId && winnerId !== match.playerBId) {
     throw new Error("無效的贏家ID");
   }
 
@@ -203,7 +246,6 @@ export async function finishMatch(
 
   await prisma.$transaction(async (tx) => {
     const isPlayerA = userId === match.playerAId;
-    const isWinner = winnerId === userId;
 
     // Create or update battle result
     const existing = await tx.battleResult.findUnique({ where: { matchId: id } });
@@ -219,65 +261,80 @@ export async function finishMatch(
           status: "PENDING",
         },
       });
+
+      // Send notification to other player
+      await tx.notification.create({
+        data: {
+          userId: otherId,
+          type: "BATTLE_RESULT",
+          referenceId: id.toString(),
+          senderId: userId,
+          data: JSON.stringify(`對方已送出對戰結果，請確認`),
+          read: false,
+        },
+      });
     } else {
       // Second submission - check if both agree on the winner
       const playerAAgrees = isPlayerA ? true : existing.playerAAgreed;
       const playerBAgrees = !isPlayerA ? true : existing.playerBAgreed;
 
-      const newStatus =
-        playerAAgrees && playerBAgrees && existing.winnerId === winnerId
-          ? "AGREED"
-          : "PENDING";
-
-      if (existing.winnerId === winnerId) {
-        // Both agreed on same winner
-        await tx.battleResult.update({
-          where: { matchId: id },
-          data: {
-            playerAAgreed: playerAAgrees,
-            playerBAgreed: playerBAgrees,
-            status: newStatus,
-          },
-        });
-      } else {
-        // Conflicting winners - keep the existing report
-        // In real scenario, might need dispute resolution
+      if (existing.winnerId !== winnerId) {
+        // Conflicting winners - throw error
+        throw new Error("雙方送出之結果不相符，請重新選擇");
       }
-    }
 
-    // Complete match once both agree
-    const battleResult = await tx.battleResult.findUnique({ where: { matchId: id } });
-    if (battleResult?.status === "AGREED") {
+      const newStatus = "AGREED";
+
+      // Both agreed on same winner
+      await tx.battleResult.update({
+        where: { matchId: id },
+        data: {
+          playerAAgreed: playerAAgrees,
+          playerBAgreed: playerBAgrees,
+          status: newStatus,
+        },
+      });
+
+      // Complete match once both agree
       await tx.match.update({
         where: { id },
         data: { status: MATCH_STATUS.COMPLETED },
       });
-    }
 
-    if (addFriend) {
-      const existing = await tx.friendship.findFirst({
-        where: {
-          OR: [
-            { requesterId: userId, addresseeId: otherId },
-            { requesterId: otherId, addresseeId: userId },
-          ],
+      // Send notification to other player
+      await tx.notification.create({
+        data: {
+          userId: otherId,
+          type: "BATTLE_RESULT",
+          referenceId: id.toString(),
+          senderId: userId,
+          data: JSON.stringify(`對戰結果已確認`),
+          read: false,
         },
       });
-      if (!existing) {
-        await tx.friendship.create({
-          data: {
-            requesterId: userId,
-            addresseeId: otherId,
-            status: "PENDING",
-          },
-        });
-      }
     }
   });
 
   revalidatePath("/battle");
   revalidatePath("/profile");
   revalidatePath("/friends");
+}
+
+export async function resetBattleResult(matchId: string) {
+  const userId = await requireUserId();
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
+  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
+  if (match.status !== MATCH_STATUS.IN_PROGRESS) {
+    throw new Error("無法重設對戰結果");
+  }
+
+  // Delete the battle result to allow both players to re-select
+  await prisma.battleResult.deleteMany({
+    where: { matchId: id },
+  });
+
+  revalidatePath("/battle");
 }
 
 export async function requestFriendAfterMatch(matchId: string) {

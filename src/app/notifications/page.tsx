@@ -13,7 +13,7 @@ export default async function NotificationsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  // Fetch notifications sorted by date (newest first)
+  // Fetch all notifications (both read and unread)
   const notifications = await prisma.notification.findMany({
     where: { userId: parseInt(String(user.id)) },
     orderBy: { createdAt: "desc" },
@@ -25,23 +25,12 @@ export default async function NotificationsPage() {
     take: 100,
   });
 
-  // Mark as read when viewing this page
-  if (notifications.length > 0) {
-    await prisma.notification.updateMany({
-      where: {
-        userId: parseInt(String(user.id)),
-        read: false,
-      },
-      data: { read: true },
-    });
-  }
-
   const getNotificationMessage = (notification: typeof notifications[0]) => {
     switch (notification.type) {
       case "MATCH_CREATED":
-        return "對戰已建立";
+        return "對戰邀請";
       case "MATCH_COMPLETED":
-        return "對戰已完成";
+        return "對戰已成立";
       case "BATTLE_RESULT":
         return "對戰結果待確認";
       case "FRIEND_REQUEST":
@@ -49,7 +38,7 @@ export default async function NotificationsPage() {
       case "MESSAGE":
         return "收到新訊息";
       default:
-        return notification.data ? JSON.parse(notification.data) : "新通知";
+        return "新通知";
     }
   };
 
@@ -58,9 +47,9 @@ export default async function NotificationsPage() {
       case "MATCH_CREATED":
       case "MATCH_COMPLETED":
       case "BATTLE_RESULT":
-        return `/battle/${notification.referenceId}`;
+        return `/battle`;
       case "FRIEND_REQUEST":
-        return `/friends?pending=true`;
+        return `/friends`;
       case "MESSAGE":
         return `/friends`;
       default:
@@ -74,7 +63,7 @@ export default async function NotificationsPage() {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <Link
-            href="/profile"
+            href="/"
             className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-neutral-200 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />

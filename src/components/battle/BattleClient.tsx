@@ -14,6 +14,7 @@ import {
   joinRandomQueue,
   leaveQueue,
   rejectInvite,
+  resetBattleResult,
   sendLobbyInvite,
   setReady,
 } from "@/actions/match";
@@ -30,9 +31,18 @@ export type ActiveMatchDTO = {
   meetLat: number;
   meetLng: number;
   meetLabel: string;
-  playerA: { id: number; displayName: string };
-  playerB: { id: number; displayName: string };
+  playerA: { id: number; displayName: string; avatarUrl?: string | null };
+  playerB: { id: number; displayName: string; avatarUrl?: string | null };
 };
+
+export type BattleResultDTO = {
+  id: string;
+  matchId: number;
+  winnerId: number | null;
+  playerAAgreed: boolean;
+  playerBAgreed: boolean;
+  status: string;
+} | null;
 
 type LobbyPeer = MapPeerPin & { timeNote: string };
 
@@ -44,6 +54,7 @@ export function BattleClient({
   inQueue,
   defaultLat,
   defaultLng,
+  battleResult,
 }: {
   userId: number;
   shops: MapShopPin[];
@@ -52,6 +63,7 @@ export function BattleClient({
   inQueue: boolean;
   defaultLat: number;
   defaultLng: number;
+  battleResult?: BattleResultDTO;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"map" | "list">("map");
@@ -284,46 +296,273 @@ export function BattleClient({
 
         {st === MATCH_STATUS.IN_PROGRESS && (
           <div className="card card-hover space-y-4 p-5">
-            <h3 className="font-semibold text-foreground">結束對戰</h3>
-            <p className="text-sm text-muted-foreground">
-              以你的視角紀錄結果（單方紀錄 MVP）。
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(["WIN", "LOSS", "DRAW"] as const).map((o) => (
+            <h3 className="font-semibold text-foreground">選擇勝方</h3>
+            {err && err.includes("不相符") && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {err}
+              </p>
+            )}
+
+            {battleResult && battleResult.status === "PENDING" ? (
+              // Phase 2: Result submitted by someone - show asymmetric UI
+              <>
+                {/* Check who submitted: if current player submitted, show waiting; else show confirmation */}
+                {(iAmA ? battleResult.playerAAgreed : battleResult.playerBAgreed) ? (
+                  // CURRENT PLAYER SUBMITTED - Show waiting UI (disabled)
+                  <div className="space-y-4">
+                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      等待對方確認中...
+                    </p>
+                    <div className="grid gap-6 lg:grid-cols-2 opacity-50 pointer-events-none">
+                      {/* 己方 */}
+                      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
+                        <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-border bg-neutral-100">
+                          {iAmA && activeMatch.playerA.avatarUrl ? (
+                            <Image
+                              src={activeMatch.playerA.avatarUrl}
+                              alt=""
+                              fill
+                              className="h-full w-full object-cover"
+                              unoptimized
+                            />
+                          ) : !iAmA && activeMatch.playerB.avatarUrl ? (
+                            <Image
+                              src={activeMatch.playerB.avatarUrl}
+                              alt=""
+                              fill
+                              className="h-full w-full object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                              <UserRound className="h-8 w-8" strokeWidth={1.5} />
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium text-foreground text-sm">你</p>
+                          <p className="text-xs text-muted-foreground">{iAmA ? activeMatch.playerA.displayName : activeMatch.playerB.displayName}</p>
+                        </div>
+                        <button 
+                          type="button"
+                          disabled
+                          className={`w-full btn btn-sm ${outcome === "WIN" ? "btn-primary" : "btn-outline"}`}
+                        >
+                          我獲勝
+                        </button>
+                      </div>
+
+                      {/* 對方 */}
+                      <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
+                        <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-border bg-neutral-100">
+                          {iAmA && activeMatch.playerB.avatarUrl ? (
+                            <Image
+                              src={activeMatch.playerB.avatarUrl}
+                              alt=""
+                              fill
+                              className="h-full w-full object-cover"
+                              unoptimized
+                            />
+                          ) : !iAmA && activeMatch.playerA.avatarUrl ? (
+                            <Image
+                              src={activeMatch.playerA.avatarUrl}
+                              alt=""
+                              fill
+                              className="h-full w-full object-cover"
+                              unoptimized
+                            />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                              <UserRound className="h-8 w-8" strokeWidth={1.5} />
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium text-foreground text-sm">對方</p>
+                          <p className="text-xs text-muted-foreground">{otherPlayer?.displayName}</p>
+                        </div>
+                        <button 
+                          type="button"
+                          disabled
+                          className={`w-full btn btn-sm ${outcome === "LOSS" ? "btn-primary" : "btn-outline"}`}
+                        >
+                          對方獲勝
+                        </button>
+                      </div>
+                    </div>
+
+                    <button 
+                      type="button"
+                      disabled
+                      className={`w-full btn btn-sm ${outcome === "DRAW" ? "btn-primary" : "btn-outline"}`}
+                    >
+                      平手
+                    </button>
+
+                    <button 
+                      type="button"
+                      disabled
+                      className={`w-full btn btn-primary`}
+                    >
+                      送出結果
+                    </button>
+                  </div>
+                ) : (
+                  // OPPONENT SUBMITTED - Show confirmation UI
+                  <div className="space-y-4">
+                    <p className="text-sm text-foreground">
+                      對方選擇 <strong>
+                        {battleResult.winnerId === null ? "平手" : battleResult.winnerId === userId ? "你" : "他們"}
+                      </strong>
+                      {battleResult.winnerId !== null && <span>獲勝</span>}
+                      ，是否無誤？
+                    </p>
+                    
+                    <div className="grid gap-3 grid-cols-2">
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await finishMatch(activeMatch.id.toString(), battleResult.winnerId, false);
+                          })
+                        }
+                        className="btn btn-primary btn-sm"
+                      >
+                        結果正確
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await resetBattleResult(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-outline btn-sm text-red-600 hover:bg-red-50"
+                      >
+                        結果錯誤
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              // Phase 1: No result yet - show selection UI
+              <>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* 己方 */}
+                  <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
+                    <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-border bg-neutral-100">
+                      {iAmA && activeMatch.playerA.avatarUrl ? (
+                        <Image
+                          src={activeMatch.playerA.avatarUrl}
+                          alt=""
+                          fill
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      ) : !iAmA && activeMatch.playerB.avatarUrl ? (
+                        <Image
+                          src={activeMatch.playerB.avatarUrl}
+                          alt=""
+                          fill
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                          <UserRound className="h-8 w-8" strokeWidth={1.5} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-foreground text-sm">你</p>
+                      <p className="text-xs text-muted-foreground">{iAmA ? activeMatch.playerA.displayName : activeMatch.playerB.displayName}</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => setOutcome("WIN")}
+                      className={`w-full btn btn-sm ${outcome === "WIN" ? "btn-primary" : "btn-outline"}`}
+                    >
+                      我獲勝
+                    </button>
+                  </div>
+
+                  {/* 對方 */}
+                  <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-muted/30 p-4">
+                    <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-border bg-neutral-100">
+                      {iAmA && activeMatch.playerB.avatarUrl ? (
+                        <Image
+                          src={activeMatch.playerB.avatarUrl}
+                          alt=""
+                          fill
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      ) : !iAmA && activeMatch.playerA.avatarUrl ? (
+                        <Image
+                          src={activeMatch.playerA.avatarUrl}
+                          alt=""
+                          fill
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-muted-foreground">
+                          <UserRound className="h-8 w-8" strokeWidth={1.5} />
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-foreground text-sm">對方</p>
+                      <p className="text-xs text-muted-foreground">{otherPlayer?.displayName}</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => setOutcome("LOSS")}
+                      className={`w-full btn btn-sm ${outcome === "LOSS" ? "btn-primary" : "btn-outline"}`}
+                    >
+                      對方獲勝
+                    </button>
+                  </div>
+                </div>
+
+                {/* 平手選項 */}
                 <button
-                  key={o}
                   type="button"
-                  onClick={() => setOutcome(o)}
-                  className={
-                    outcome === o ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm"
-                  }
+                  disabled={pending}
+                  onClick={() => setOutcome("DRAW")}
+                  className={`w-full btn btn-sm ${outcome === "DRAW" ? "btn-primary" : "btn-outline"}`}
                 >
-                  {o === "WIN" ? "我獲勝" : o === "LOSS" ? "我落敗" : "平手"}
+                  平手
                 </button>
-              ))}
-            </div>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={addFriend}
-                onChange={(e) => setAddFriend(e.target.checked)}
-                className="rounded border-border text-primary focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
-              />
-              同時向對方發送好友邀請
-            </label>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  const winnerId = outcome === "WIN" ? userId : (outcome === "LOSS" ? (userId === activeMatch.playerAId ? activeMatch.playerBId : activeMatch.playerAId) : userId);
-                  await finishMatch(activeMatch.id.toString(), winnerId, addFriend);
-                })
-              }
-              className="btn btn-primary"
-            >
-              送出戰果並結束
-            </button>
+
+                {/* 送出按鈕 */}
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      let winnerId: number | null;
+                      if (outcome === "WIN") {
+                        winnerId = userId;
+                      } else if (outcome === "LOSS") {
+                        winnerId = iAmA ? activeMatch.playerBId : activeMatch.playerAId;
+                      } else {
+                        winnerId = null; // null for draw
+                      }
+                      await finishMatch(activeMatch.id.toString(), winnerId, false);
+                    })
+                  }
+                  className="btn btn-primary w-full"
+                >
+                  送出結果
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

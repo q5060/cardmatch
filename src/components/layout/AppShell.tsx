@@ -15,11 +15,11 @@ export async function AppShell({
 }) {
   let pendingInvites = 0;
   if (user) {
-    pendingInvites = await prisma.match.count({
+    // Get count of unread notifications instead of pending matches
+    pendingInvites = await prisma.notification.count({
       where: {
-        status: MATCH_STATUS.INVITE_PENDING,
-        OR: [{ playerAId: user.id }, { playerBId: user.id }],
-        NOT: { invitedById: user.id },
+        userId: user.id,
+        read: false,
       },
     });
   }
