@@ -6,9 +6,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ArrowLeft,
   Calendar,
   Layers,
-  MapPin,
   Swords,
   Trophy,
   UserRound,
@@ -18,7 +18,6 @@ import type { ProfileBattleStats, ProfileMatchFeedRow } from "@/lib/queries";
 const TABS_SELF = [
   { id: "overview" as const, label: "總覽" },
   { id: "decks" as const, label: "牌組" },
-  { id: "spots" as const, label: "約戰地點" },
 ];
 
 const TABS_OTHER = [
@@ -33,7 +32,7 @@ function normalizeTab(raw: string | null, variant: "self" | "other"): ProfileTab
     if (raw === "decks") return "decks";
     return "overview";
   }
-  if (raw === "decks" || raw === "spots") return raw;
+  if (raw === "decks") return raw;
   return "overview";
 }
 
@@ -119,10 +118,8 @@ export type ProfileDashboardProps = {
   battleStats: ProfileBattleStats;
   deckCount: number;
   publicDeckCount: number;
-  meetSpotCount: number;
   feed: ProfileMatchFeedRow[];
   decksSlot: ReactNode;
-  spotsSlot?: ReactNode | null;
   settingsSlot?: ReactNode | null;
 };
 
@@ -136,10 +133,8 @@ export function ProfileDashboard({
   battleStats,
   deckCount,
   publicDeckCount,
-  meetSpotCount,
   feed,
   decksSlot,
-  spotsSlot = null,
   settingsSlot = null,
 }: ProfileDashboardProps) {
   const router = useRouter();
@@ -207,54 +202,48 @@ export function ProfileDashboard({
       },
     ];
 
-    if (variant === "self") {
-      base.push({
-        icon: MapPin,
-        value: meetSpotCount,
-        label: "約戰地點",
-        hint: undefined,
-      });
-    }
-
     return base;
-  }, [variant, battleStats, deckCount, publicDeckCount, meetSpotCount]);
+  }, [variant, battleStats, deckCount, publicDeckCount]);
 
-  const eyebrow =
+  const headerBlock =
     variant === "other" ? (
-      <p className="text-xs font-semibold uppercase tracking-wider text-primary">{user.displayName}</p>
+      <header className="space-y-3">
+        <Link
+          href="/friends"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
+          返回好友
+        </Link>
+        <p
+          className="inline-flex rounded-lg border border-primary/25 bg-primary/8 px-3 py-1.5 text-xs font-medium text-primary"
+          role="status"
+        >
+          正在查看其他玩家的檔案
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          {user.displayName}
+          <span className="text-muted-foreground"> 的檔案</span>
+        </h1>
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          檢視對方公開的對戰統計與牌組；頂部「我的檔案」才是你自己的設定頁。
+        </p>
+      </header>
     ) : (
-      <p className="text-xs font-semibold uppercase tracking-wider text-primary">{user.displayName}</p>
+      <header className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-primary">我的檔案</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          個人檔案
+        </h1>
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          管理顯示名稱、牌組與對戰統計。
+        </p>
+      </header>
     );
-
-  const title = 
-    variant === "other" ? (
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        個人檔案
-      </h1>
-    ) : (
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        個人檔案
-      </h1>
-    );
-
-  const subtitle = null;
-    // variant === "other" ? (
-    //   <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-    //     檢視對方公開資訊（對戰統計與公開牌組）。
-    //   </p>
-    // ) : (
-    //   <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-    //     檢視對戰統計、管理牌組與約戰地點。
-    //   </p>
-    // );
 
   return (
       <div className="space-y-8">
-        <header className="space-y-2">
-          {eyebrow}
-          {title}
-          {subtitle}
-        </header>
+        {headerBlock}
 
         <div className="card card-hover overflow-hidden p-0 shadow-none">
           <div
@@ -490,9 +479,6 @@ export function ProfileDashboard({
 
         {tab === "decks" && <div className="space-y-6">{decksSlot}</div>}
 
-        {variant === "self" && tab === "spots" && spotsSlot ? (
-          <div className="space-y-6">{spotsSlot}</div>
-        ) : null}
       </div>
     </div>
   );

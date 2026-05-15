@@ -31,10 +31,8 @@ export const FRIENDSHIP_STATUS = {
   ACCEPTED: "ACCEPTED",
 } as const;
 
-export const QUEUE_MODE = {
-  PUBLIC_LOBBY: "PUBLIC_LOBBY",
-  RANDOM: "RANDOM",
-} as const;
+/** Hours until a map battle announcement expires. */
+export const ANNOUNCEMENT_TTL_HOURS = 4;
 
 export const BATTLE_OUTCOME = {
   WIN: "WIN",

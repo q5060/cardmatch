@@ -9,28 +9,113 @@ export async function getShops() {
   return prisma.shop.findMany({ orderBy: { name: "asc" } });
 }
 
-export async function getLobbyPeers(excludeUserId: number) {
-  const spots = await prisma.meetSpot.findMany({
-    where: {
-      looking: true,
-      active: true,
-      userId: { not: excludeUserId },
-    },
-    include: {
-      user: { select: { id: true, displayName: true, avatarUrl: true } },
-    },
-  });
+const activeAnnouncementWhere = {
+  looking: true,
+  active: true,
+  expiresAt: { gt: new Date() },
+} as const;
 
-  return spots.map((s) => ({
+export type MapAnnouncementDTO = {
+  spotId: string;
+  userId: number;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string;
+  lat: number;
+  lng: number;
+  label: string;
+  timeNote: string;
+  shopId: string | null;
+  expiresAt: string;
+};
+
+type SpotWithUser = {
+  id: string;
+  userId: number;
+  lat: number;
+  lng: number;
+  label: string;
+  timeNote: string;
+  shopId: string | null;
+  expiresAt: Date | null;
+  user: {
+    id: number;
+    displayName: string;
+    avatarUrl: string | null;
+    bio: string;
+  };
+};
+
+function mapSpotToDTO(s: SpotWithUser): MapAnnouncementDTO {
+  return {
+    spotId: s.id,
     userId: s.userId,
     displayName: s.user.displayName,
     avatarUrl: s.user.avatarUrl,
+    bio: s.user.bio,
     lat: s.lat,
     lng: s.lng,
     label: s.label,
     timeNote: s.timeNote,
-    spotId: s.id,
-  }));
+    shopId: s.shopId,
+    expiresAt: s.expiresAt!.toISOString(),
+  };
+}
+
+const userInclude = {
+  user: {
+    select: { id: true, displayName: true, avatarUrl: true, bio: true },
+  },
+} as const;
+
+/** Custom-location announcements only (green campfire pins on map). */
+export async function getMapAnnouncements(
+  excludeUserId: number,
+): Promise<MapAnnouncementDTO[]> {
+  const spots = await prisma.meetSpot.findMany({
+    where: {
+      ...activeAnnouncementWhere,
+      shopId: null,
+      userId: { not: excludeUserId },
+    },
+    include: userInclude,
+  });
+
+  return spots.map(mapSpotToDTO);
+}
+
+export async function getAnnouncementsAtShop(
+  shopId: string,
+): Promise<MapAnnouncementDTO[]> {
+  const spots = await prisma.meetSpot.findMany({
+    where: {
+      ...activeAnnouncementWhere,
+      shopId,
+    },
+    include: userInclude,
+    orderBy: { updatedAt: "desc" },
+  });
+
+  return spots.map(mapSpotToDTO);
+}
+
+export async function getMyActiveAnnouncement(
+  userId: number,
+): Promise<MapAnnouncementDTO | null> {
+  const s = await prisma.meetSpot.findFirst({
+    where: {
+      userId,
+      ...activeAnnouncementWhere,
+    },
+    include: {
+      user: {
+        select: { id: true, displayName: true, avatarUrl: true, bio: true },
+      },
+    },
+  });
+  if (!s || !s.expiresAt) return null;
+
+  return mapSpotToDTO(s);
 }
 
 /** Active lobby/battle rows involving this user (excludes completed/cancelled). */
@@ -73,10 +158,6 @@ export async function getMatchHistory(userId: number, take = 15) {
       battleResults: true,
     },
   });
-}
-
-export async function userInQueue(userId: number) {
-  return prisma.matchQueueEntry.findUnique({ where: { userId } });
 }
 
 export type ProfileBattleStats = {

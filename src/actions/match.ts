@@ -3,9 +3,8 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { MATCH_STATUS, BATTLE_OUTCOME, QUEUE_MODE } from "@/lib/constants";
+import { MATCH_STATUS } from "@/lib/constants";
 import { countActiveMatchesForUser } from "@/lib/queries";
-import { tryRandomPair } from "@/lib/matchmaking";
 
 async function requireUserId() {
   const session = await getSession();
@@ -17,46 +16,25 @@ function isParticipant(m: { playerAId: number; playerBId: number }, userId: numb
   return m.playerAId === userId || m.playerBId === userId;
 }
 
-export async function joinRandomQueue(lat: number, lng: number, radiusKm: number) {
+export async function sendInviteFromSpot(spotId: string) {
   const userId = await requireUserId();
 
-  if ((await countActiveMatchesForUser(userId)) > 0) {
-    throw new Error("已有進行中的約戰，無法加入隨機排隊");
+  const spot = await prisma.meetSpot.findUnique({
+    where: { id: spotId },
+    include: { user: { select: { displayName: true } } },
+  });
+  if (
+    !spot ||
+    !spot.looking ||
+    !spot.active ||
+    !spot.expiresAt ||
+    spot.expiresAt <= new Date()
+  ) {
+    throw new Error("此公告已失效或不存在");
   }
 
-  await prisma.matchQueueEntry.deleteMany({ where: { userId } });
-  await prisma.matchQueueEntry.create({
-    data: {
-      userId,
-      mode: QUEUE_MODE.RANDOM,
-      lat,
-      lng,
-      radiusKm,
-    },
-  });
-
-  const matchId = await tryRandomPair(userId);
-  revalidatePath("/battle");
-  return matchId;
-}
-
-export async function leaveQueue() {
-  const userId = await requireUserId();
-  await prisma.matchQueueEntry.deleteMany({ where: { userId } });
-  revalidatePath("/battle");
-}
-
-export async function sendLobbyInvite(targetUserId: number) {
-  const userId = await requireUserId();
+  const targetUserId = spot.userId;
   if (targetUserId === userId) throw new Error("無法邀請自己");
-
-  const mySpot = await prisma.meetSpot.findFirst({
-    where: { userId, looking: true, active: true },
-  });
-  const theirSpot = await prisma.meetSpot.findFirst({
-    where: { userId: targetUserId, looking: true, active: true },
-  });
-  if (!mySpot || !theirSpot) throw new Error("雙方都需公開約戰地點到大廳");
 
   if ((await countActiveMatchesForUser(userId)) > 0) {
     throw new Error("你已有進行中的約戰");
@@ -83,31 +61,31 @@ export async function sendLobbyInvite(targetUserId: number) {
   });
   if (existing) throw new Error("已有進行中或等待回應的約戰");
 
+  const inviter = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { displayName: true },
+  });
+
   const match = await prisma.match.create({
     data: {
       playerAId,
       playerBId,
       invitedById: userId,
       status: MATCH_STATUS.INVITE_PENDING,
-      meetLat: theirSpot.lat,
-      meetLng: theirSpot.lng,
-      meetLabel: theirSpot.label,
+      meetLat: spot.lat,
+      meetLng: spot.lng,
+      meetLabel: spot.label,
+      shopId: spot.shopId,
     },
   });
 
-  // Send notification to target user with sender name
-  const inviter = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { displayName: true },
-  });
-  
   await prisma.notification.create({
     data: {
       userId: targetUserId,
       type: "MATCH_CREATED",
       referenceId: match.id.toString(),
       senderId: userId,
-      data: JSON.stringify(`${inviter?.displayName} 邀請你對戰`),
+      data: JSON.stringify(`${inviter?.displayName ?? "玩家"} 邀請你對戰`),
       read: false,
     },
   });
