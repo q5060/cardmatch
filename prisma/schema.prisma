@@ -95,6 +95,7 @@ model Match {
   status       String   @default("INVITE_PENDING") // INVITE_PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED
   playerAReady Boolean  @default(false)
   playerBReady Boolean  @default(false)
+  cancelRequestedBy Int? // User who requested cancellation
   meetLat      Float
   meetLng      Float
   meetLabel    String

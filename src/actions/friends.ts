@@ -40,17 +40,35 @@ export async function sendFriendMessage(friendshipId: string, body: string) {
   const text = body.trim();
   if (!text) throw new Error("EMPTY");
 
-  const f = await prisma.friendship.findUnique({ where: { id: friendshipId } });
+  const f = await prisma.friendship.findUnique({
+    where: { id: friendshipId },
+    include: { requester: { select: { displayName: true } }, addressee: { select: { displayName: true } } },
+  });
   if (!f || f.status !== "ACCEPTED") throw new Error("NOT_FOUND");
   if (f.requesterId !== userId && f.addresseeId !== userId) {
     throw new Error("FORBIDDEN");
   }
 
-  await prisma.friendMessage.create({
+  const msg = await prisma.friendMessage.create({
     data: {
       friendshipId,
       senderId: userId,
       body: text.slice(0, 4000),
+    },
+  });
+
+  // Send notification to the other user
+  const receiverId = f.requesterId === userId ? f.addresseeId : f.requesterId;
+  const senderName = f.requesterId === userId ? f.requester.displayName : f.addressee.displayName;
+  
+  await prisma.notification.create({
+    data: {
+      userId: receiverId,
+      type: "MESSAGE",
+      referenceId: friendshipId,
+      senderId: userId,
+      data: JSON.stringify(`${senderName} 傳來一條私訊`),
+      read: false,
     },
   });
 

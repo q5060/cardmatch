@@ -207,17 +207,97 @@ export async function cancelMatch(matchId: string) {
   const id = parseInt(matchId);
   const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
-  if (
-    match.status !== MATCH_STATUS.ACCEPTED &&
-    match.status !== MATCH_STATUS.IN_PROGRESS &&
-    match.status !== MATCH_STATUS.INVITE_PENDING
-  ) {
+  
+  if (match.status === MATCH_STATUS.INVITE_PENDING) {
+    // In INVITE_PENDING state, only the inviter can cancel
+    if (match.invitedById !== userId) {
+      throw new Error("只有邀請者可以取消邀請");
+    }
+    await prisma.match.update({
+      where: { id },
+      data: { status: MATCH_STATUS.CANCELLED },
+    });
+  } else if (match.status === MATCH_STATUS.ACCEPTED || match.status === MATCH_STATUS.IN_PROGRESS) {
+    // Both players need to agree to cancel
+    const otherPlayerId = match.playerAId === userId ? match.playerBId : match.playerAId;
+    
+    // If no cancellation request exists, create one
+    if (!match.cancelRequestedBy) {
+      await prisma.match.update({
+        where: { id },
+        data: { cancelRequestedBy: userId },
+      });
+      
+      // Send notification to other player
+      await prisma.notification.create({
+        data: {
+          userId: otherPlayerId,
+          type: "MATCH_CREATED",
+          referenceId: id.toString(),
+          senderId: userId,
+          data: JSON.stringify("對方請求取消約戰"),
+          read: false,
+        },
+      });
+    } else if (match.cancelRequestedBy === userId) {
+      // Same player requesting again - cancel their request
+      await prisma.match.update({
+        where: { id },
+        data: { cancelRequestedBy: null },
+      });
+    } else {
+      // Other player agreed to cancel
+      await prisma.match.update({
+        where: { id },
+        data: { status: MATCH_STATUS.CANCELLED, cancelRequestedBy: null },
+      });
+      
+      // Send notification to other player
+      await prisma.notification.create({
+        data: {
+          userId: otherPlayerId,
+          type: "MATCH_CREATED",
+          referenceId: id.toString(),
+          senderId: userId,
+          data: JSON.stringify("約戰已取消"),
+          read: false,
+        },
+      });
+    }
+  } else {
     throw new Error("無法取消此約戰");
   }
 
+  revalidatePath("/battle");
+}
+
+export async function rejectCancelRequest(matchId: string) {
+  const userId = await requireUserId();
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
+  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
+  
+  if (!match.cancelRequestedBy || match.cancelRequestedBy === userId) {
+    throw new Error("沒有取消請求");
+  }
+
+  // Clear the cancel request
   await prisma.match.update({
     where: { id },
-    data: { status: MATCH_STATUS.CANCELLED },
+    data: { cancelRequestedBy: null },
+  });
+
+  // Send notification to the other player
+  const otherPlayerId = match.playerAId === userId ? match.playerBId : match.playerAId;
+  await prisma.notification.create({
+    data: {
+      userId: otherPlayerId,
+      type: "MATCH_CREATED",
+      referenceId: id.toString(),
+      senderId: userId,
+      data: JSON.stringify("對方拒絕了取消約戰的請求"),
+      read: false,
+    },
   });
 
   revalidatePath("/battle");

@@ -26,6 +26,8 @@ export function FriendChat({
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [fetchErr, setFetchErr] = useState<string | null>(null);
+  const [sendErr, setSendErr] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,7 +35,13 @@ export function FriendChat({
 
     async function pull() {
       const res = await fetch(`/api/friendships/${friendshipId}/messages`);
-      if (cancelled || !res.ok) return;
+      if (cancelled || !res.ok) {
+        if (!cancelled) {
+          setFetchErr(res.status === 404 ? "無法載入聊天（狀態或權限不符）" : "無法載入訊息");
+        }
+        return;
+      }
+      setFetchErr(null);
       const data = (await res.json()) as { messages: Msg[] };
       setMessages(data.messages);
     }
@@ -47,15 +55,14 @@ export function FriendChat({
     };
   }, [friendshipId]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // Auto-scroll removed per user request
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
     const body = text.trim();
     if (!body || sending) return;
     setSending(true);
+    setSendErr(null);
     try {
       const res = await fetch(`/api/friendships/${friendshipId}/messages`, {
         method: "POST",
@@ -66,9 +73,14 @@ export function FriendChat({
         setText("");
         const r = await fetch(`/api/friendships/${friendshipId}/messages`);
         if (r.ok) {
+          setFetchErr(null);
           const data = (await r.json()) as { messages: Msg[] };
           setMessages(data.messages);
+        } else {
+          setFetchErr("送出成功但重新載入失敗");
         }
+      } else {
+        setSendErr(res.status === 404 ? "無法送出（狀態或權限不符）" : "送出失敗");
       }
     } finally {
       setSending(false);
@@ -81,6 +93,11 @@ export function FriendChat({
         dir="ltr"
         className="flex min-w-0 flex-1 flex-col space-y-2 overflow-y-auto px-3 py-3 text-sm"
       >
+        {fetchErr ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950" role="status">
+            {fetchErr}
+          </p>
+        ) : null}
         {messages.length === 0 ? (
           <p className="text-muted-foreground">尚無訊息。</p>
         ) : (
@@ -115,18 +132,25 @@ export function FriendChat({
       </div>
       <form
         onSubmit={(e) => void send(e)}
-        className="flex gap-2 border-t border-border bg-card p-2"
+        className="flex flex-col gap-2 border-t border-border bg-card p-2"
       >
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="傳訊息給好友…"
-          className="input-field min-w-0 flex-1 text-sm"
-          maxLength={4000}
-        />
-        <button type="submit" disabled={sending} className="btn btn-primary shrink-0">
-          送出
-        </button>
+        {sendErr ? (
+          <p className="text-xs text-red-700" role="alert">
+            {sendErr}
+          </p>
+        ) : null}
+        <div className="flex gap-2">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="傳訊息給好友…"
+            className="input-field min-w-0 flex-1 text-sm"
+            maxLength={4000}
+          />
+          <button type="submit" disabled={sending} className="btn btn-primary shrink-0">
+            送出
+          </button>
+        </div>
       </form>
     </div>
   );

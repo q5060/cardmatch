@@ -1,0 +1,331 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { UserCircle, ChevronUp } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+type Msg = {
+  id: string;
+  senderId?: number;
+  body: string;
+  createdAt: string;
+  sender: { id: number; displayName: string };
+};
+
+type OtherUser = {
+  id: number;
+  displayName: string;
+  avatarUrl?: string | null;
+};
+
+function isOwnMessage(m: Msg, currentUserId: number): boolean {
+  const sid = m.senderId ?? m.sender?.id;
+  return Boolean(sid && currentUserId && sid === currentUserId);
+}
+
+export function FriendChatPage({
+  friendshipId,
+  currentUserId,
+  otherUser,
+}: {
+  friendshipId: string;
+  currentUserId: number;
+  otherUser: OtherUser;
+}) {
+  const router = useRouter();
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [fetchErr, setFetchErr] = useState<string | null>(null);
+  const [sendErr, setSendErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Load initial messages
+  useEffect(() => {
+    async function loadMessages() {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `/api/friendships/${friendshipId}/messages?offset=0&limit=30`
+        );
+        if (!res.ok) {
+          setFetchErr("無法載入聊天");
+          return;
+        }
+        const data = (await res.json()) as {
+          messages: Msg[];
+          totalCount: number;
+          offset: number;
+          hasMore: boolean;
+        };
+        setMessages(data.messages);
+        setOffset(0);
+        setHasMore(data.hasMore);
+        setFetchErr(null);
+        
+        // Scroll to bottom to show latest messages
+        if (messagesContainerRef.current) {
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+            }
+          }, 0);
+        }
+      } catch (e) {
+        setFetchErr("無法載入訊息");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadMessages();
+
+    // Poll for new messages every 4 seconds
+    const interval = window.setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/friendships/${friendshipId}/messages?offset=${offset}&limit=30`
+        );
+        if (res.ok) {
+          const data = (await res.json()) as {
+            messages: Msg[];
+            totalCount: number;
+            offset: number;
+            hasMore: boolean;
+          };
+          setMessages(data.messages);
+          setHasMore(data.hasMore);
+        }
+      } catch (e) {
+        // Silent fail for polling
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [friendshipId, offset]);
+
+  const loadMore = useCallback(async () => {
+    setIsLoadingMore(true);
+    try {
+      const newOffset = offset + 30;
+      const res = await fetch(
+        `/api/friendships/${friendshipId}/messages?offset=${newOffset}&limit=30`
+      );
+      if (!res.ok) {
+        setFetchErr("無法載入更多訊息");
+        return;
+      }
+      const data = (await res.json()) as {
+        messages: Msg[];
+        totalCount: number;
+        offset: number;
+        hasMore: boolean;
+      };
+      // Combine messages - new ones go before existing
+      setMessages([...data.messages, ...messages]);
+      setOffset(newOffset);
+      setHasMore(data.hasMore);
+    } catch (e) {
+      setFetchErr("無法載入更多訊息");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [friendshipId, messages, offset]);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    const body = text.trim();
+    if (!body || sending) return;
+    setSending(true);
+    setSendErr(null);
+    try {
+      const res = await fetch(`/api/friendships/${friendshipId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      if (res.ok) {
+        setText("");
+        // Reload messages to show the new one
+        const r = await fetch(
+          `/api/friendships/${friendshipId}/messages?offset=0&limit=30`
+        );
+        if (r.ok) {
+          const data = (await r.json()) as {
+            messages: Msg[];
+            hasMore: boolean;
+          };
+          setMessages(data.messages);
+          setOffset(0);
+          setHasMore(data.hasMore);
+          setFetchErr(null);
+        } else {
+          setFetchErr("送出成功但重新載入失敗");
+        }
+      } else {
+        setSendErr(
+          res.status === 404 ? "無法送出（狀態或權限不符）" : "送出失敗"
+        );
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <header className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+            社交
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            私訊
+          </h1>
+        </header>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">載入中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <header className="space-y-2">
+        <button
+          onClick={() => router.back()}
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
+          ← 返回
+        </button>
+        <div className="flex items-center gap-3">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border">
+            {otherUser.avatarUrl ? (
+              <Image
+                src={otherUser.avatarUrl}
+                alt={otherUser.displayName}
+                width={48}
+                height={48}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-neutral-100">
+                <UserCircle className="h-8 w-8 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+          <div>
+            <Link
+              href={`/profile/${otherUser.id}`}
+              className="font-semibold text-foreground hover:text-primary"
+            >
+              {otherUser.displayName}
+            </Link>
+            <p className="text-xs text-muted-foreground">與 {otherUser.displayName} 的對話</p>
+          </div>
+        </div>
+      </header>
+
+      {/* Chat Container */}
+      <div className="card flex h-[600px] flex-col overflow-hidden p-0">
+        {/* Messages */}
+        <div
+          ref={messagesContainerRef}
+          dir="ltr"
+          className="flex min-w-0 flex-1 flex-col space-y-2 overflow-y-auto px-3 py-3 text-sm"
+        >
+          {fetchErr ? (
+            <p
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+              role="status"
+            >
+              {fetchErr}
+            </p>
+          ) : null}
+
+          {hasMore && (
+            <button
+              onClick={() => loadMore()}
+              disabled={isLoadingMore}
+              className="mx-auto flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground hover:bg-muted"
+            >
+              <ChevronUp className="h-3 w-3" />
+              {isLoadingMore ? "載入中..." : "載入更多訊息"}
+            </button>
+          )}
+
+          {messages.length === 0 ? (
+            <p className="text-muted-foreground">
+              尚無訊息，開始對話吧。
+            </p>
+          ) : (
+            messages.map((m) => {
+              const mine = isOwnMessage(m, currentUserId);
+              return (
+                <div key={m.id} className="flex w-full min-w-0 justify-start">
+                  <div
+                    className={`max-w-[85%] shrink-0 rounded-xl px-3 py-2 shadow-sm ${
+                      mine
+                        ? "ml-auto bg-primary text-white"
+                        : "bg-[var(--bubble-other)] text-foreground ring-1 ring-black/[0.04]"
+                    }`}
+                  >
+                    {!mine ? (
+                      <div className="mb-1 text-xs opacity-70">
+                        <Link
+                          href={`/profile/${m.sender.id}`}
+                          className="underline-offset-2 hover:underline"
+                        >
+                          {m.sender.displayName}
+                        </Link>
+                      </div>
+                    ) : null}
+                    <div className="whitespace-pre-wrap break-words">
+                      {m.body}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Input */}
+        <form
+          onSubmit={(e) => void send(e)}
+          className="flex flex-col gap-2 border-t border-border bg-card p-2"
+        >
+          {sendErr ? (
+            <p className="text-xs text-red-700" role="alert">
+              {sendErr}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="傳訊息給好友…"
+              className="input-field min-w-0 flex-1 text-sm"
+              maxLength={4000}
+            />
+            <button
+              type="submit"
+              disabled={sending}
+              className="btn btn-primary shrink-0"
+            >
+              送出
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

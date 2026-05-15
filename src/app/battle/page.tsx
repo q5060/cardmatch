@@ -24,6 +24,7 @@ function toActiveMatchDTO(m: NonNullable<Awaited<ReturnType<typeof getActiveMatc
     playerBId: m.playerBId,
     playerAReady: m.playerAReady,
     playerBReady: m.playerBReady,
+    cancelRequestedBy: m.cancelRequestedBy,
     meetLat: m.meetLat,
     meetLng: m.meetLng,
     meetLabel: m.meetLabel,

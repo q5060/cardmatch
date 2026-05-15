@@ -100,5 +100,20 @@ export async function POST(
     },
   });
 
+  // Send notification to the other player
+  const otherPlayerId = match.playerAId === session.userId ? match.playerBId : match.playerAId;
+  const senderName = msg.sender.displayName;
+  
+  await prisma.notification.create({
+    data: {
+      userId: otherPlayerId,
+      type: "MESSAGE",
+      referenceId: msg.id,
+      senderId: session.userId,
+      data: JSON.stringify(`${senderName} 在約戰中傳來訊息`),
+      read: false,
+    },
+  });
+
   return NextResponse.json({ message: msg });
 }

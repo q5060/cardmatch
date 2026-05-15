@@ -31,18 +31,31 @@ export async function GET(
 
   const { searchParams } = new URL(request.url);
   const afterTime = searchParams.get("afterTime");
+  const offset = parseInt(searchParams.get("offset") ?? "0");
+  const limit = parseInt(searchParams.get("limit") ?? "30");
+  
   const afterDate =
     afterTime && !Number.isNaN(Date.parse(afterTime))
       ? new Date(afterTime)
       : null;
 
+  // Get total count
+  const totalCount = await prisma.friendMessage.count({
+    where: {
+      friendshipId,
+      ...(afterDate ? { createdAt: { gt: afterDate } } : {}),
+    },
+  });
+
+  // Get paginated messages (oldest first)
   const messages = await prisma.friendMessage.findMany({
     where: {
       friendshipId,
       ...(afterDate ? { createdAt: { gt: afterDate } } : {}),
     },
     orderBy: { createdAt: "asc" },
-    take: 200,
+    skip: offset,
+    take: limit,
     include: {
       sender: { select: { id: true, displayName: true } },
     },
@@ -56,6 +69,10 @@ export async function GET(
       createdAt: m.createdAt,
       sender: m.sender,
     })),
+    totalCount,
+    offset,
+    limit,
+    hasMore: offset + limit < totalCount,
   });
 }
 
@@ -86,6 +103,11 @@ export async function POST(
     return NextResponse.json({ error: "EMPTY" }, { status: 400 });
   }
 
+  const f = await prisma.friendship.findUnique({
+    where: { id: friendshipId },
+    include: { requester: { select: { displayName: true } }, addressee: { select: { displayName: true } } },
+  });
+
   const msg = await prisma.friendMessage.create({
     data: {
       friendshipId,
@@ -94,6 +116,21 @@ export async function POST(
     },
     include: {
       sender: { select: { id: true, displayName: true } },
+    },
+  });
+
+  // Send notification to the other user
+  const receiverId = f!.requesterId === session.userId ? f!.addresseeId : f!.requesterId;
+  const senderName = f!.requesterId === session.userId ? f!.requester.displayName : f!.addressee.displayName;
+  
+  await prisma.notification.create({
+    data: {
+      userId: receiverId,
+      type: "MESSAGE",
+      referenceId: msg.id,
+      senderId: session.userId,
+      data: JSON.stringify(`${senderName} 傳來一條私訊`),
+      read: false,
     },
   });
 

@@ -22,6 +22,7 @@ interface NotificationDropdownProps {
 export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [marking, setMarking] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -41,6 +42,23 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
       console.error("獲取通知失敗:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    setMarking(true);
+    try {
+      const res = await fetch("/api/notifications/mark-all-read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        setNotifications([]);
+      }
+    } catch (error) {
+      console.error("標記全部已讀失敗:", error);
+    } finally {
+      setMarking(false);
     }
   };
 
@@ -70,7 +88,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
       case "FRIEND_REQUEST":
         return `/friends`;
       case "MESSAGE":
-        return `/friends`;
+        return notification.referenceId ? `/chat/${notification.referenceId}` : `/friends`;
       default:
         return "/notifications";
     }
@@ -142,7 +160,16 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
         )}
       </div>
 
-      <div className="border-t border-border px-4 py-2">
+      <div className="border-t border-border px-4 py-2 flex items-center justify-between gap-2">
+        {notifications.length > 0 && (
+          <button
+            onClick={markAllAsRead}
+            disabled={marking}
+            className="text-xs text-primary hover:underline disabled:opacity-50"
+          >
+            全部標示為已讀
+          </button>
+        )}
         <Link
           href="/notifications"
           onClick={onClose}

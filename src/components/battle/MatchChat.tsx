@@ -54,9 +54,7 @@ export function MatchChat({
     };
   }, [matchId]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // Auto-scroll removed per user request
 
   async function send(e: React.FormEvent) {
     e.preventDefault();

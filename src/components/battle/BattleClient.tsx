@@ -10,6 +10,7 @@ import { MatchChat } from "@/components/battle/MatchChat";
 import {
   acceptInvite,
   cancelMatch,
+  rejectCancelRequest,
   finishMatch,
   joinRandomQueue,
   leaveQueue,
@@ -28,6 +29,7 @@ export type ActiveMatchDTO = {
   playerBId: number;
   playerAReady: boolean;
   playerBReady: boolean;
+  cancelRequestedBy?: number | null;
   meetLat: number;
   meetLng: number;
   meetLabel: string;
@@ -226,18 +228,20 @@ export function BattleClient({
                 </div>
               </>
             )}
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  await cancelMatch(activeMatch.id.toString());
-                })
-              }
-              className="text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground"
-            >
-              取消此約戰
-            </button>
+            {activeMatch.invitedById === userId && (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  run(async () => {
+                    await cancelMatch(activeMatch.id.toString());
+                  })
+                }
+                className="text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground"
+              >
+                取消邀請
+              </button>
+            )}
           </div>
         ) : null}
 
@@ -256,46 +260,156 @@ export function BattleClient({
 
         {st === MATCH_STATUS.ACCEPTED && (
           <div className="card card-hover space-y-3 p-5">
-            <p className="text-sm text-foreground">
-              雙方準備完成後將自動開始對戰。你的狀態：
-              <strong className="mx-0.5">{myReady ? "已準備" : "未準備"}</strong>
-              ，對方：
-              <strong className="mx-0.5">{theirReady ? "已準備" : "未準備"}</strong>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              對方按下準備後，此處約每 2.5 秒自動同步；仍不符時請重新整理頁面。
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    await setReady(activeMatch.id.toString(), !myReady);
-                  })
-                }
-                className="btn btn-primary"
-              >
-                {myReady ? "取消準備" : "我準備好了"}
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    await cancelMatch(activeMatch.id.toString());
-                  })
-                }
-                className="btn btn-outline"
-              >
-                取消約戰
-              </button>
-            </div>
+            {activeMatch.cancelRequestedBy ? (
+              <>
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {activeMatch.cancelRequestedBy === userId
+                    ? "你已請求取消約戰"
+                    : "對方請求取消約戰"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {activeMatch.cancelRequestedBy !== userId && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await cancelMatch(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-primary"
+                      >
+                        同意取消
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await rejectCancelRequest(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-outline border-red-200 text-red-700"
+                      >
+                        拒絕取消
+                      </button>
+                    </>
+                  )}
+                  {activeMatch.cancelRequestedBy === userId && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() =>
+                        run(async () => {
+                          await cancelMatch(activeMatch.id.toString());
+                        })
+                      }
+                      className="btn btn-outline text-xs"
+                    >
+                      撤回取消請求
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-foreground">
+                  雙方準備完成後將自動開始對戰。你的狀態：
+                  <strong className="mx-0.5">{myReady ? "已準備" : "未準備"}</strong>
+                  ，對方：
+                  <strong className="mx-0.5">{theirReady ? "已準備" : "未準備"}</strong>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  對方按下準備後，此處約每 2.5 秒自動同步；仍不符時請重新整理頁面。
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      run(async () => {
+                        await setReady(activeMatch.id.toString(), !myReady);
+                      })
+                    }
+                    className="btn btn-primary"
+                  >
+                    {myReady ? "取消準備" : "我準備好了"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      run(async () => {
+                        await cancelMatch(activeMatch.id.toString());
+                      })
+                    }
+                    className="btn btn-outline"
+                  >
+                    請求取消約戰
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {st === MATCH_STATUS.IN_PROGRESS && (
           <div className="card card-hover space-y-4 p-5">
+            {activeMatch.cancelRequestedBy && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm text-amber-700 mb-2">
+                  {activeMatch.cancelRequestedBy === userId
+                    ? "你已請求取消約戰"
+                    : "對方請求取消約戰"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {activeMatch.cancelRequestedBy !== userId && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await cancelMatch(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-sm btn-primary"
+                      >
+                        同意取消
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await rejectCancelRequest(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-sm btn-outline border-red-200 text-red-700"
+                      >
+                        拒絕取消
+                      </button>
+                    </>
+                  )}
+                  {activeMatch.cancelRequestedBy === userId && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() =>
+                        run(async () => {
+                          await cancelMatch(activeMatch.id.toString());
+                        })
+                      }
+                      className="btn btn-sm btn-outline"
+                    >
+                      撤回取消請求
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <h3 className="font-semibold text-foreground">選擇勝方</h3>
             {err && err.includes("不相符") && (
               <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
