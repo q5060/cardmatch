@@ -132,7 +132,6 @@ export default async function OtherProfilePage({
         battleStats={battleStats}
         deckCount={deckCount}
         publicDeckCount={publicDeckCount}
-        meetSpotCount={0}
         feed={feed}
         decksSlot={<PublicDeckList decks={profile.decks} />}
       />

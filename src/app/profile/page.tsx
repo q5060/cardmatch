@@ -6,19 +6,16 @@ import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { removeAvatar, updateProfile } from "@/actions/profile";
 import { DeckSection } from "@/components/profile/DeckSection";
-import { MeetSpotList } from "@/components/profile/MeetSpotList";
-import { SpotPickerForm } from "@/components/profile/SpotPickerForm";
 import { ProfileDashboard } from "@/components/profile/ProfileDashboard";
 import {
   getProfileBattleStats,
   getProfileMatchFeed,
 } from "@/lib/queries";
 import { DECK_VISIBILITY } from "@/lib/constants";
-import type { MapShopPin } from "@/components/map/MeetMap";
 
 export const metadata: Metadata = {
   title: "個人檔案 | CardMatch",
-  description: "查看和管理您的個人檔案、牌組和約戰地點",
+  description: "查看和管理您的個人檔案與牌組",
 };
 
 function ProfilePageSkeleton() {
@@ -42,8 +39,8 @@ function ProfilePageSkeleton() {
           <div className="h-10 animate-pulse rounded-lg bg-neutral-100" />
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[1, 2, 3].map((i) => (
           <div key={i} className="card h-24 animate-pulse bg-neutral-100" />
         ))}
       </div>
@@ -55,17 +52,12 @@ export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [full, shops, battleStats, feed] = await Promise.all([
+  const [full, battleStats, feed] = await Promise.all([
     prisma.user.findUnique({
       where: { id: user.id },
       include: {
         decks: { orderBy: { updatedAt: "desc" } },
-        meetSpots: { orderBy: { updatedAt: "desc" } },
       },
-    }),
-    prisma.shop.findMany({
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, lat: true, lng: true, addressNote: true },
     }),
     getProfileBattleStats(user.id),
     getProfileMatchFeed(user.id, 15),
@@ -73,23 +65,10 @@ export default async function ProfilePage() {
 
   if (!full) redirect("/login");
 
-  const shopsPins = shops as MapShopPin[];
   const deckCount = full.decks.length;
   const publicDeckCount = full.decks.filter(
     (d) => d.visibility === DECK_VISIBILITY.PUBLIC,
   ).length;
-
-  const spotsSlot = (
-    <>
-      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-        在地圖上點選位置，送出後可選擇是否公開到大廳。
-      </p>
-      <MeetSpotList spots={full.meetSpots} />
-      <div className="card card-hover p-6">
-        <SpotPickerForm shops={shopsPins} />
-      </div>
-    </>
-  );
 
   const settingsSlot = (
     <div className="space-y-6">
@@ -185,10 +164,8 @@ export default async function ProfilePage() {
         battleStats={battleStats}
         deckCount={deckCount}
         publicDeckCount={publicDeckCount}
-        meetSpotCount={full.meetSpots.length}
         feed={feed}
         decksSlot={<DeckSection decks={full.decks} readOnly />}
-        spotsSlot={spotsSlot}
         settingsSlot={settingsSlot}
       />
     </Suspense>

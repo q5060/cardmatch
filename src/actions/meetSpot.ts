@@ -3,93 +3,103 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { ANNOUNCEMENT_TTL_HOURS } from "@/lib/constants";
+import {
+  countActiveMatchesForUser,
+  getAnnouncementsAtShop,
+  type MapAnnouncementDTO,
+} from "@/lib/queries";
 
-export async function createMeetSpot(formData: FormData) {
+async function requireUserId() {
   const session = await getSession();
-  if (!session.userId) throw new Error("UNAUTHORIZED");
+  if (!session.userId) throw new Error("請先登入");
+  return session.userId;
+}
 
-  const lat = Number(formData.get("lat"));
-  const lng = Number(formData.get("lng"));
-  const label = String(formData.get("label") ?? "").trim();
-  const timeNote = String(formData.get("timeNote") ?? "").trim();
-  const looking = formData.get("looking") === "on";
+function announcementExpiresAt() {
+  return new Date(Date.now() + ANNOUNCEMENT_TTL_HOURS * 60 * 60 * 1000);
+}
 
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    throw new Error("INVALID_COORDS");
+export async function publishBattleAnnouncement(input: {
+  lat: number;
+  lng: number;
+  label: string;
+  timeNote?: string;
+  shopId?: string | null;
+}) {
+  const userId = await requireUserId();
+
+  if (!Number.isFinite(input.lat) || !Number.isFinite(input.lng)) {
+    throw new Error("請選擇有效的地圖座標");
   }
-  if (!label) throw new Error("INVALID_LABEL");
+  const label = input.label.trim();
+  if (!label) throw new Error("請輸入地點名稱");
+  const timeNote = (input.timeNote ?? "").trim().slice(0, 500);
+
+  if ((await countActiveMatchesForUser(userId)) > 0) {
+    throw new Error("已有進行中的約戰，無法發布公告");
+  }
+
+  const expiresAt = announcementExpiresAt();
 
   await prisma.$transaction(async (tx) => {
-    if (looking) {
-      await tx.meetSpot.updateMany({
-        where: { userId: session.userId! },
-        data: { looking: false },
+    await tx.meetSpot.updateMany({
+      where: { userId },
+      data: { looking: false },
+    });
+
+    const existing = await tx.meetSpot.findFirst({
+      where: { userId, active: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (existing) {
+      await tx.meetSpot.update({
+        where: { id: existing.id },
+        data: {
+          lat: input.lat,
+          lng: input.lng,
+          label: label.slice(0, 120),
+          timeNote,
+          shopId: input.shopId ?? null,
+          looking: true,
+          active: true,
+          expiresAt,
+        },
+      });
+    } else {
+      await tx.meetSpot.create({
+        data: {
+          userId,
+          lat: input.lat,
+          lng: input.lng,
+          label: label.slice(0, 120),
+          timeNote,
+          shopId: input.shopId ?? null,
+          looking: true,
+          active: true,
+          expiresAt,
+        },
       });
     }
-    await tx.meetSpot.create({
-      data: {
-        userId: session.userId!,
-        lat,
-        lng,
-        label: label.slice(0, 120),
-        timeNote: timeNote.slice(0, 500),
-        looking,
-        active: true,
-      },
-    });
   });
 
-  revalidatePath("/profile");
   revalidatePath("/battle");
 }
 
-export async function deleteMeetSpot(spotId: string) {
-  const session = await getSession();
-  if (!session.userId) throw new Error("UNAUTHORIZED");
+export async function clearBattleAnnouncement() {
+  const userId = await requireUserId();
 
-  await prisma.meetSpot.deleteMany({
-    where: { id: spotId, userId: session.userId },
+  await prisma.meetSpot.updateMany({
+    where: { userId, looking: true },
+    data: { looking: false },
   });
 
-  revalidatePath("/profile");
   revalidatePath("/battle");
 }
 
-export async function deleteSpotForm(formData: FormData) {
-  const spotId = String(formData.get("spotId") ?? "");
-  if (!spotId) throw new Error("INVALID");
-  await deleteMeetSpot(spotId);
-}
-
-export async function setSpotLookingForm(formData: FormData) {
-  const spotId = String(formData.get("spotId") ?? "");
-  const looking = String(formData.get("looking")) === "true";
-  if (!spotId) throw new Error("INVALID");
-  await setSpotLooking(spotId, looking);
-}
-
-export async function setSpotLooking(spotId: string, looking: boolean) {
-  const session = await getSession();
-  if (!session.userId) throw new Error("UNAUTHORIZED");
-
-  await prisma.$transaction(async (tx) => {
-    const spot = await tx.meetSpot.findFirst({
-      where: { id: spotId, userId: session.userId! },
-    });
-    if (!spot) throw new Error("NOT_FOUND");
-
-    if (looking) {
-      await tx.meetSpot.updateMany({
-        where: { userId: session.userId! },
-        data: { looking: false },
-      });
-    }
-    await tx.meetSpot.update({
-      where: { id: spotId },
-      data: { looking },
-    });
-  });
-
-  revalidatePath("/profile");
-  revalidatePath("/battle");
+export async function fetchShopLobby(shopId: string): Promise<MapAnnouncementDTO[]> {
+  await requireUserId();
+  if (!shopId) throw new Error("無效的卡店");
+  return getAnnouncementsAtShop(shopId);
 }

@@ -28,7 +28,6 @@ model User {
 
   decks              Deck[]
   meetSpots          MeetSpot[]
-  queueEntry         MatchQueueEntry?
   matchesAsPlayerA   Match[]          @relation("PlayerA")
   matchesAsPlayerB   Match[]          @relation("PlayerB")
   messages           Message[]
@@ -52,37 +51,30 @@ model Deck {
 }
 
 model MeetSpot {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   lat       Float
   lng       Float
   label     String
-  timeNote  String   @default("")
-  active    Boolean  @default(true)
-  looking   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  timeNote  String    @default("")
+  active    Boolean   @default(true)
+  looking   Boolean   @default(false)
+  shopId    String?
+  shop      Shop?     @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Shop {
-  id          String  @id @default(cuid())
+  id          String     @id @default(cuid())
   name        String
   lat         Float
   lng         Float
-  addressNote String  @default("")
+  addressNote String     @default("")
   matches     Match[]
-}
-
-model MatchQueueEntry {
-  id        String   @id @default(cuid())
-  userId    Int      @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mode      String   @default("RANDOM") // PUBLIC_LOBBY | RANDOM
-  lat       Float
-  lng       Float
-  radiusKm  Float    @default(5)
-  createdAt DateTime @default(now())
+  meetSpots   MeetSpot[]
 }
 
 model Match {

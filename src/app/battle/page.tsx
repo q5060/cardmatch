@@ -4,15 +4,15 @@ import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import {
   getActiveMatchForUser,
-  getLobbyPeers,
+  getMapAnnouncements,
+  getMyActiveAnnouncement,
   getShops,
-  userInQueue,
 } from "@/lib/queries";
 import { BattleClient, type ActiveMatchDTO } from "@/components/battle/BattleClient";
 
 export const metadata: Metadata = {
   title: "對戰 | CardMatch",
-  description: "開始與其他玩家進行寶可夢卡牌對戰",
+  description: "在地圖上發布約戰公告，尋找對手並協調會面",
 };
 
 function toActiveMatchDTO(m: NonNullable<Awaited<ReturnType<typeof getActiveMatchForUser>>>): ActiveMatchDTO {
@@ -42,20 +42,18 @@ export type BattleResultDTO = {
   status: string;
 } | null;
 
+const DEFAULT_LAT = 25.033;
+const DEFAULT_LNG = 121.565;
+
 export default async function BattlePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [activeMatch, lobbyPeers, shops, queue, spots] = await Promise.all([
+  const [activeMatch, announcements, myAnnouncement, shops] = await Promise.all([
     getActiveMatchForUser(user.id),
-    getLobbyPeers(user.id),
+    getMapAnnouncements(user.id),
+    getMyActiveAnnouncement(user.id),
     getShops(),
-    userInQueue(user.id),
-    prisma.meetSpot.findMany({
-      where: { userId: user.id, active: true },
-      orderBy: { updatedAt: "desc" },
-      take: 1,
-    }),
   ]);
 
   let battleResult: BattleResultDTO = null;
@@ -75,9 +73,8 @@ export default async function BattlePage() {
     }
   }
 
-  const coord = spots[0];
-  const defaultLat = coord?.lat ?? 25.033;
-  const defaultLng = coord?.lng ?? 121.565;
+  const defaultLat = myAnnouncement?.lat ?? DEFAULT_LAT;
+  const defaultLng = myAnnouncement?.lng ?? DEFAULT_LNG;
 
   return (
     <div className="space-y-8">
@@ -85,26 +82,15 @@ export default async function BattlePage() {
         <p className="text-xs font-semibold uppercase tracking-wider text-primary">對戰大廳</p>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">對戰</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-          公開大廳邀請或隨機匹配，成功後在此協調會面並聊天。
+          可用搜尋欄找卡店或地址。藍色釘進入店家大廳；綠色釘為玩家自選地點。點擊查看約戰需求並發起邀請，接受後在此協調會面。
         </p>
       </header>
-      {!coord ? (
-        <div
-          className="card border-amber-200/80 bg-gradient-to-r from-amber-50 to-amber-50/50 px-4 py-4 text-sm text-amber-950 shadow-sm"
-          role="status"
-        >
-          <p className="font-medium">尚未設定約戰座標</p>
-          <p className="mt-1 text-amber-900/90">
-            請先到「個人檔案」新增至少一個約戰地點，才能使用隨機匹配（座標預設為台北）。
-          </p>
-        </div>
-      ) : null}
       <BattleClient
         userId={user.id}
         shops={shops}
-        lobbyPeers={lobbyPeers}
+        announcements={announcements}
+        myAnnouncement={myAnnouncement}
         activeMatch={activeMatch ? toActiveMatchDTO(activeMatch) : null}
-        inQueue={!!queue && queue.mode === "RANDOM"}
         defaultLat={defaultLat}
         defaultLng={defaultLng}
         battleResult={battleResult}

@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
           contains: trimmedQuery,
         },
         active: true,
+        looking: true,
+        expiresAt: { gt: new Date() },
       },
       select: {
         id: true,

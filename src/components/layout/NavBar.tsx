@@ -28,8 +28,15 @@ const links: {
   { href: "/", label: "首頁", Icon: Home },
   { href: "/battle", label: "對戰", Icon: Search, auth: true },
   { href: "/friends", label: "好友", Icon: Users, auth: true },
-  { href: "/profile", label: "個人檔案", Icon: UserCircle, auth: true },
+  { href: "/profile", label: "我的檔案", Icon: UserCircle, auth: true },
 ];
+
+/** `/profile` must not match `/profile/[userId]` for active state. */
+function isNavLinkActive(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  if (href === "/profile") return pathname === "/profile";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 type Props = {
   user?: { id: number; displayName: string; avatarUrl: string | null } | null;
@@ -91,8 +98,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
         <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
           {links.map(({ href, label, auth, Icon }) => {
             if (auth && !user) return null;
-            const active =
-              href === "/" ? pathname === "/" : pathname.startsWith(href);
+            const active = isNavLinkActive(href, pathname);
             return (
               <Link
                 key={href}
@@ -168,12 +174,12 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 {showUserMenu && (
                   <div className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-white border border-border shadow-lg z-50">
                     <Link
-                      href={`/profile/${user.id}`}
+                      href="/profile"
                       className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-neutral-100 rounded-t-lg border-b border-border"
                       onClick={() => setShowUserMenu(false)}
                     >
                       <UserCircle className="h-4 w-4" strokeWidth={2} />
-                      個人檔案
+                      我的檔案
                     </Link>
                     <Link
                       href="/settings"
@@ -214,8 +220,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                     {/* Nav Items */}
                     {links.map(({ href, label, auth, Icon }) => {
                       if (auth && !user) return null;
-                      const active =
-                        href === "/" ? pathname === "/" : pathname.startsWith(href);
+                      const active = isNavLinkActive(href, pathname);
                       return (
                         <Link
                           key={href}
