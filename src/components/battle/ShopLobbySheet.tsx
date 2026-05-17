@@ -58,14 +58,14 @@ export function ShopLobbySheet({
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      className="fixed inset-0 z-[1000] flex justify-center bg-black/40 p-4 items-end sm:items-center sm:justify-end"
       role="dialog"
       aria-modal="true"
       aria-labelledby="shop-lobby-title"
       onClick={onClose}
     >
       <div
-        className="card flex max-h-[85vh] w-full max-w-md flex-col shadow-xl"
+        className="card flex max-h-[85vh] w-full max-w-md flex-col shadow-xl sm:mr-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="space-y-1 border-b border-border p-5">
@@ -180,7 +180,7 @@ export function ShopLobbySheet({
             className="btn btn-primary flex-1"
             title={myEntry ? "你已有此店的公告" : undefined}
           >
-            {myEntry ? "你已在此店公告中" : "我要在此店打牌"}
+            {myEntry ? "你已在此店公告中" : "發布約戰公告"}
           </button>
           <button type="button" onClick={onClose} className="btn btn-outline">
             關閉
