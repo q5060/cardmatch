@@ -58,6 +58,7 @@ model MeetSpot {
   lng       Float
   label     String
   timeNote  String    @default("")
+  playNote  String    @default("") // 約戰說明：格式、程度等
   active    Boolean   @default(true)
   looking   Boolean   @default(false)
   shopId    String?
@@ -150,7 +151,7 @@ model Notification {
   id          String   @id @default(cuid())
   userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        String   // MATCH_CREATED | MATCH_COMPLETED | FRIEND_REQUEST | MESSAGE | BATTLE_RESULT | etc
+  type        String   // SPOT_INVITE | MATCH_CREATED | MATCH_COMPLETED | FRIEND_REQUEST | MESSAGE | BATTLE_RESULT | etc
   referenceId String?  // References match ID, friendship ID, message ID, etc
   senderId    Int?     // For MESSAGE and other notifications with a sender
   data        String?  // JSON string for additional data like notification message

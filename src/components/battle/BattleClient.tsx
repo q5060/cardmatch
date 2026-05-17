@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UserRound } from "lucide-react";
+import { Bell, UserRound } from "lucide-react";
 import {
   MeetMap,
   type MapAnnouncementPin,
@@ -91,6 +91,13 @@ export function BattleClient({
   const [previewPin, setPreviewPin] = useState<MapPreviewPin | null>(null);
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationAttempted, setLocationAttempted] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [incomingInviteAlert, setIncomingInviteAlert] = useState(false);
+  const seenInviteMatchIdRef = useRef<number | null>(null);
+
+  const isIncomingInvite =
+    activeMatch?.status === MATCH_STATUS.INVITE_PENDING &&
+    activeMatch.invitedById !== userId;
 
   const mapPins: MapAnnouncementPin[] = useMemo(() => {
     const pins: MapAnnouncementPin[] = announcements.map((a) => ({
@@ -101,6 +108,8 @@ export function BattleClient({
       lat: a.lat,
       lng: a.lng,
       label: a.label,
+      timeNote: a.timeNote || undefined,
+      playNote: a.playNote || undefined,
       isOwn: false,
     }));
     if (myAnnouncement && !myAnnouncement.shopId) {
@@ -112,6 +121,8 @@ export function BattleClient({
         lat: myAnnouncement.lat,
         lng: myAnnouncement.lng,
         label: myAnnouncement.label,
+        timeNote: myAnnouncement.timeNote || undefined,
+        playNote: myAnnouncement.playNote || undefined,
         isOwn: true,
       });
     }
@@ -125,11 +136,37 @@ export function BattleClient({
     return map;
   }, [announcements, myAnnouncement]);
 
+  /** Faster refresh while waiting on an active announcement for map invites. */
   useEffect(() => {
     if (activeMatch) return;
-    const id = window.setInterval(() => router.refresh(), 60_000);
+    const ms = myAnnouncement ? 8_000 : 30_000;
+    const id = window.setInterval(() => router.refresh(), ms);
     return () => window.clearInterval(id);
-  }, [activeMatch, router]);
+  }, [activeMatch, myAnnouncement, router]);
+
+  useEffect(() => {
+    if (!isIncomingInvite || !activeMatch) return;
+    if (seenInviteMatchIdRef.current === activeMatch.id) return;
+    seenInviteMatchIdRef.current = activeMatch.id;
+    setIncomingInviteAlert(true);
+    requestAnimationFrame(() => {
+      document.getElementById("pending-invite")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [isIncomingInvite, activeMatch?.id]);
+
+  useEffect(() => {
+    if (!isIncomingInvite) {
+      document.title = "對戰 | CardMatch";
+      return;
+    }
+    document.title = "（新邀請）對戰 | CardMatch";
+    return () => {
+      document.title = "對戰 | CardMatch";
+    };
+  }, [isIncomingInvite]);
 
   /** Request user's GPS location when component mounts */
   useEffect(() => {
@@ -151,6 +188,27 @@ export function BattleClient({
       );
     }
   }, [locationAttempted]);
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const id = window.setTimeout(() => setSuccessMessage(null), 5000);
+    return () => window.clearTimeout(id);
+  }, [successMessage]);
+
+  function handleAnnouncementPublished(published: PublishDraft & { label: string }) {
+    refresh();
+    if (published.shopId) {
+      const shopName =
+        shops.find((s) => s.id === published.shopId)?.name ?? published.label;
+      setSuccessMessage(
+        `已在「${shopName}」發布卡店公告。可點上方「查看大廳」查看等待中的玩家。`,
+      );
+    } else {
+      setSuccessMessage(
+        `已在「${published.label}」發布約戰公告（地圖綠色釘顯示自選地點）。`,
+      );
+    }
+  }
 
   /** Server props only refresh after your own actions; poll so the opponent's ready state & status sync. */
   useEffect(() => {
@@ -215,6 +273,29 @@ export function BattleClient({
 
     return (
       <div className="space-y-6">
+        {isIncomingInvite && incomingInviteAlert ? (
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-xl border-2 border-primary bg-primary/15 px-4 py-3 shadow-md ring-2 ring-primary/25"
+          >
+            <Bell className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-primary" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-primary">有人回應你的約戰公告</p>
+              <p className="mt-0.5 text-sm text-foreground">
+                {otherPlayer?.displayName ?? "玩家"} 邀請你對戰，請在下方接受或拒絕。
+              </p>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 text-xs text-primary underline-offset-2 hover:underline"
+              onClick={() => setIncomingInviteAlert(false)}
+              aria-label="關閉提示"
+            >
+              關閉
+            </button>
+          </div>
+        ) : null}
+
         <div className="card card-hover p-5">
           <h2 className="text-lg font-semibold text-foreground">進行中的約戰</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -232,9 +313,6 @@ export function BattleClient({
             {" · "}
             {activeMatch.meetLabel}
           </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            座標：{activeMatch.meetLat.toFixed(4)}, {activeMatch.meetLng.toFixed(4)}
-          </p>
           {err ? (
             <p
               className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
@@ -246,25 +324,39 @@ export function BattleClient({
         </div>
 
         {st === MATCH_STATUS.INVITE_PENDING ? (
-          <div className="card card-hover space-y-3 p-5">
+          <div
+            id="pending-invite"
+            className={`space-y-3 p-5 ${
+              activeMatch.invitedById !== userId
+                ? "rounded-xl border-2 border-primary bg-primary/5 shadow-lg ring-2 ring-primary/20"
+                : "card card-hover"
+            }`}
+          >
             {activeMatch.invitedById === userId ? (
               <p className="text-foreground">已送出邀請，等待對方回應。</p>
             ) : (
               <>
-                <p className="text-foreground">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  約戰公告 · 新邀請
+                </p>
+                <p className="text-lg font-semibold text-foreground">
                   {otherPlayerId && otherPlayer ? (
                     <Link
                       href={`/profile/${otherPlayerId}`}
-                      className="font-medium text-primary underline-offset-2 hover:underline"
+                      className="text-primary underline-offset-2 hover:underline"
                     >
                       {otherPlayer.displayName}
                     </Link>
                   ) : (
                     otherPlayer?.displayName
                   )}
-                  邀請你約戰。
+                  <span className="font-normal text-foreground"> 邀請你約戰</span>
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <p className="text-sm text-muted-foreground">
+                  地點：
+                  <span className="font-medium text-foreground">{activeMatch.meetLabel}</span>
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
                   <button
                     type="button"
                     disabled={pending}
@@ -273,9 +365,9 @@ export function BattleClient({
                         await acceptInvite(activeMatch.id.toString());
                       })
                     }
-                    className="btn btn-primary"
+                    className="btn btn-primary min-w-[7rem]"
                   >
-                    接受
+                    接受約戰
                   </button>
                   <button
                     type="button"
@@ -762,12 +854,29 @@ export function BattleClient({
         <h2 className="font-semibold text-foreground">地圖公告</h2>
         {myAnnouncement ? (
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted-foreground">
-              公告中：
-              <span className="font-medium text-foreground">{myAnnouncement.label}</span>
-              {myAnnouncement.shopId ? "（卡店大廳）" : "（自選地點）"}
-              {myAnnouncement.timeNote ? ` · ${myAnnouncement.timeNote}` : ""}
-            </p>
+            <div className="text-sm text-muted-foreground">
+              <p>
+                公告中：
+                <span className="font-medium text-foreground">{myAnnouncement.label}</span>
+                {myAnnouncement.shopId ? "（卡店）" : "（自選地點）"}
+              </p>
+              {myAnnouncement.playNote ? (
+                <p className="mt-1 text-xs text-foreground line-clamp-2">
+                  {myAnnouncement.playNote}
+                </p>
+              ) : null}
+              {myAnnouncement.timeNote ? (
+                <p className="mt-0.5 text-xs">時段：{myAnnouncement.timeNote}</p>
+              ) : null}
+              {myAnnouncement.shopId ? (
+                <p className="mt-1 text-xs">
+                  你正在此卡店等候對戰 · 點「查看大廳」看同店玩家
+                </p>
+              ) : null}
+              <p className="mt-2 rounded-md border border-primary/25 bg-primary/5 px-2 py-1.5 text-xs text-primary">
+                有人從地圖邀請你時，此頁會自動顯示接受／拒絕（約每 8 秒更新）
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
               {myAnnouncement.shopId ? (
                 <button
@@ -806,6 +915,23 @@ export function BattleClient({
         )}
       </div>
 
+      {successMessage ? (
+        <div
+          className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          role="status"
+        >
+          <p>{successMessage}</p>
+          <button
+            type="button"
+            className="shrink-0 text-emerald-700 underline-offset-2 hover:underline"
+            onClick={() => setSuccessMessage(null)}
+            aria-label="關閉提示"
+          >
+            關閉
+          </button>
+        </div>
+      ) : null}
+
       {err ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
           {err}
@@ -825,27 +951,11 @@ export function BattleClient({
           onSelectPlace={(place) => {
             setSelectedShop(null);
             setSheetAnnouncement(null);
-            setPublishDraft(null);
             setFlyTo({ lat: place.lat, lng: place.lng, zoom: 15, key: Date.now() });
             setPreviewPin(place);
+            openPublishAt(place.lat, place.lng, place.label);
           }}
         />
-        {/* {previewPin ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm text-muted-foreground">
-              已選地點：<span className="font-medium text-foreground">{previewPin.label}</span>
-            </p>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() =>
-                openPublishAt(previewPin.lat, previewPin.lng, previewPin.label)
-              }
-            >
-              在此發布約戰
-            </button>
-          </div>
-        ) : null} */}
 
         {/* Map container with responsive layout */}
         <div className={`relative overflow-hidden rounded-lg border border-border grid transition-all duration-300 ${selectedShop || sheetAnnouncement || publishDraft ? "grid-cols-1 sm:grid-cols-[1fr_384px]" : "grid-cols-1"
@@ -864,8 +974,8 @@ export function BattleClient({
               onMapClick={(lat, lng) => {
                 setSelectedShop(null);
                 setSheetAnnouncement(null);
-                setPreviewPin({ lat, lng, label: "自訂地點" });
-                openPublishAt(lat, lng, "自訂地點");
+                setPreviewPin({ lat, lng, label: "" });
+                openPublishAt(lat, lng, "");
               }}
               onShopClick={(shop) => {
                 setPublishDraft(null);
@@ -943,7 +1053,7 @@ export function BattleClient({
               <PublishAnnouncementContent
                 draft={publishDraft}
                 onClose={() => setPublishDraft(null)}
-                onPublished={refresh}
+                onPublished={handleAnnouncementPublished}
               />
             )}
           </ResponsiveSheet>

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+// Used by BattleClient ResponsiveSheet only — do not duplicate publish form logic.
+
+import { useEffect, useState, useTransition } from "react";
 import { publishBattleAnnouncement } from "@/actions/meetSpot";
 
 export type PublishDraft = {
@@ -13,29 +15,41 @@ export type PublishDraft = {
 type Props = {
   draft: PublishDraft;
   onClose: () => void;
-  onPublished: () => void;
+  onPublished: (published: PublishDraft & { label: string }) => void;
 };
 
 export function PublishAnnouncementContent({ draft, onClose, onPublished }: Props) {
   const [timeNote, setTimeNote] = useState("");
-  const [label, setLabel] = useState("");
+  const [playNote, setPlayNote] = useState("");
+  const [label, setLabel] = useState(draft.label);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const displayLabel = label || draft.label;
+  useEffect(() => {
+    setLabel(draft.label);
+    setTimeNote("");
+    setPlayNote("");
+    setErr(null);
+  }, [draft.lat, draft.lng, draft.label, draft.shopId]);
 
   const handlePublish = () => {
+    const trimmed = label.trim();
+    if (!trimmed) {
+      setErr("請輸入地點名稱");
+      return;
+    }
     setErr(null);
     startTransition(async () => {
       try {
         await publishBattleAnnouncement({
           lat: draft.lat,
           lng: draft.lng,
-          label: displayLabel.trim() || draft.label,
+          label: trimmed,
           timeNote,
+          playNote,
           shopId: draft.shopId,
         });
-        onPublished();
+        onPublished({ ...draft, label: trimmed });
         onClose();
       } catch (e) {
         setErr(e instanceof Error ? e.message : "發布失敗");
@@ -55,15 +69,33 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
       <label className="block text-sm font-medium text-foreground">
         <span className="text-muted-foreground">地點名稱</span>
         <input
-          value={displayLabel}
+          value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="例：XX 卡店、咖啡廳"
+          placeholder={
+            draft.label.trim() ? "例：XX 卡店、咖啡廳" : "輸入地點名稱（必填）"
+          }
           className="input-field mt-2"
           required
         />
       </label>
 
-      {/* Time Note */}
+      {/* Play note */}
+      <label className="block text-sm font-medium text-foreground">
+        <span className="text-muted-foreground">約戰說明（選填）</span>
+        <textarea
+          value={playNote}
+          onChange={(e) => setPlayNote(e.target.value)}
+          placeholder="例：休閒友好、標準環境、新手可、可借牌練習"
+          className="input-field mt-2 min-h-[88px] resize-y"
+          maxLength={500}
+          rows={3}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          讓其他人快速了解你想打什麼、什麼程度。
+        </p>
+      </label>
+
+      {/* Time */}
       <label className="block text-sm font-medium text-foreground">
         <span className="text-muted-foreground">方便時段（選填）</span>
         <input
@@ -71,6 +103,7 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
           onChange={(e) => setTimeNote(e.target.value)}
           placeholder="例：週六 14:00–18:00"
           className="input-field mt-2"
+          maxLength={200}
         />
       </label>
 

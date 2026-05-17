@@ -17,7 +17,7 @@ import {
   Users2,
   Menu,
 } from "lucide-react";
-import { NotificationDropdown } from "./NotificationDropdown";
+import { NotificationBell } from "./NotificationBell";
 
 const links: {
   href: string;
@@ -45,21 +45,18 @@ type Props = {
 
 export function NavBar({ user, pendingInvites = 0 }: Props) {
   const pathname = usePathname();
-  const [showNotificationMenu, setShowNotificationMenu] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(pendingInvites);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setUnreadCount(pendingInvites);
+  }, [pendingInvites]);
+
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target as Node)
-      ) {
-        setShowNotificationMenu(false);
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
@@ -68,11 +65,11 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
       }
     }
 
-    if (showNotificationMenu || showUserMenu || showMobileMenu) {
+    if (showUserMenu || showMobileMenu) {
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [showNotificationMenu, showUserMenu, showMobileMenu]);
+  }, [showUserMenu, showMobileMenu]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -129,24 +126,11 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 <Search className="h-5 w-5" strokeWidth={1.75} />
               </Link>
 
-              {/* Desktop: Notification Dropdown */}
-              <div className="relative hidden md:block" ref={notificationRef}>
-                <button
-                  className="btn btn-ghost relative text-foreground cursor-pointer"
-                  onClick={() => setShowNotificationMenu(!showNotificationMenu)}
-                  title={pendingInvites > 0 ? `${pendingInvites} 個通知` : "通知"}
-                  aria-label="通知"
-                >
-                  <Bell className="h-5 w-5" strokeWidth={1.75} />
-                  {pendingInvites > 0 ? (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white shadow-sm">
-                      {pendingInvites > 9 ? "9+" : pendingInvites}
-                    </span>
-                  ) : null}
-                </button>
-
-                <NotificationDropdown isOpen={showNotificationMenu} onClose={() => setShowNotificationMenu(false)} />
-              </div>
+              <NotificationBell
+                initialUnreadCount={pendingInvites}
+                onCountChange={setUnreadCount}
+                className="hidden md:block"
+              />
 
               {/* Desktop: Username and Avatar Menu */}
               <div className="relative hidden md:flex items-center gap-2" ref={userMenuRef}>
@@ -260,9 +244,9 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                             <Bell className="h-4 w-4" strokeWidth={1.75} />
                             <span className="text-sm font-medium">通知</span>
                           </div>
-                          {pendingInvites > 0 && (
+                          {unreadCount > 0 && (
                             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
-                              {pendingInvites > 9 ? "9+" : pendingInvites}
+                              {unreadCount > 9 ? "9+" : unreadCount}
                             </span>
                           )}
                         </Link>
