@@ -117,13 +117,13 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
 
       {/* Desktop: Absolute sidebar from right */}
       <div className="hidden sm:block absolute right-0 top-0 bottom-0 z-[10] w-96 pointer-events-auto">
-        <div className="h-full bg-white shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.1)] border-l border-border flex flex-col">
+        <div className="flex h-full flex-col border-l border-border bg-card shadow-[-4px_0_24px_-6px_rgba(0,0,0,0.08)]">
           {/* Header */}
-          <div className="flex items-center justify-between p-5 border-b border-border">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
             {title && <h2 className="text-lg font-semibold text-foreground line-clamp-1">{title}</h2>}
             <button
               onClick={onClose}
-              className="p-2 hover:bg-muted rounded-lg transition ml-2 shrink-0"
+              className="btn btn-ghost ml-2 shrink-0 p-2"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -139,7 +139,7 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
       <div className="sm:hidden fixed inset-0 z-[1000] pointer-events-none">
         <div
           ref={sheetRef}
-          className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-lg pointer-events-auto transition-all duration-300 ease-out ${
+          className={`pointer-events-auto absolute bottom-0 left-0 right-0 rounded-t-[1.25rem] border border-border bg-card shadow-lg transition-all duration-300 ease-out ${
             expandedMobile
               ? "top-0 rounded-t-2xl"
               : isDragging
@@ -168,7 +168,7 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
             )}
             <button
               onClick={onClose}
-              className="p-2 hover:bg-muted rounded-lg transition ml-2 shrink-0"
+              className="btn btn-ghost ml-2 shrink-0 p-2"
               aria-label="Close"
             >
               <X className="w-5 h-5" />

@@ -347,10 +347,7 @@ export function BattleClient({
             {activeMatch.meetLabel}
           </p>
           {err ? (
-            <p
-              className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-              role="alert"
-            >
+            <p className="alert-error mt-3" role="alert">
               {err}
             </p>
           ) : null}
@@ -950,7 +947,7 @@ export function BattleClient({
 
       {successMessage ? (
         <div
-          className="flex items-start justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          className="alert-success flex items-start justify-between gap-3"
           role="status"
         >
           <p>{successMessage}</p>
@@ -966,7 +963,7 @@ export function BattleClient({
       ) : null}
 
       {err ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+        <p className="alert-error" role="alert">
           {err}
         </p>
       ) : null}
@@ -991,8 +988,13 @@ export function BattleClient({
         />
 
         {/* Map container with responsive layout */}
-        <div className={`relative overflow-hidden rounded-lg border border-border grid transition-all duration-300 ${selectedShop || sheetAnnouncement || publishDraft ? "grid-cols-1 sm:grid-cols-[1fr_384px]" : "grid-cols-1"
-          }`}>
+        <div
+          className={`card relative grid overflow-hidden p-0 transition-all duration-300 ${
+            selectedShop || sheetAnnouncement || publishDraft
+              ? "grid-cols-1 sm:grid-cols-[1fr_384px]"
+              : "grid-cols-1"
+          }`}
+        >
           {/* Map */}
           <div className="w-full h-full relative z-0">
             <MeetMap

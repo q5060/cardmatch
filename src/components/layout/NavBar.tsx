@@ -156,10 +156,10 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-white border border-border shadow-lg z-50">
+                  <div className="menu-panel absolute right-0 top-full z-50 mt-2 w-48">
                     <Link
                       href="/profile"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-neutral-100 rounded-t-lg border-b border-border"
+                      className="menu-panel-item rounded-t-[1.25rem] border-b border-border"
                       onClick={() => setShowUserMenu(false)}
                     >
                       <UserCircle className="h-4 w-4" strokeWidth={2} />
@@ -167,7 +167,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                     </Link>
                     <Link
                       href="/settings"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-neutral-100 border-b border-border"
+                      className="menu-panel-item border-b border-border"
                       onClick={() => setShowUserMenu(false)}
                     >
                       <Settings className="h-4 w-4" strokeWidth={2} />
@@ -179,7 +179,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         setShowUserMenu(false);
                         logout();
                       }}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                      className="menu-panel-item w-full rounded-b-[1.25rem] text-red-600 hover:bg-red-50"
                     >
                       <LogOut className="h-4 w-4" strokeWidth={2} />
                       登出
@@ -200,7 +200,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 </button>
 
                 {showMobileMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-56 rounded-lg bg-white border border-border shadow-lg z-50">
+                  <div className="menu-panel absolute right-0 top-full z-50 mt-2 w-56">
                     {/* Nav Items */}
                     {links.map(({ href, label, auth, Icon }) => {
                       if (auth && !user) return null;
@@ -209,10 +209,8 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         <Link
                           key={href}
                           href={href}
-                          className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors border-b border-border last:border-b-0 ${
-                            active
-                              ? "bg-primary/12 text-primary"
-                              : "text-foreground hover:bg-black/[0.04]"
+                          className={`menu-panel-item border-b border-border font-medium last:border-b-0 ${
+                            active ? "bg-primary/12 text-primary" : ""
                           }`}
                           onClick={() => setShowMobileMenu(false)}
                         >
@@ -227,7 +225,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         {/* Search */}
                         <Link
                           href="/search"
-                          className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-black/[0.04] border-b border-border"
+                          className="menu-panel-item border-b border-border"
                           onClick={() => setShowMobileMenu(false)}
                         >
                           <Search className="h-4 w-4" strokeWidth={1.75} />
@@ -237,7 +235,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         {/* Notification Badge with Link */}
                         <Link
                           href="/notifications"
-                          className="flex items-center justify-between px-4 py-3 border-b border-border text-foreground hover:bg-black/[0.04]"
+                          className="menu-panel-item justify-between border-b border-border"
                           onClick={() => setShowMobileMenu(false)}
                         >
                           <div className="flex items-center gap-3">
@@ -254,7 +252,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         {/* Settings */}
                         <Link
                           href="/settings"
-                          className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-black/[0.04] border-b border-border"
+                          className="menu-panel-item border-b border-border"
                           onClick={() => setShowMobileMenu(false)}
                         >
                           <Settings className="h-4 w-4" strokeWidth={2} />
@@ -268,7 +266,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                             setShowMobileMenu(false);
                             logout();
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                          className="menu-panel-item w-full text-red-600 hover:bg-red-50"
                         >
                           <LogOut className="h-4 w-4" strokeWidth={2} />
                           登出
