@@ -140,8 +140,8 @@ export async function getActiveMatchForUser(userId: number) {
     },
     orderBy: { updatedAt: "desc" },
     include: {
-      playerA: { select: { id: true, displayName: true } },
-      playerB: { select: { id: true, displayName: true } },
+      playerA: { select: { id: true, displayName: true, avatarUrl: true } },
+      playerB: { select: { id: true, displayName: true, avatarUrl: true } },
       shop: true,
     },
   });

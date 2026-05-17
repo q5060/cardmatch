@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import {
+  publishFriendMessage,
+  publishNotification,
+} from "@/lib/realtime/publish";
 
 async function assertFriendship(friendshipId: string, userId: number) {
   const f = await prisma.friendship.findUnique({ where: { id: friendshipId } });
@@ -133,6 +137,21 @@ export async function POST(
       read: false,
     },
   });
+
+  const messageDto = {
+    id: msg.id,
+    senderId: msg.senderId,
+    body: msg.body,
+    createdAt: msg.createdAt.toISOString(),
+    sender: msg.sender,
+  };
+  publishFriendMessage(
+    friendshipId,
+    f!.requesterId,
+    f!.addresseeId,
+    messageDto,
+  );
+  await publishNotification(receiverId);
 
   return NextResponse.json({ message: msg });
 }

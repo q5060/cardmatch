@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { NotificationDropdown } from "./NotificationDropdown";
+import {
+  useRealtimeConnected,
+  useRealtimeEvent,
+} from "@/hooks/useRealtimeEvent";
+import type { RealtimeEvent } from "@/lib/realtime/types";
 
 type Props = {
   initialUnreadCount: number;
@@ -25,6 +30,7 @@ export function NotificationBell({
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sseConnected = useRealtimeConnected();
 
   useEffect(() => {
     setUnreadCount(initialUnreadCount);
@@ -40,10 +46,18 @@ export function NotificationBell({
     setUnreadCount(count);
   }, []);
 
+  const onNotification = useCallback((e: RealtimeEvent) => {
+    if (e.type !== "notification.new") return;
+    setUnreadCount(e.unreadCount);
+  }, []);
+
+  useRealtimeEvent((e) => e.type === "notification.new", onNotification);
+
   useEffect(() => {
-    const id = window.setInterval(() => void refreshCount(), 15_000);
+    if (sseConnected) return;
+    const id = window.setInterval(() => void refreshCount(), 60_000);
     return () => window.clearInterval(id);
-  }, [refreshCount]);
+  }, [refreshCount, sseConnected]);
 
   useEffect(() => {
     function onVisibility() {

@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Bell, UserRound } from "lucide-react";
 import {
   MeetMap,
@@ -32,42 +31,25 @@ import {
 } from "@/actions/match";
 import { clearBattleAnnouncement } from "@/actions/meetSpot";
 import { MATCH_STATUS } from "@/lib/constants";
+import type { ActiveMatchDTO, BattleResultDTO } from "@/lib/matchDto";
 import type { MapAnnouncementDTO } from "@/lib/queries";
+import {
+  useRealtimeConnected,
+  useRealtimeEvent,
+} from "@/hooks/useRealtimeEvent";
+import type { RealtimeEvent } from "@/lib/realtime/types";
 
-export type ActiveMatchDTO = {
-  id: number;
-  status: string;
-  invitedById: number;
-  playerAId: number;
-  playerBId: number;
-  playerAReady: boolean;
-  playerBReady: boolean;
-  cancelRequestedBy?: number | null;
-  meetLat: number;
-  meetLng: number;
-  meetLabel: string;
-  playerA: { id: number; displayName: string; avatarUrl?: string | null };
-  playerB: { id: number; displayName: string; avatarUrl?: string | null };
-};
-
-export type BattleResultDTO = {
-  id: string;
-  matchId: number;
-  winnerId: number | null;
-  playerAAgreed: boolean;
-  playerBAgreed: boolean;
-  status: string;
-} | null;
+export type { ActiveMatchDTO, BattleResultDTO };
 
 export function BattleClient({
   userId,
   shops,
-  announcements,
-  myAnnouncement,
-  activeMatch,
+  announcements: initialAnnouncements,
+  myAnnouncement: initialMyAnnouncement,
+  activeMatch: initialActiveMatch,
   defaultLat,
   defaultLng,
-  battleResult,
+  battleResult: initialBattleResult,
 }: {
   userId: number;
   shops: MapShopPin[];
@@ -78,7 +60,19 @@ export function BattleClient({
   defaultLng: number;
   battleResult?: BattleResultDTO;
 }) {
-  const router = useRouter();
+  const sseConnected = useRealtimeConnected();
+  const [activeMatch, setActiveMatch] = useState<ActiveMatchDTO | null>(
+    initialActiveMatch,
+  );
+  const [battleResult, setBattleResult] = useState<BattleResultDTO>(
+    initialBattleResult ?? null,
+  );
+  const [announcements, setAnnouncements] =
+    useState<MapAnnouncementDTO[]>(initialAnnouncements);
+  const [myAnnouncement, setMyAnnouncement] = useState<MapAnnouncementDTO | null>(
+    initialMyAnnouncement,
+  );
+
   const [outcome, setOutcome] = useState<"WIN" | "LOSS" | "DRAW">("WIN");
   const [addFriend, setAddFriend] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -136,13 +130,57 @@ export function BattleClient({
     return map;
   }, [announcements, myAnnouncement]);
 
-  /** Faster refresh while waiting on an active announcement for map invites. */
+  const syncActiveMatch = useCallback(async () => {
+    try {
+      const res = await fetch("/api/matches/active");
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        activeMatch: ActiveMatchDTO | null;
+        battleResult: BattleResultDTO;
+      };
+      setActiveMatch(data.activeMatch);
+      setBattleResult(data.battleResult);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  const syncMapSnapshot = useCallback(async () => {
+    try {
+      const res = await fetch("/api/battle/snapshot");
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        announcements: MapAnnouncementDTO[];
+        myAnnouncement: MapAnnouncementDTO | null;
+      };
+      setAnnouncements(data.announcements);
+      setMyAnnouncement(data.myAnnouncement);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([syncActiveMatch(), syncMapSnapshot()]);
+  }, [syncActiveMatch, syncMapSnapshot]);
+
+  const onMatchUpdated = useCallback((e: RealtimeEvent) => {
+    if (e.type !== "match.updated") return;
+    setActiveMatch(e.activeMatch);
+    setBattleResult(e.battleResult);
+  }, []);
+
+  useRealtimeEvent((ev) => ev.type === "match.updated", onMatchUpdated);
+
+  /** Map snapshot fallback when SSE is disconnected. */
   useEffect(() => {
-    if (activeMatch) return;
-    const ms = myAnnouncement ? 8_000 : 30_000;
-    const id = window.setInterval(() => router.refresh(), ms);
+    if (activeMatch || sseConnected) return;
+    const ms = myAnnouncement ? 15_000 : 30_000;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void syncMapSnapshot();
+    }, ms);
     return () => window.clearInterval(id);
-  }, [activeMatch, myAnnouncement, router]);
+  }, [activeMatch, myAnnouncement, sseConnected, syncMapSnapshot]);
 
   useEffect(() => {
     if (!isIncomingInvite || !activeMatch) return;
@@ -196,7 +234,7 @@ export function BattleClient({
   }, [successMessage]);
 
   function handleAnnouncementPublished(published: PublishDraft & { label: string }) {
-    refresh();
+    void refresh();
     if (published.shopId) {
       const shopName =
         shops.find((s) => s.id === published.shopId)?.name ?? published.label;
@@ -210,9 +248,9 @@ export function BattleClient({
     }
   }
 
-  /** Server props only refresh after your own actions; poll so the opponent's ready state & status sync. */
+  /** Match state fallback when SSE is disconnected. */
   useEffect(() => {
-    if (!activeMatch) return;
+    if (!activeMatch || sseConnected) return;
     const syncStatuses = new Set<string>([
       MATCH_STATUS.ACCEPTED,
       MATCH_STATUS.INVITE_PENDING,
@@ -221,23 +259,18 @@ export function BattleClient({
     if (!syncStatuses.has(activeMatch.status)) return;
 
     const id = window.setInterval(() => {
-      router.refresh();
-    }, 2500);
+      if (document.visibilityState === "visible") void syncActiveMatch();
+    }, 30_000);
 
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll keyed by match id + status only
-  }, [activeMatch?.id, activeMatch?.status, router]);
-
-  function refresh() {
-    router.refresh();
-  }
+  }, [activeMatch?.id, activeMatch?.status, sseConnected, syncActiveMatch]);
 
   function run(action: () => Promise<unknown>) {
     setErr(null);
     startTransition(async () => {
       try {
         await action();
-        refresh();
+        await refresh();
       } catch (e) {
         setErr(e instanceof Error ? e.message : "操作失敗");
       }

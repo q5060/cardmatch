@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { MATCH_STATUS } from "@/lib/constants";
 import { countActiveMatchesForUser } from "@/lib/queries";
+import { publishMatchSnapshot, publishNotification } from "@/lib/realtime/publish";
 
 async function requireUserId() {
   const session = await getSession();
@@ -97,6 +98,8 @@ export async function sendInviteFromSpot(spotId: string) {
     },
   });
 
+  await publishMatchSnapshot(match.id);
+  await publishNotification(targetUserId);
   revalidatePath("/battle");
 }
 
@@ -126,6 +129,8 @@ export async function acceptInvite(matchId: string) {
     },
   });
 
+  await publishMatchSnapshot(id);
+  await publishNotification(inviterId);
   revalidatePath("/battle");
 }
 
@@ -141,6 +146,7 @@ export async function rejectInvite(matchId: string) {
     data: { status: MATCH_STATUS.CANCELLED },
   });
 
+  await publishMatchSnapshot(id);
   revalidatePath("/battle");
 }
 
@@ -182,8 +188,10 @@ export async function setReady(matchId: string, ready: boolean) {
         read: false,
       },
     });
+    await publishNotification(otherPlayerId);
   }
 
+  await publishMatchSnapshot(id);
   revalidatePath("/battle");
 }
 
@@ -224,6 +232,7 @@ export async function cancelMatch(matchId: string) {
           read: false,
         },
       });
+      await publishNotification(otherPlayerId);
     } else if (match.cancelRequestedBy === userId) {
       // Same player requesting again - cancel their request
       await prisma.match.update({
@@ -248,11 +257,13 @@ export async function cancelMatch(matchId: string) {
           read: false,
         },
       });
+      await publishNotification(otherPlayerId);
     }
   } else {
     throw new Error("無法取消此約戰");
   }
 
+  await publishMatchSnapshot(id);
   revalidatePath("/battle");
 }
 
@@ -285,6 +296,8 @@ export async function rejectCancelRequest(matchId: string) {
     },
   });
 
+  await publishMatchSnapshot(id);
+  await publishNotification(otherPlayerId);
   revalidatePath("/battle");
 }
 
@@ -380,6 +393,8 @@ export async function finishMatch(
     }
   });
 
+  await publishMatchSnapshot(id);
+  await publishNotification(otherId);
   revalidatePath("/battle");
   revalidatePath("/profile");
   revalidatePath("/friends");
@@ -399,6 +414,7 @@ export async function resetBattleResult(matchId: string) {
     where: { matchId: id },
   });
 
+  await publishMatchSnapshot(id);
   revalidatePath("/battle");
 }
 
