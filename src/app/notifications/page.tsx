@@ -3,6 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { Bell, ArrowLeft } from "lucide-react";
+import {
+  getNotificationBody,
+  getNotificationTitle,
+} from "@/lib/notificationDisplay";
 
 export const metadata = {
   title: "通知 | CardMatch",
@@ -25,25 +29,9 @@ export default async function NotificationsPage() {
     take: 100,
   });
 
-  const getNotificationMessage = (notification: typeof notifications[0]) => {
-    switch (notification.type) {
-      case "MATCH_CREATED":
-        return "對戰邀請";
-      case "MATCH_COMPLETED":
-        return "對戰已成立";
-      case "BATTLE_RESULT":
-        return "對戰結果待確認";
-      case "FRIEND_REQUEST":
-        return "收到好友邀請";
-      case "MESSAGE":
-        return "收到新訊息";
-      default:
-        return "新通知";
-    }
-  };
-
   const getNotificationLink = (notification: typeof notifications[0]) => {
     switch (notification.type) {
+      case "SPOT_INVITE":
       case "MATCH_CREATED":
       case "MATCH_COMPLETED":
       case "BATTLE_RESULT":
@@ -84,26 +72,34 @@ export default async function NotificationsPage() {
           </div>
         ) : (
           <ul className="space-y-2">
-            {notifications.map((notification) => (
+            {notifications.map((notification) => {
+              const title = getNotificationTitle(notification.type, notification.data);
+              const body = getNotificationBody(notification.type, notification.data);
+              const isSpotInvite =
+                notification.type === "SPOT_INVITE" && !notification.read;
+              return (
               <li key={notification.id}>
                 <Link
                   href={getNotificationLink(notification)}
                   className={`block card card-hover p-4 transition-colors ${
-                    notification.read
-                      ? "bg-white hover:bg-neutral-50"
-                      : "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                    isSpotInvite
+                      ? "border-2 border-primary/40 bg-primary/10 hover:bg-primary/15"
+                      : notification.read
+                        ? "bg-white hover:bg-neutral-50"
+                        : "bg-primary/5 border-primary/20 hover:bg-primary/10"
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-foreground">
-                        {getNotificationMessage(notification)}
-                      </p>
-                      {notification.data && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {notification.data}
+                      {isSpotInvite ? (
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-primary mb-1">
+                          約戰公告 · 新邀請
                         </p>
-                      )}
+                      ) : null}
+                      <p className="font-medium text-foreground">{title}</p>
+                      {body ? (
+                        <p className="text-sm text-muted-foreground mt-1">{body}</p>
+                      ) : null}
                       <p className="text-xs text-muted-foreground mt-2">
                         {new Date(notification.createdAt).toLocaleString(
                           "zh-Hant",
@@ -120,7 +116,8 @@ export default async function NotificationsPage() {
                   </div>
                 </Link>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>

@@ -25,6 +25,7 @@ export type MapAnnouncementDTO = {
   lng: number;
   label: string;
   timeNote: string;
+  playNote: string;
   shopId: string | null;
   expiresAt: string;
 };
@@ -36,6 +37,7 @@ type SpotWithUser = {
   lng: number;
   label: string;
   timeNote: string;
+  playNote: string;
   shopId: string | null;
   expiresAt: Date | null;
   user: {
@@ -57,6 +59,7 @@ function mapSpotToDTO(s: SpotWithUser): MapAnnouncementDTO {
     lng: s.lng,
     label: s.label,
     timeNote: s.timeNote,
+    playNote: s.playNote,
     shopId: s.shopId,
     expiresAt: s.expiresAt!.toISOString(),
   };

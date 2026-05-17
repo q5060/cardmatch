@@ -50,6 +50,8 @@ export type MapAnnouncementPin = {
   lat: number;
   lng: number;
   label: string;
+  timeNote?: string;
+  playNote?: string;
   isOwn?: boolean;
 };
 
@@ -169,7 +171,13 @@ export function MeetMapClient({
               >
                 <Popup>
                   <strong>{a.displayName}</strong>
-                  <div className="text-xs">{a.label}</div>
+                  <div className="text-xs text-muted-foreground">{a.label}</div>
+                  {a.playNote ? (
+                    <p className="mt-1 text-xs line-clamp-3">{a.playNote}</p>
+                  ) : null}
+                  {a.timeNote ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">時段：{a.timeNote}</p>
+                  ) : null}
                   {onAnnouncementClick ? (
                     <p className="mt-1 text-xs text-primary">點擊查看約戰需求</p>
                   ) : null}

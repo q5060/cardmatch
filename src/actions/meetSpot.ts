@@ -25,6 +25,7 @@ export async function publishBattleAnnouncement(input: {
   lng: number;
   label: string;
   timeNote?: string;
+  playNote?: string;
   shopId?: string | null;
 }) {
   const userId = await requireUserId();
@@ -34,7 +35,8 @@ export async function publishBattleAnnouncement(input: {
   }
   const label = input.label.trim();
   if (!label) throw new Error("請輸入地點名稱");
-  const timeNote = (input.timeNote ?? "").trim().slice(0, 500);
+  const timeNote = (input.timeNote ?? "").trim().slice(0, 200);
+  const playNote = (input.playNote ?? "").trim().slice(0, 500);
 
   if ((await countActiveMatchesForUser(userId)) > 0) {
     throw new Error("已有進行中的約戰，無法發布公告");
@@ -61,6 +63,7 @@ export async function publishBattleAnnouncement(input: {
           lng: input.lng,
           label: label.slice(0, 120),
           timeNote,
+          playNote,
           shopId: input.shopId ?? null,
           looking: true,
           active: true,
@@ -75,6 +78,7 @@ export async function publishBattleAnnouncement(input: {
           lng: input.lng,
           label: label.slice(0, 120),
           timeNote,
+          playNote,
           shopId: input.shopId ?? null,
           looking: true,
           active: true,

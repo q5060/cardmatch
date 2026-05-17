@@ -79,13 +79,20 @@ export async function sendInviteFromSpot(spotId: string) {
     },
   });
 
+  const inviterName = inviter?.displayName ?? "玩家";
   await prisma.notification.create({
     data: {
       userId: targetUserId,
-      type: "MATCH_CREATED",
+      type: "SPOT_INVITE",
       referenceId: match.id.toString(),
       senderId: userId,
-      data: JSON.stringify(`${inviter?.displayName ?? "玩家"} 邀請你對戰`),
+      data: JSON.stringify({
+        kind: "spot_invite",
+        title: `${inviterName} 回應你的約戰公告`,
+        body: `地點：${spot.label}`,
+        meetLabel: spot.label,
+        inviterName,
+      }),
       read: false,
     },
   });

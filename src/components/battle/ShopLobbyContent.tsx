@@ -112,8 +112,15 @@ export function ShopLobbyContent({
                           </span>
                         ) : null}
                       </p>
+                      {p.playNote ? (
+                        <p className="text-xs text-foreground line-clamp-2">{p.playNote}</p>
+                      ) : null}
                       <p className="text-xs text-muted-foreground">
-                        {p.timeNote || "未填時段"}
+                        {p.timeNote
+                          ? `時段：${p.timeNote}`
+                          : p.playNote
+                            ? "未填時段"
+                            : "未填說明"}
                       </p>
                     </div>
                   </div>

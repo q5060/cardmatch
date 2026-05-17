@@ -75,10 +75,10 @@ const features = [
     FootIcon: Map,
   },
   {
-    tag: "Queue",
-    labelEn: "Active Queues",
+    tag: "Battle",
+    labelEn: "Map announcements",
     title: "地圖公告",
-    desc: "在卡店或任意地點發布約戰釘，其他玩家點擊即可查看並發起邀請。",
+    desc: "搜尋地址或點選藍色卡店進入大廳；綠色釘為玩家自選地點，點擊即可查看並發起邀請。",
     Preview: QueuePreview,
     FootIcon: ClipboardList,
   },
@@ -113,7 +113,7 @@ export default async function Home() {
           發現你的下一場對戰
         </h1>
         <p className="relative mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          輕鬆連結喜愛寶可夢卡牌的同好：在地圖上發布約戰公告、點擊他人釘發起對戰，見面後還能聊天、加好友。
+          輕鬆連結喜愛寶可夢卡牌的同好：搜尋地點或點選卡店發布約戰公告、點擊他人釘發起對戰，見面後還能聊天、加好友。
         </p>
         <div className="relative mt-10 flex flex-wrap gap-3">
           {user ? (

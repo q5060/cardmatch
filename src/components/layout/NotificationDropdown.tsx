@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Bell } from "lucide-react";
+import { Bell } from "lucide-react";
 import Link from "next/link";
+import {
+  getNotificationBody,
+  getNotificationTitle,
+} from "@/lib/notificationDisplay";
 
 interface NotificationItem {
   id: string;
   type: string;
   senderId: number | null;
   referenceId: string | null;
-  data: string | null;
+  data: string | Record<string, unknown> | null;
   read: boolean;
   createdAt: string;
 }
@@ -17,9 +21,14 @@ interface NotificationItem {
 interface NotificationDropdownProps {
   isOpen: boolean;
   onClose: () => void;
+  onUnreadCountChange?: (count: number) => void;
 }
 
-export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownProps) {
+export function NotificationDropdown({
+  isOpen,
+  onClose,
+  onUnreadCountChange,
+}: NotificationDropdownProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [marking, setMarking] = useState(false);
@@ -37,6 +46,9 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications);
+        if (typeof data.unreadCount === "number") {
+          onUnreadCountChange?.(data.unreadCount);
+        }
       }
     } catch (error) {
       console.error("獲取通知失敗:", error);
@@ -54,6 +66,7 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
       });
       if (res.ok) {
         setNotifications([]);
+        onUnreadCountChange?.(0);
       }
     } catch (error) {
       console.error("標記全部已讀失敗:", error);
@@ -62,25 +75,9 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
     }
   };
 
-  const getNotificationMessage = (notification: NotificationItem) => {
-    switch (notification.type) {
-      case "MATCH_CREATED":
-        return "對戰邀請";
-      case "MATCH_COMPLETED":
-        return "對戰已成立";
-      case "BATTLE_RESULT":
-        return "對戰結果待確認";
-      case "FRIEND_REQUEST":
-        return "收到好友邀請";
-      case "MESSAGE":
-        return "收到新訊息";
-      default:
-        return "新通知";
-    }
-  };
-
   const getNotificationLink = (notification: NotificationItem) => {
     switch (notification.type) {
+      case "SPOT_INVITE":
       case "MATCH_CREATED":
       case "MATCH_COMPLETED":
       case "BATTLE_RESULT":
@@ -114,7 +111,11 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {notifications.map((notification) => (
+            {notifications.map((notification) => {
+              const title = getNotificationTitle(notification.type, notification.data);
+              const body = getNotificationBody(notification.type, notification.data);
+              const isSpotInvite = notification.type === "SPOT_INVITE";
+              return (
               <Link
                 key={notification.id}
                 href={getNotificationLink(notification)}
@@ -127,25 +128,39 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ notificationId: notification.id }),
                     });
+                    const next = notifications.filter((n) => n.id !== notification.id);
+                    setNotifications(next);
+                    onUnreadCountChange?.(next.length);
                   } catch (error) {
                     console.error("Failed to mark notification as read:", error);
                   }
                 }}
-                className="block px-4 py-3 hover:bg-accent/50 transition-colors"
+                className={`block px-4 py-3 transition-colors ${
+                  isSpotInvite
+                    ? "bg-primary/10 hover:bg-primary/15 border-l-4 border-l-primary"
+                    : "hover:bg-accent/50"
+                }`}
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0 pt-1">
-                    <div className="h-2 w-2 rounded-full bg-primary mt-1.5" />
+                    <div
+                      className={`mt-1.5 h-2 w-2 rounded-full ${
+                        isSpotInvite ? "animate-pulse bg-primary" : "bg-primary"
+                      }`}
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {getNotificationMessage(notification)}
-                    </p>
-                    {notification.data && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                        {notification.data}
+                    {isSpotInvite ? (
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-primary mb-0.5">
+                        約戰公告 · 新邀請
                       </p>
-                    )}
+                    ) : null}
+                    <p className="text-sm font-medium text-foreground">{title}</p>
+                    {body ? (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                        {body}
+                      </p>
+                    ) : null}
                     <p className="text-xs text-muted-foreground mt-1">
                       {new Date(notification.createdAt).toLocaleString("zh-Hant", {
                         dateStyle: "medium",
@@ -155,7 +170,8 @@ export function NotificationDropdown({ isOpen, onClose }: NotificationDropdownPr
                   </div>
                 </div>
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

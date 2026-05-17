@@ -55,16 +55,25 @@ export function AnnouncementContent({
         </div>
       </div>
 
-      {/* Bio */}
-      {announcement.bio ? (
-        <p className="text-sm text-muted-foreground line-clamp-3">{announcement.bio}</p>
-      ) : null}
+      {announcement.playNote ? (
+        <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+          {announcement.playNote}
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">未填寫約戰說明</p>
+      )}
 
-      {/* Time Note */}
       {announcement.timeNote ? (
         <p className="text-sm text-foreground">
-          <span className="text-muted-foreground">時段：</span>
+          <span className="text-muted-foreground">方便時段：</span>
           {announcement.timeNote}
+        </p>
+      ) : null}
+
+      {announcement.bio ? (
+        <p className="text-xs text-muted-foreground line-clamp-2 border-t border-border pt-2">
+          <span className="font-medium">個人簡介：</span>
+          {announcement.bio}
         </p>
       ) : null}
 
