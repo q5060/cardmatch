@@ -153,9 +153,9 @@ export function MeetMapClient({
                   {s.addressNote ? (
                     <div className="text-xs text-gray-600">{s.addressNote}</div>
                   ) : null}
-                  {onShopClick ? (
+                  {/* {onShopClick ? (
                     <p className="mt-1 text-xs text-primary">點擊進入店家大廳</p>
-                  ) : null}
+                  ) : null} */}
                 </Popup>
               </Marker>
             ))}

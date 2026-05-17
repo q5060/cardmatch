@@ -36,13 +36,13 @@ export function AnnouncementSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+      className="fixed inset-0 z-[1000] flex justify-center bg-black/40 p-4 items-end sm:items-center sm:justify-end"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-md space-y-4 p-5 shadow-xl"
+        className="card w-full max-w-md space-y-4 p-5 shadow-xl sm:h-auto sm:max-h-[80vh] sm:mr-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3">
