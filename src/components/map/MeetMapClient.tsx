@@ -134,8 +134,7 @@ export function MeetMapClient({
             {previewPin ? (
               <Marker position={[previewPin.lat, previewPin.lng]} icon={previewPinIcon}>
                 <Popup>
-                  <strong>預覽地點</strong>
-                  <div className="text-xs">{previewPin.label}</div>
+                  <strong>{[previewPin.lat.toFixed(5), ", ",previewPin.lng.toFixed(5)]}</strong>
                 </Popup>
               </Marker>
             ) : null}
