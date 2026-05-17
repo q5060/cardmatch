@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { publishNotification } from "@/lib/realtime/publish";
 
 async function requireUserId(): Promise<number> {
   const session = await getSession();
@@ -72,5 +73,6 @@ export async function sendFriendMessage(friendshipId: string, body: string) {
     },
   });
 
+  await publishNotification(receiverId);
   revalidatePath("/friends");
 }

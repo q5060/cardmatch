@@ -5,14 +5,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { UserCircle, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
+import type { ChatMessageDTO, RealtimeEvent } from "@/lib/realtime/types";
+import {
+  useRealtimeConnected,
+  useRealtimeEvent,
+} from "@/hooks/useRealtimeEvent";
 
-type Msg = {
-  id: string;
-  senderId?: number;
-  body: string;
-  createdAt: string;
-  sender: { id: number; displayName: string };
-};
+type Msg = ChatMessageDTO;
+
+function mergeMessages(prev: Msg[], incoming: Msg[]): Msg[] {
+  const byId = new Map(prev.map((m) => [m.id, m]));
+  for (const m of incoming) byId.set(m.id, m);
+  return [...byId.values()].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+}
 
 type OtherUser = {
   id: number;
@@ -45,14 +52,41 @@ export function FriendChatPage({
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const lastAfterRef = useRef<string | null>(null);
+  const sseConnected = useRealtimeConnected();
 
-  // Load initial messages
+  const pullNew = useCallback(async () => {
+    const url = new URL(
+      `/api/friendships/${friendshipId}/messages`,
+      window.location.origin,
+    );
+    url.searchParams.set("offset", "0");
+    url.searchParams.set("limit", "30");
+    if (lastAfterRef.current) {
+      url.searchParams.set("afterTime", lastAfterRef.current);
+    }
+    const res = await fetch(url.toString());
+    if (!res.ok) return;
+    const data = (await res.json()) as { messages: Msg[] };
+    if (data.messages.length === 0) return;
+    const normalized = data.messages.map((m) => ({
+      ...m,
+      senderId: m.senderId ?? m.sender?.id ?? 0,
+      createdAt:
+        typeof m.createdAt === "string"
+          ? m.createdAt
+          : new Date(m.createdAt).toISOString(),
+    }));
+    lastAfterRef.current = normalized[normalized.length - 1]!.createdAt;
+    setMessages((prev) => mergeMessages(prev, normalized));
+  }, [friendshipId]);
+
   useEffect(() => {
     async function loadMessages() {
       setLoading(true);
       try {
         const res = await fetch(
-          `/api/friendships/${friendshipId}/messages?offset=0&limit=30`
+          `/api/friendships/${friendshipId}/messages?offset=0&limit=30`,
         );
         if (!res.ok) {
           setFetchErr("無法載入聊天");
@@ -60,55 +94,65 @@ export function FriendChatPage({
         }
         const data = (await res.json()) as {
           messages: Msg[];
-          totalCount: number;
-          offset: number;
           hasMore: boolean;
         };
-        setMessages(data.messages);
+        const normalized = data.messages.map((m) => ({
+          ...m,
+          senderId: m.senderId ?? m.sender?.id ?? 0,
+          createdAt:
+            typeof m.createdAt === "string"
+              ? m.createdAt
+              : new Date(m.createdAt).toISOString(),
+        }));
+        setMessages(normalized);
+        if (normalized.length > 0) {
+          lastAfterRef.current = normalized[normalized.length - 1]!.createdAt;
+        }
         setOffset(0);
         setHasMore(data.hasMore);
         setFetchErr(null);
-        
-        // Scroll to bottom to show latest messages
+
         if (messagesContainerRef.current) {
           setTimeout(() => {
             if (messagesContainerRef.current) {
-              messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+              messagesContainerRef.current.scrollTop =
+                messagesContainerRef.current.scrollHeight;
             }
           }, 0);
         }
-      } catch (e) {
+      } catch {
         setFetchErr("無法載入訊息");
       } finally {
         setLoading(false);
       }
     }
 
-    loadMessages();
+    void loadMessages();
+  }, [friendshipId]);
 
-    // Poll for new messages every 4 seconds
-    const interval = window.setInterval(async () => {
-      try {
-        const res = await fetch(
-          `/api/friendships/${friendshipId}/messages?offset=${offset}&limit=30`
-        );
-        if (res.ok) {
-          const data = (await res.json()) as {
-            messages: Msg[];
-            totalCount: number;
-            offset: number;
-            hasMore: boolean;
-          };
-          setMessages(data.messages);
-          setHasMore(data.hasMore);
-        }
-      } catch (e) {
-        // Silent fail for polling
-      }
-    }, 4000);
+  useEffect(() => {
+    if (sseConnected) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void pullNew();
+    }, 12_000);
+    return () => window.clearInterval(id);
+  }, [pullNew, sseConnected]);
 
-    return () => clearInterval(interval);
-  }, [friendshipId, offset]);
+  const onMessage = useCallback(
+    (e: RealtimeEvent) => {
+      if (e.type !== "message.new" || e.channel !== "friend") return;
+      if (e.friendshipId !== friendshipId) return;
+      const m = e.message;
+      lastAfterRef.current = m.createdAt;
+      setMessages((prev) => mergeMessages(prev, [m]));
+    },
+    [friendshipId],
+  );
+
+  useRealtimeEvent(
+    (e) => e.type === "message.new" && e.channel === "friend",
+    onMessage,
+  );
 
   const loadMore = useCallback(async () => {
     setIsLoadingMore(true);
@@ -152,22 +196,28 @@ export function FriendChatPage({
       });
       if (res.ok) {
         setText("");
-        // Reload messages to show the new one
-        const r = await fetch(
-          `/api/friendships/${friendshipId}/messages?offset=0&limit=30`
-        );
-        if (r.ok) {
-          const data = (await r.json()) as {
-            messages: Msg[];
-            hasMore: boolean;
+        const data = (await res.json()) as {
+          message: {
+            id: string;
+            senderId: number;
+            body: string;
+            createdAt: string;
+            sender: { id: number; displayName: string };
           };
-          setMessages(data.messages);
-          setOffset(0);
-          setHasMore(data.hasMore);
-          setFetchErr(null);
-        } else {
-          setFetchErr("送出成功但重新載入失敗");
-        }
+        };
+        const m: Msg = {
+          id: data.message.id,
+          senderId: data.message.senderId,
+          body: data.message.body,
+          createdAt:
+            typeof data.message.createdAt === "string"
+              ? data.message.createdAt
+              : new Date(data.message.createdAt).toISOString(),
+          sender: data.message.sender,
+        };
+        lastAfterRef.current = m.createdAt;
+        setMessages((prev) => mergeMessages(prev, [m]));
+        setFetchErr(null);
       } else {
         setSendErr(
           res.status === 404 ? "無法送出（狀態或權限不符）" : "送出失敗"

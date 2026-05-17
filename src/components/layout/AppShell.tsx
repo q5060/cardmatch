@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { NavBar } from "./NavBar";
+import { RealtimeShell } from "./RealtimeShell";
 import prisma from "@/lib/prisma";
-import { MATCH_STATUS } from "@/lib/constants";
 import { ExternalLink, MessageCircle, Share2 } from "lucide-react";
 
 type UserBrief = { id: number; displayName: string; avatarUrl: string | null };
@@ -25,6 +25,7 @@ export async function AppShell({
   }
 
   return (
+    <RealtimeShell enabled={!!user}>
     <div className="flex min-h-screen flex-col">
       <NavBar user={user} pendingInvites={pendingInvites} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">{children}</main>
@@ -74,5 +75,6 @@ export async function AppShell({
         </div>
       </footer>
     </div>
+    </RealtimeShell>
   );
 }

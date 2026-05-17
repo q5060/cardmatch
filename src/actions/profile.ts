@@ -5,6 +5,7 @@ import path from "path";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { publishNotification } from "@/lib/realtime/publish";
 
 const AVATAR_PREFIX = "/uploads/avatars/";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -181,6 +182,7 @@ export async function sendFriendRequest(targetUserId: number) {
     },
   });
 
+  await publishNotification(targetUserId);
   revalidatePath(`/profile/${targetUserId}`);
   return friendship;
 }

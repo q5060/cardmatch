@@ -8,39 +8,13 @@ import {
   getMyActiveAnnouncement,
   getShops,
 } from "@/lib/queries";
-import { BattleClient, type ActiveMatchDTO } from "@/components/battle/BattleClient";
+import { BattleClient } from "@/components/battle/BattleClient";
+import { toActiveMatchDTO } from "@/lib/matchDto";
 
 export const metadata: Metadata = {
   title: "對戰 | CardMatch",
   description: "在地圖上發布約戰公告，尋找對手並協調會面",
 };
-
-function toActiveMatchDTO(m: NonNullable<Awaited<ReturnType<typeof getActiveMatchForUser>>>): ActiveMatchDTO {
-  return {
-    id: m.id,
-    status: m.status,
-    invitedById: m.invitedById,
-    playerAId: m.playerAId,
-    playerBId: m.playerBId,
-    playerAReady: m.playerAReady,
-    playerBReady: m.playerBReady,
-    cancelRequestedBy: m.cancelRequestedBy,
-    meetLat: m.meetLat,
-    meetLng: m.meetLng,
-    meetLabel: m.meetLabel,
-    playerA: m.playerA,
-    playerB: m.playerB,
-  };
-}
-
-export type BattleResultDTO = {
-  id: string;
-  matchId: number;
-  winnerId: number | null;
-  playerAAgreed: boolean;
-  playerBAgreed: boolean;
-  status: string;
-} | null;
 
 const DEFAULT_LAT = 25.033;
 const DEFAULT_LNG = 121.565;
@@ -56,7 +30,7 @@ export default async function BattlePage() {
     getShops(),
   ]);
 
-  let battleResult: BattleResultDTO = null;
+  let battleResult = null;
   if (activeMatch) {
     const result = await prisma.battleResult.findUnique({
       where: { matchId: activeMatch.id },

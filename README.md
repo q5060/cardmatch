@@ -168,9 +168,27 @@ docker-compose exec cardmatch npm run db:seed
 
 ---
 
+## 即時同步（SSE）
+
+登入後全站會建立一條 Server-Sent Events 連線（`GET /api/realtime/stream`），用於推送：
+
+- 對戰狀態變更（邀請、準備、取消等）
+- 約戰／好友新訊息
+- 通知未讀數更新
+
+聊天與對戰頁在 SSE 斷線時會以輕量 API 輪詢作為 fallback（`afterTime` 增量拉取訊息、`/api/matches/active` 同步對戰狀態）。
+
+| 環境變數 | 說明 |
+|----------|------|
+| `REALTIME_BUS` | 預設 `memory`（單一 Node 進程內記憶體 bus）。多 instance 部署（如 Vercel）需改為 `redis` 並設定 `REDIS_URL`（尚未內建，需自行擴充）。 |
+
+---
+
 ## 部署備註
 
 SQLite 依賴可寫入的持久化檔案系統；Serverless 託管常見作法是改用 PostgreSQL 等，並在環境中設定對應的 `DATABASE_URL`。正式環境請務必設定強隨機的 `SESSION_SECRET`，並啟用 HTTPS（production 下 session cookie 為 `secure`）。
+
+若採多 instance 託管，請一併規劃 **Redis pub/sub** 作為 realtime bus，否則 SSE 事件只會送達與寫入同一進程的連線。
 
 ---
 
