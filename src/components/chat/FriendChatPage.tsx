@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { UserCircle, ChevronUp } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { BackLink } from "@/components/ui/BackLink";
 import type { ChatMessageDTO, RealtimeEvent } from "@/lib/realtime/types";
 import {
   useRealtimeConnected,
@@ -41,7 +41,6 @@ export function FriendChatPage({
   currentUserId: number;
   otherUser: OtherUser;
 }) {
-  const router = useRouter();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -250,12 +249,7 @@ export function FriendChatPage({
     <div className="space-y-4">
       {/* Header */}
       <header className="space-y-2">
-        <button
-          onClick={() => router.back()}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          ← 返回
-        </button>
+        <BackLink label="返回好友" />
         <div className="flex items-center gap-3">
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border">
             {otherUser.avatarUrl ? (
@@ -285,7 +279,7 @@ export function FriendChatPage({
       </header>
 
       {/* Chat Container */}
-      <div className="card flex h-[600px] flex-col overflow-hidden p-0">
+      <div className="card flex min-h-[min(600px,calc(100dvh-12rem))] flex-col overflow-hidden p-0">
         {/* Messages */}
         <div
           ref={messagesContainerRef}

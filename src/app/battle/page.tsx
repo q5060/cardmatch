@@ -10,6 +10,7 @@ import {
 } from "@/lib/queries";
 import { BattleClient } from "@/components/battle/BattleClient";
 import { toActiveMatchDTO } from "@/lib/matchDto";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 export const metadata: Metadata = {
   title: "對戰 | CardMatch",
@@ -52,13 +53,11 @@ export default async function BattlePage() {
 
   return (
     <div className="space-y-8">
-      <header className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">對戰大廳</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">對戰</h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-          可用搜尋欄找卡店或地址。藍色釘進入店家大廳；綠色釘為玩家自選地點。點擊查看約戰需求並發起邀請，接受後在此協調會面。
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="對戰大廳"
+        title="對戰"
+        description="可用搜尋欄找卡店或地址。藍色釘進入店家大廳；綠色釘為玩家自選地點。點擊查看約戰需求並發起邀請，接受後在此協調會面。"
+      />
       <BattleClient
         userId={user.id}
         shops={shops}

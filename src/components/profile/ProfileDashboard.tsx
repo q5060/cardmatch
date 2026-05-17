@@ -39,10 +39,10 @@ function normalizeTab(raw: string | null, variant: "self" | "other"): ProfileTab
 function heatCellClass(count: number, max: number): string {
   if (count <= 0) return "bg-neutral-200";
   const t = Math.min(count / max, 1);
-  if (t <= 0.25) return "bg-blue-200";
-  if (t <= 0.5) return "bg-blue-400";
-  if (t <= 0.75) return "bg-blue-600";
-  return "bg-blue-800";
+  if (t <= 0.25) return "bg-primary/25";
+  if (t <= 0.5) return "bg-primary/45";
+  if (t <= 0.75) return "bg-primary/70";
+  return "bg-primary";
 }
 
 function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, number> }) {
@@ -120,7 +120,6 @@ export type ProfileDashboardProps = {
   publicDeckCount: number;
   feed: ProfileMatchFeedRow[];
   decksSlot: ReactNode;
-  settingsSlot?: ReactNode | null;
 };
 
 export function ProfileDashboard({
@@ -135,7 +134,6 @@ export function ProfileDashboard({
   publicDeckCount,
   feed,
   decksSlot,
-  settingsSlot = null,
 }: ProfileDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -231,13 +229,22 @@ export function ProfileDashboard({
       </header>
     ) : (
       <header className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">我的檔案</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          個人檔案
-        </h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          管理顯示名稱、牌組與對戰統計。
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+              我的檔案
+            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              個人檔案
+            </h1>
+            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              管理顯示名稱、牌組與對戰統計。
+            </p>
+          </div>
+          <Link href="/settings" className="btn btn-outline btn-sm shrink-0">
+            編輯設定
+          </Link>
+        </div>
       </header>
     );
 

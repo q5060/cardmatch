@@ -94,7 +94,7 @@ export function NotificationDropdown({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute right-0 top-full mt-2 z-50 w-80 rounded-lg border border-border bg-background shadow-lg">
+    <div className="menu-panel absolute right-0 top-full z-50 mt-2 w-80">
       <div className="border-b border-border px-4 py-3">
         <h3 className="font-semibold text-sm">未讀通知</h3>
       </div>
