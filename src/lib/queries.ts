@@ -201,6 +201,8 @@ export async function getProfileBattleStats(userId: number): Promise<ProfileBatt
     recordedTotal++;
     if (br.winnerId === userId) {
       wins++;
+    } else if (br.winnerId === null) {
+      draws++;
     } else {
       losses++;
     }
@@ -239,7 +241,13 @@ export async function getProfileMatchFeed(
     const br = m.battleResults[0];
     let outcomeLabel: string | null = null;
     if (br && br.status === "AGREED") {
-      outcomeLabel = br.winnerId === userId ? "勝" : "敗";
+      if (br.winnerId === userId) {
+        outcomeLabel = "勝";
+      } else if (br.winnerId === null) {
+        outcomeLabel = "平";
+      } else {
+        outcomeLabel = "敗";
+      }
     }
     return {
       id: m.id,

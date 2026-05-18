@@ -78,7 +78,7 @@ const features = [
     tag: "Battle",
     labelEn: "Map announcements",
     title: "地圖公告",
-    desc: "搜尋地址或點選藍色卡店進入大廳；綠色釘為玩家自選地點，點擊即可查看並發起邀請。",
+    desc: "搜尋地址或點選藍色卡店進入大廳；綠色釘為玩家自訂地點，點擊即可查看並發起邀請。",
     Preview: QueuePreview,
     FootIcon: ClipboardList,
   },

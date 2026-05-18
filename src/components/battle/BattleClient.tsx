@@ -88,6 +88,7 @@ export function BattleClient({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [incomingInviteAlert, setIncomingInviteAlert] = useState(false);
   const seenInviteMatchIdRef = useRef<number | null>(null);
+  const autoCleanedRef = useRef<number | null>(null);
 
   const isIncomingInvite =
     activeMatch?.status === MATCH_STATUS.INVITE_PENDING &&
@@ -233,6 +234,18 @@ export function BattleClient({
     return () => window.clearTimeout(id);
   }, [successMessage]);
 
+  /** Auto-clear announcement when match is accepted */
+  useEffect(() => {
+    if (!activeMatch || activeMatch.status !== MATCH_STATUS.ACCEPTED || !myAnnouncement) return;
+    // Only clear once per match
+    if (autoCleanedRef.current === activeMatch.id) return;
+    
+    autoCleanedRef.current = activeMatch.id;
+    run(async () => {
+      await clearBattleAnnouncement();
+    });
+  }, [activeMatch?.id, activeMatch?.status, myAnnouncement?.spotId]);
+
   function handleAnnouncementPublished(published: PublishDraft & { label: string }) {
     void refresh();
     if (published.shopId) {
@@ -243,7 +256,7 @@ export function BattleClient({
       );
     } else {
       setSuccessMessage(
-        `已在「${published.label}」發布約戰公告（地圖綠色釘顯示自選地點）。`,
+        `已在「${published.label}」發布約戰公告（地圖綠色釘顯示自訂地點）。`,
       );
     }
   }
@@ -439,6 +452,7 @@ export function BattleClient({
               center={[activeMatch.meetLat, activeMatch.meetLng]}
               zoom={14}
               height={280}
+              onRefresh={refresh}
             />
             <MatchChat matchId={activeMatch.id.toString()} currentUserId={userId} />
           </div>
@@ -888,7 +902,7 @@ export function BattleClient({
               <p>
                 公告中：
                 <span className="font-medium text-foreground">{myAnnouncement.label}</span>
-                {myAnnouncement.shopId ? "（卡店）" : "（自選地點）"}
+                {myAnnouncement.shopId ? "（卡店）" : "（自訂地點）"}
               </p>
               {myAnnouncement.playNote ? (
                 <p className="mt-1 text-xs text-foreground line-clamp-2">
@@ -904,7 +918,7 @@ export function BattleClient({
                 </p>
               ) : null}
               <p className="mt-2 rounded-md border border-primary/25 bg-primary/5 px-2 py-1.5 text-xs text-primary">
-                有人從地圖邀請你時，此頁會自動顯示接受／拒絕（約每 8 秒更新）
+                有人從地圖邀請你時，此頁會自動顯示接受／拒絕
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -940,7 +954,7 @@ export function BattleClient({
             <span className="font-medium text-[#2563eb]">藍色卡店</span>
             進入店家大廳，或點擊地圖空白處發布
             <span className="font-medium text-[#16a34a]">綠色玩家釘</span>
-            自選地點公告（約 4 小時後自動下架）。
+            自訂地點公告（預設 4 小時後自動下架）。
           </p>
         )}
       </div>
@@ -1005,7 +1019,6 @@ export function BattleClient({
               height={400}
               flyTo={flyTo}
               previewPin={previewPin}
-              clickHint="可搜尋地點；藍色釘＝卡店大廳；綠色釘＝玩家自選；點空白處發布"
               onMapClick={(lat, lng) => {
                 setSelectedShop(null);
                 setSheetAnnouncement(null);
@@ -1024,6 +1037,7 @@ export function BattleClient({
                 setPreviewPin(null);
                 handleAnnouncementClick(spotId);
               }}
+              onRefresh={refresh}
             />
           </div>
 

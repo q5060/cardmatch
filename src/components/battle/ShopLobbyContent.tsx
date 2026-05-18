@@ -168,7 +168,7 @@ export function ShopLobbyContent({
           className="btn btn-primary w-full"
           title={myEntry ? "你已有此店的公告" : undefined}
         >
-          {myEntry ? "你已在此店公告中" : "我要在此店打牌"}
+          {myEntry ? "你已在此店公告中" : "發布約戰公告"}
         </button>
       </div>
     </div>

@@ -68,6 +68,7 @@ type Props = {
   showLegend?: boolean;
   flyTo?: MapFlyToTarget | null;
   previewPin?: MapPreviewPin | null;
+  onRefresh?: () => void;
 };
 
 function MapFlyTo({ target }: { target?: MapFlyToTarget | null }) {
@@ -92,6 +93,73 @@ function MapClickLayer({
   return null;
 }
 
+function MapRefreshControl({ onRefresh }: { onRefresh?: () => void }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (!onRefresh) return;
+
+    const RefreshControl = L.Control.extend({
+      onAdd: () => {
+        const container = L.DomUtil.create("div");
+        container.className = "leaflet-bar"; // 保持 Leaflet 的外框與陰影
+
+        // 💡 修改點：移除 "leaflet-control-zoom-in"，改用自訂樣式避免 CSS 衝突
+        const button = L.DomUtil.create("a", "", container);
+        button.href = "#";
+        button.title = "重整地圖";
+        
+        // 讓按鈕外觀看起來跟 Leaflet 原生按鈕一致
+        button.style.display = "flex";
+        button.style.alignItems = "center";
+        button.style.justifyContent = "center";
+        button.style.width = "30px";
+        button.style.height = "30px";
+        button.style.backgroundColor = "#fff";
+        button.style.color = "#333"; // 💡 設定 SVG 的 currentColor 顏色
+        button.style.cursor = "pointer";
+        button.style.transition = "background-color 0.2s";
+
+        // 加上 Hover 效果，讓它滑過去時像原生按鈕一樣變色
+        button.onmouseover = () => { button.style.backgroundColor = "#f4f4f4"; };
+        button.onmouseout = () => { button.style.backgroundColor = "#fff"; };
+
+        const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg"); // 💡 建議用 createElementNS 確保 SVG 在 DOM 中正常渲染
+        icon.setAttribute("viewBox", "0 0 24 24");
+        icon.setAttribute("fill", "none");
+        icon.setAttribute("stroke", "currentColor");
+        icon.setAttribute("stroke-width", "2");
+        icon.setAttribute("stroke-linecap", "round");
+        icon.setAttribute("stroke-linejoin", "round");
+        icon.style.width = "16px";
+        icon.style.height = "16px";
+        icon.innerHTML = '<polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"></path>';
+        
+        button.appendChild(icon);
+
+        L.DomEvent.on(button, "click", (e) => {
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+          onRefresh?.();
+        });
+
+        L.DomEvent.on(button, "dblclick", L.DomEvent.stopPropagation);
+
+        return container;
+      },
+    });
+
+    const refreshControl = new RefreshControl({ position: "topleft" });
+    refreshControl.addTo(map);
+
+    return () => {
+      refreshControl.remove();
+    };
+  }, [map, onRefresh]);
+
+  return null;
+}
+
 export function MeetMapClient({
   shops,
   announcements,
@@ -105,6 +173,7 @@ export function MeetMapClient({
   showLegend = true,
   flyTo,
   previewPin,
+  onRefresh,
 }: Props) {
   useEffect(() => {
     delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
@@ -133,6 +202,7 @@ export function MeetMapClient({
             />
             <MapFlyTo target={flyTo} />
             <MapClickLayer onMapClick={onMapClick} />
+            <MapRefreshControl onRefresh={onRefresh} />
             {previewPin ? (
               <Marker position={[previewPin.lat, previewPin.lng]} icon={previewPinIcon}>
                 <Popup>
@@ -194,14 +264,14 @@ export function MeetMapClient({
               className="inline-flex shrink-0 items-center justify-center"
               dangerouslySetInnerHTML={{ __html: legendShopSvg }}
             />
-            藍色釘：卡店（店家大廳）
+            卡店（店家大廳）
           </span>
           <span className="inline-flex items-center gap-2">
             <span
               className="inline-flex shrink-0 items-center justify-center"
               dangerouslySetInnerHTML={{ __html: legendPlayerSvg }}
             />
-            綠色釘：玩家自選地點
+            玩家自訂地點
           </span>
         </div>
       ) : null}

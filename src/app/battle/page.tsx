@@ -56,7 +56,7 @@ export default async function BattlePage() {
       <PageHeader
         eyebrow="對戰大廳"
         title="對戰"
-        description="可用搜尋欄找卡店或地址。藍色釘進入店家大廳；綠色釘為玩家自選地點。點擊查看約戰需求並發起邀請，接受後在此協調會面。"
+        description="可用搜尋欄找卡店或地址。點擊查看約戰需求並發起邀請，接受後在此協調會面。"
       />
       <BattleClient
         userId={user.id}
