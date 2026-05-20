@@ -13,12 +13,12 @@ import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
-  shopBaseIcon,
   campfireIcon,
   ownCampfireIcon,
   previewPinIcon,
   legendShopSvg,
   legendPlayerSvg,
+  shopIconWithCount,
 } from "./mapIcons";
 
 export type MapFlyToTarget = {
@@ -40,6 +40,7 @@ export type MapShopPin = {
   lat: number;
   lng: number;
   addressNote?: string;
+  lobbyCount?: number;
 };
 
 export type MapAnnouncementPin = {
@@ -214,13 +215,18 @@ export function MeetMapClient({
               <Marker
                 key={`shop-${s.id}`}
                 position={[s.lat, s.lng]}
-                icon={shopBaseIcon}
+                icon={shopIconWithCount(s.lobbyCount)}
                 eventHandlers={{
                   click: () => onShopClick?.(s),
                 }}
               >
                 <Popup>
                   <strong>{s.name}</strong>
+                  {s.lobbyCount && s.lobbyCount > 0 ? (
+                    <div className="text-xs text-primary">
+                      目前 {s.lobbyCount} 人在此公告
+                    </div>
+                  ) : null}
                   {s.addressNote ? (
                     <div className="text-xs text-gray-600">{s.addressNote}</div>
                   ) : null}

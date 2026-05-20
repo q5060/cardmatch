@@ -1,19 +1,41 @@
 import prisma from "./prisma";
 import {
-  BATTLE_OUTCOME,
   MATCH_ACTIVE_STATUSES,
   MATCH_STATUS,
 } from "./constants";
 
 export async function getShops() {
-  return prisma.shop.findMany({ orderBy: { name: "asc" } });
+  const [shops, counts] = await Promise.all([
+    prisma.shop.findMany({ orderBy: { name: "asc" } }),
+    prisma.meetSpot.groupBy({
+      by: ["shopId"],
+      where: {
+        ...activeAnnouncementWhere(),
+        shopId: { not: null },
+      },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const countByShopId = new Map(
+    counts
+      .filter((row) => row.shopId)
+      .map((row) => [row.shopId!, row._count._all]),
+  );
+
+  return shops.map((shop) => ({
+    ...shop,
+    lobbyCount: countByShopId.get(shop.id) ?? 0,
+  }));
 }
 
-const activeAnnouncementWhere = {
-  looking: true,
-  active: true,
-  expiresAt: { gt: new Date() },
-} as const;
+function activeAnnouncementWhere() {
+  return {
+    looking: true,
+    active: true,
+    expiresAt: { gt: new Date() },
+  } as const;
+}
 
 export type MapAnnouncementDTO = {
   spotId: string;
@@ -77,7 +99,7 @@ export async function getMapAnnouncements(
 ): Promise<MapAnnouncementDTO[]> {
   const spots = await prisma.meetSpot.findMany({
     where: {
-      ...activeAnnouncementWhere,
+      ...activeAnnouncementWhere(),
       shopId: null,
       userId: { not: excludeUserId },
     },
@@ -92,7 +114,7 @@ export async function getAnnouncementsAtShop(
 ): Promise<MapAnnouncementDTO[]> {
   const spots = await prisma.meetSpot.findMany({
     where: {
-      ...activeAnnouncementWhere,
+      ...activeAnnouncementWhere(),
       shopId,
     },
     include: userInclude,
@@ -108,7 +130,7 @@ export async function getMyActiveAnnouncement(
   const s = await prisma.meetSpot.findFirst({
     where: {
       userId,
-      ...activeAnnouncementWhere,
+      ...activeAnnouncementWhere(),
     },
     include: {
       user: {
