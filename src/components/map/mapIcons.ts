@@ -98,3 +98,39 @@ export const shopBaseIcon = pinIcon(shopSvg, 36, 44);
 export const campfireIcon = pinIcon(playerSvg, 32, 40);
 export const ownCampfireIcon = pinIcon(ownPlayerSvg, 38, 46);
 export const previewPinIcon = pinIcon(previewSvg, 30, 38);
+
+export function shopIconWithCount(count = 0) {
+  if (count <= 0) return shopBaseIcon;
+
+  const label = count > 99 ? "99+" : String(count);
+
+  return L.divIcon({
+    className: "map-pin-icon",
+    html: `
+      <div style="position:relative;width:44px;height:48px;line-height:0">
+        <div style="position:absolute;left:4px;top:4px;width:36px;height:44px">${shopSvg}</div>
+        <span style="
+          position:absolute;
+          right:0;
+          top:0;
+          min-width:18px;
+          height:18px;
+          padding:0 4px;
+          border-radius:9999px;
+          border:2px solid #fff;
+          background:#ef4444;
+          color:#fff;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          font:700 11px/1 system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+          box-shadow:0 2px 5px rgba(15,23,42,0.28);
+          box-sizing:border-box;
+        ">${label}</span>
+      </div>
+    `,
+    iconSize: [44, 48],
+    iconAnchor: [22, 48],
+    popupAnchor: [0, -44],
+  });
+}
