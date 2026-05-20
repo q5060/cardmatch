@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 type Props = {
@@ -10,24 +11,31 @@ type Props = {
   children: React.ReactNode;
 };
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
+  const titleId = useId();
   const [expandedMobile, setExpandedMobile] = useState(false);
   const [dragStart, setDragStart] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
 
-  // Check if mobile on mount
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640);
     };
-    checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Reset state when closed
+  useIsomorphicLayoutEffect(() => {
+    setMounted(true);
+    setIsMobile(window.innerWidth < 640);
+  }, []);
+
   useEffect(() => {
     if (!isOpen) {
       setExpandedMobile(false);
@@ -35,7 +43,6 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
     }
   }, [isOpen]);
 
-  // Prevent body scroll when sheet is open (only on mobile where it overlays the screen)
   useEffect(() => {
     if (isOpen && isMobile) {
       document.body.style.overflow = "hidden";
@@ -62,7 +69,6 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
 
     const delta = e.clientY - dragStart;
 
-    // If dragging down, close or minimize
     if (delta > 30) {
       if (expandedMobile) {
         setExpandedMobile(false);
@@ -70,9 +76,7 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
         onClose();
       }
       setIsDragging(false);
-    }
-    // If dragging up, expand
-    else if (delta < -30 && !expandedMobile) {
+    } else if (delta < -30 && !expandedMobile) {
       setExpandedMobile(true);
       setIsDragging(false);
     }
@@ -83,7 +87,6 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
 
     const delta = e.touches[0].clientY - dragStart;
 
-    // If dragging down, close or minimize
     if (delta > 30) {
       if (expandedMobile) {
         setExpandedMobile(false);
@@ -91,9 +94,7 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
         onClose();
       }
       setIsDragging(false);
-    }
-    // If dragging up, expand
-    else if (delta < -30 && !expandedMobile) {
+    } else if (delta < -30 && !expandedMobile) {
       setExpandedMobile(true);
       setIsDragging(false);
     }
@@ -101,45 +102,42 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
 
   if (!isOpen) return null;
 
-  return (
-    <>
-      {/* Overlay - only on mobile when expanded, not on desktop */}
-      {isMobile && (
-        <div
-          className={`fixed inset-0 z-[999] transition-opacity duration-300 ${
-            expandedMobile ? "bg-black/40 pointer-events-auto" : "pointer-events-none"
-          }`}
-          onClick={() => {
-            if (expandedMobile) setExpandedMobile(false);
-          }}
-        />
-      )}
-
-      {/* Desktop: Absolute sidebar from right */}
-      <div className="hidden sm:block absolute right-0 top-0 bottom-0 z-[10] w-96 pointer-events-auto">
-        <div className="flex h-full flex-col border-l border-border bg-card shadow-[-4px_0_24px_-6px_rgba(0,0,0,0.08)]">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            {title && <h2 className="text-lg font-semibold text-foreground line-clamp-1">{title}</h2>}
-            <button
-              onClick={onClose}
-              className="btn btn-ghost ml-2 shrink-0 p-2"
-              aria-label="Close"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto">{children}</div>
-        </div>
+  const desktopPanel = (
+    <div className="hidden h-full max-h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl sm:flex">
+      <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
+        {title ? (
+          <h2 id={!isMobile ? titleId : undefined} className="min-w-0 flex-1 text-lg font-semibold text-foreground line-clamp-2">
+            {title}
+          </h2>
+        ) : (
+          <span className="min-w-0 flex-1" />
+        )}
+        <button type="button" onClick={onClose} className="btn btn-ghost shrink-0 p-2" aria-label="關閉">
+          <X className="h-5 w-5" />
+        </button>
       </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+    </div>
+  );
 
-      {/* Mobile: Bottom sheet with two stages */}
-      <div className="sm:hidden fixed inset-0 z-[1000] pointer-events-none">
+  const mobileUi = (
+    <>
+      <div
+        className={`fixed inset-0 z-[999] transition-opacity duration-300 sm:hidden ${
+          expandedMobile ? "pointer-events-auto bg-black/40" : "pointer-events-none"
+        }`}
+        onClick={() => {
+          if (expandedMobile) setExpandedMobile(false);
+        }}
+        aria-hidden
+      />
+      <div className="pointer-events-none fixed inset-0 z-[1000] sm:hidden">
         <div
           ref={sheetRef}
-          className={`pointer-events-auto absolute bottom-0 left-0 right-0 rounded-t-[1.25rem] border border-border bg-card shadow-lg transition-all duration-300 ease-out ${
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? titleId : undefined}
+          className={`pointer-events-auto absolute bottom-0 left-0 right-0 flex flex-col rounded-t-[1.25rem] border border-border bg-card shadow-lg transition-all duration-300 ease-out ${
             expandedMobile
               ? "top-0 rounded-t-2xl"
               : isDragging
@@ -154,28 +152,26 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
           onTouchMove={handleTouchMove}
           onTouchEnd={() => setIsDragging(false)}
         >
-          {/* Drag Handle */}
-          <div className="flex justify-center pt-3 pb-2">
-            <div className="h-1 w-12 bg-muted rounded-full" />
+          <div className="flex justify-center pb-2 pt-3">
+            <div className="h-1 w-12 rounded-full bg-muted" />
           </div>
 
-          {/* Peek Header - always visible */}
-          <div className="px-5 pb-3 border-b border-border flex items-center justify-between">
-            {title && (
-              <h2 className="text-base font-semibold text-foreground line-clamp-1">
+          <div className="flex items-center justify-between border-b border-border px-5 pb-3">
+            {title ? (
+              <h2 id={isMobile ? titleId : undefined} className="line-clamp-1 text-base font-semibold text-foreground">
                 {title}
               </h2>
-            )}
+            ) : null}
             <button
+              type="button"
               onClick={onClose}
-              className="btn btn-ghost ml-2 shrink-0 p-2"
-              aria-label="Close"
+              className="btn btn-ghost ml-auto shrink-0 p-2"
+              aria-label="關閉"
             >
-              <X className="w-5 h-5" />
+              <X className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Content - scrollable when expanded */}
           <div
             className={`overflow-y-auto px-5 ${
               expandedMobile ? "flex-1 pb-5" : "max-h-[calc(30vh-100px)]"
@@ -183,15 +179,15 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
           >
             {children}
           </div>
-
-          {/* Expand Hint - only shown when not expanded */}
-          {!expandedMobile && (
-            <div className="px-5 py-3 text-center text-xs text-muted-foreground border-t border-border">
-              向上拉開查看詳情
-            </div>
-          )}
         </div>
       </div>
+    </>
+  );
+
+  return (
+    <>
+      {desktopPanel}
+      {mounted && isMobile ? createPortal(mobileUi, document.body) : null}
     </>
   );
 }

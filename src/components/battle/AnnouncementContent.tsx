@@ -59,9 +59,7 @@ export function AnnouncementContent({
         <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
           {announcement.playNote}
         </p>
-      ) : (
-        <p className="text-sm text-muted-foreground">未填寫約戰說明</p>
-      )}
+      ) : null}
 
       {announcement.timeNote ? (
         <p className="text-sm text-foreground">

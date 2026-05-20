@@ -1,10 +1,10 @@
 "use server";
 
+import { createInviteMatch } from "@/lib/matchInvite";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { MATCH_STATUS } from "@/lib/constants";
-import { countActiveMatchesForUser } from "@/lib/queries";
 import { publishMatchSnapshot, publishNotification } from "@/lib/realtime/publish";
 
 async function requireUserId() {
@@ -37,70 +37,18 @@ export async function sendInviteFromSpot(spotId: string) {
   const targetUserId = spot.userId;
   if (targetUserId === userId) throw new Error("無法邀請自己");
 
-  if ((await countActiveMatchesForUser(userId)) > 0) {
-    throw new Error("你已有進行中的約戰");
-  }
-  if ((await countActiveMatchesForUser(targetUserId)) > 0) {
-    throw new Error("對方已有進行中的約戰");
-  }
-
-  const playerAId = userId < targetUserId ? userId : targetUserId;
-  const playerBId = userId < targetUserId ? targetUserId : userId;
-
-  const existing = await prisma.match.findFirst({
-    where: {
-      playerAId,
-      playerBId,
-      status: {
-        in: [
-          MATCH_STATUS.INVITE_PENDING,
-          MATCH_STATUS.ACCEPTED,
-          MATCH_STATUS.IN_PROGRESS,
-        ],
-      },
-    },
-  });
-  if (existing) throw new Error("已有進行中或等待回應的約戰");
-
-  const inviter = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { displayName: true },
-  });
-
-  const match = await prisma.match.create({
-    data: {
-      playerAId,
-      playerBId,
-      invitedById: userId,
-      status: MATCH_STATUS.INVITE_PENDING,
-      meetLat: spot.lat,
-      meetLng: spot.lng,
-      meetLabel: spot.label,
+  await createInviteMatch({
+    inviterId: userId,
+    targetUserId,
+    meet: {
+      lat: spot.lat,
+      lng: spot.lng,
+      label: spot.label,
       shopId: spot.shopId,
     },
+    source: "spot",
+    spotLabelForNotification: spot.label,
   });
-
-  const inviterName = inviter?.displayName ?? "玩家";
-  await prisma.notification.create({
-    data: {
-      userId: targetUserId,
-      type: "SPOT_INVITE",
-      referenceId: match.id.toString(),
-      senderId: userId,
-      data: JSON.stringify({
-        kind: "spot_invite",
-        title: `${inviterName} 回應你的約戰公告`,
-        body: `地點：${spot.label}`,
-        meetLabel: spot.label,
-        inviterName,
-      }),
-      read: false,
-    },
-  });
-
-  await publishMatchSnapshot(match.id);
-  await publishNotification(targetUserId);
-  revalidatePath("/battle");
 }
 
 export async function acceptInvite(matchId: string) {

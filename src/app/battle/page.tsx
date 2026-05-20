@@ -8,6 +8,7 @@ import {
   getMyActiveAnnouncement,
   getShops,
 } from "@/lib/queries";
+import { getMyQueueStatus } from "@/actions/matchQueue";
 import { BattleClient } from "@/components/battle/BattleClient";
 import { toActiveMatchDTO } from "@/lib/matchDto";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -24,11 +25,17 @@ export default async function BattlePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [activeMatch, announcements, myAnnouncement, shops] = await Promise.all([
+  const [activeMatch, announcements, myAnnouncement, shops, userPrefs, queueStatus] =
+    await Promise.all([
     getActiveMatchForUser(user.id),
     getMapAnnouncements(user.id),
     getMyActiveAnnouncement(user.id),
     getShops(),
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { defaultShopId: true },
+    }),
+    getMyQueueStatus(),
   ]);
 
   let battleResult = null;
@@ -52,12 +59,8 @@ export default async function BattlePage() {
   const defaultLng = myAnnouncement?.lng ?? DEFAULT_LNG;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="對戰大廳"
-        title="對戰"
-        description="可用搜尋欄找卡店或地址。點擊查看約戰需求並發起邀請，接受後在此協調會面。"
-      />
+    <div className="space-y-4">
+      <PageHeader title="對戰" />
       <BattleClient
         userId={user.id}
         shops={shops}
@@ -66,6 +69,8 @@ export default async function BattlePage() {
         activeMatch={activeMatch ? toActiveMatchDTO(activeMatch) : null}
         defaultLat={defaultLat}
         defaultLng={defaultLng}
+        defaultShopId={userPrefs?.defaultShopId ?? null}
+        initialQueueStatus={queueStatus}
         battleResult={battleResult}
       />
     </div>

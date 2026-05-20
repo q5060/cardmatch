@@ -78,6 +78,7 @@ export function NotificationDropdown({
   const getNotificationLink = (notification: NotificationItem) => {
     switch (notification.type) {
       case "SPOT_INVITE":
+      case "RANDOM_MATCH":
       case "MATCH_CREATED":
       case "MATCH_COMPLETED":
       case "BATTLE_RESULT":
@@ -114,7 +115,8 @@ export function NotificationDropdown({
             {notifications.map((notification) => {
               const title = getNotificationTitle(notification.type, notification.data);
               const body = getNotificationBody(notification.type, notification.data);
-              const isSpotInvite = notification.type === "SPOT_INVITE";
+              const isSpotInvite =
+                notification.type === "SPOT_INVITE" || notification.type === "RANDOM_MATCH";
               return (
               <Link
                 key={notification.id}

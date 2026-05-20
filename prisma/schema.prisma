@@ -36,6 +36,7 @@ model User {
   friendshipsRecv    Friendship[]     @relation("Addressee")
   battleResults      BattleResult[]
   notifications      Notification[]
+  matchQueueEntries  MatchQueueEntry[]
 }
 
 model Deck {
@@ -76,6 +77,7 @@ model Shop {
   addressNote String     @default("")
   matches     Match[]
   meetSpots   MeetSpot[]
+  matchQueueEntries MatchQueueEntry[]
 }
 
 model Match {
@@ -157,4 +159,15 @@ model Notification {
   data        String?  // JSON string for additional data like notification message
   read        Boolean  @default(false)
   createdAt   DateTime @default(now())
+}
+
+/// Random match queue: one row per user (userId unique). shopId null = match globally.
+model MatchQueueEntry {
+  id       String   @id @default(cuid())
+  userId   Int      @unique
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopId   String?
+  shop     Shop?    @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  playNote String   @default("")
+  joinedAt DateTime @default(now())
 }

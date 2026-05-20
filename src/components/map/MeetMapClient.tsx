@@ -61,7 +61,10 @@ type Props = {
   announcements: MapAnnouncementPin[];
   center: LatLngExpression;
   zoom?: number;
+  /** Fixed pixel height; ignored when {@link fillHeight} is true. */
   height?: number;
+  /** Stretch the map vertically inside a flex/grid parent (desktop alignment with sibling column). */
+  fillHeight?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
   onShopClick?: (shop: MapShopPin) => void;
   onAnnouncementClick?: (spotId: string) => void;
@@ -91,6 +94,29 @@ function MapClickLayer({
       onMapClick?.(e.latlng.lat, e.latlng.lng);
     },
   });
+  return null;
+}
+
+function MapInvalidateOnResize() {
+  const map = useMap();
+  useEffect(() => {
+    const view = map.getContainer().closest<HTMLElement>(`.meet-map-viewport-root`);
+    if (!view) return;
+
+    map.invalidateSize();
+    const ro = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    ro.observe(view);
+
+    const onWin = () => map.invalidateSize();
+    window.addEventListener("orientationchange", onWin);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("orientationchange", onWin);
+    };
+  }, [map]);
   return null;
 }
 
@@ -167,6 +193,7 @@ export function MeetMapClient({
   center,
   zoom = 13,
   height = 320,
+  fillHeight = false,
   onMapClick,
   onShopClick,
   onAnnouncementClick,
@@ -181,88 +208,118 @@ export function MeetMapClient({
       ._getIconUrl;
   }, []);
 
-  return (
-    <div className="space-y-2">
-      <div className="relative w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-inner">
-        {clickHint ? (
-          <p className="absolute bottom-2 left-2 right-2 z-[500] rounded bg-black/65 px-2 py-1 text-center text-xs text-white">
-            {clickHint}
-          </p>
-        ) : null}
-        <div style={{ height }} className="w-full">
-          <MapContainer
-            center={center}
-            zoom={zoom}
-            className="z-0"
-            style={{ height: "100%", width: "100%" }}
-            scrollWheelZoom
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <MapFlyTo target={flyTo} />
-            <MapClickLayer onMapClick={onMapClick} />
-            <MapRefreshControl onRefresh={onRefresh} />
-            {previewPin ? (
-              <Marker position={[previewPin.lat, previewPin.lng]} icon={previewPinIcon}>
-                <Popup>
-                  <strong>{[previewPin.lat.toFixed(5), ", ",previewPin.lng.toFixed(5)]}</strong>
-                </Popup>
-              </Marker>
+  const markerLayers = (
+    <>
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <MapFlyTo target={flyTo} />
+      <MapClickLayer onMapClick={onMapClick} />
+      <MapRefreshControl onRefresh={onRefresh} />
+      {previewPin ? (
+        <Marker position={[previewPin.lat, previewPin.lng]} icon={previewPinIcon}>
+          <Popup>
+            <div className="space-y-1 text-sm">
+              <p className="font-semibold text-foreground">
+                {previewPin.label.trim() ? previewPin.label : "選取的位置"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {previewPin.lat.toFixed(5)}, {previewPin.lng.toFixed(5)}
+              </p>
+              <p className="text-xs text-muted-foreground">可填寫約戰公告</p>
+            </div>
+          </Popup>
+        </Marker>
+      ) : null}
+      {shops.map((s) => (
+        <Marker
+          key={`shop-${s.id}`}
+          position={[s.lat, s.lng]}
+          icon={shopIconWithCount(s.lobbyCount)}
+          eventHandlers={{
+            click: () => onShopClick?.(s),
+          }}
+        >
+          <Popup>
+            <strong>{s.name}</strong>
+            {s.lobbyCount && s.lobbyCount > 0 ? (
+              <div className="text-xs text-primary">目前 {s.lobbyCount} 人在此公告</div>
             ) : null}
-            {shops.map((s) => (
-              <Marker
-                key={`shop-${s.id}`}
-                position={[s.lat, s.lng]}
-                icon={shopIconWithCount(s.lobbyCount)}
-                eventHandlers={{
-                  click: () => onShopClick?.(s),
-                }}
-              >
-                <Popup>
-                  <strong>{s.name}</strong>
-                  {s.lobbyCount && s.lobbyCount > 0 ? (
-                    <div className="text-xs text-primary">
-                      目前 {s.lobbyCount} 人在此公告
-                    </div>
-                  ) : null}
-                  {s.addressNote ? (
-                    <div className="text-xs text-gray-600">{s.addressNote}</div>
-                  ) : null}
-                  {/* {onShopClick ? (
-                    <p className="mt-1 text-xs text-primary">點擊進入店家大廳</p>
-                  ) : null} */}
-                </Popup>
-              </Marker>
-            ))}
-            {announcements.map((a) => (
-              <Marker
-                key={`ann-${a.spotId}`}
-                position={[a.lat, a.lng]}
-                icon={a.isOwn ? ownCampfireIcon : campfireIcon}
-                eventHandlers={{
-                  click: () => onAnnouncementClick?.(a.spotId),
-                }}
-              >
-                <Popup>
-                  <strong>{a.displayName}</strong>
-                  <div className="text-xs text-muted-foreground">{a.label}</div>
-                  {a.playNote ? (
-                    <p className="mt-1 text-xs line-clamp-3">{a.playNote}</p>
-                  ) : null}
-                  {a.timeNote ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">時段：{a.timeNote}</p>
-                  ) : null}
-                  {onAnnouncementClick ? (
-                    <p className="mt-1 text-xs text-primary">點擊查看約戰需求</p>
-                  ) : null}
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+            {s.addressNote ? <div className="text-xs text-gray-600">{s.addressNote}</div> : null}
+          </Popup>
+        </Marker>
+      ))}
+      {announcements.map((a) => (
+        <Marker
+          key={`ann-${a.spotId}`}
+          position={[a.lat, a.lng]}
+          icon={a.isOwn ? ownCampfireIcon : campfireIcon}
+          eventHandlers={{
+            click: () => onAnnouncementClick?.(a.spotId),
+          }}
+        >
+          <Popup>
+            <strong>{a.displayName}</strong>
+            <div className="text-xs text-muted-foreground">{a.label}</div>
+            {a.playNote ? <p className="mt-1 text-xs line-clamp-3">{a.playNote}</p> : null}
+            {a.timeNote ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">時段：{a.timeNote}</p>
+            ) : null}
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  );
+
+  return (
+    <div
+      className={
+        fillHeight
+          ? "flex h-full min-h-[280px] flex-1 flex-col lg:min-h-0"
+          : "space-y-2"
+      }
+    >
+      {fillHeight ? (
+        <div className="meet-map-viewport-root relative flex min-h-[220px] w-full flex-1 flex-col overflow-hidden">
+          {clickHint ? (
+            <p className="absolute bottom-2 left-2 right-2 z-[500] rounded bg-black/65 px-2 py-1 text-center text-xs text-white">
+              {clickHint}
+            </p>
+          ) : null}
+          <div className="relative min-h-0 w-full flex-1">
+            <MapContainer
+              center={center}
+              zoom={zoom}
+              className="z-0"
+              style={{ height: "100%", width: "100%" }}
+              scrollWheelZoom
+            >
+              <MapInvalidateOnResize />
+              {markerLayers}
+            </MapContainer>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="relative w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] shadow-inner">
+          {clickHint ? (
+            <p className="absolute bottom-2 left-2 right-2 z-[500] rounded bg-black/65 px-2 py-1 text-center text-xs text-white">
+              {clickHint}
+            </p>
+          ) : null}
+          <div style={{ height }} className="w-full">
+            <MapContainer
+              center={center}
+              zoom={zoom}
+              className="z-0"
+              style={{ height: "100%", width: "100%" }}
+              scrollWheelZoom
+            >
+              {markerLayers}
+            </MapContainer>
+          </div>
+        </div>
+      )}
       {showLegend ? (
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-2">

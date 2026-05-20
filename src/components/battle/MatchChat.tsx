@@ -157,7 +157,7 @@ export function MatchChat({
           </p>
         ) : null}
         {messages.length === 0 ? (
-          <p className="text-muted-foreground">尚無訊息，先打聲招呼吧。</p>
+          <p className="text-sm text-muted-foreground">尚無訊息</p>
         ) : (
           messages.map((m) => {
             const mine = isOwnMessage(m, currentUserId);

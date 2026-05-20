@@ -14,6 +14,7 @@ type Props = {
   onSelectShop: (shop: MapShopPin) => void;
   onSelectPlace: (place: { lat: number; lng: number; label: string }) => void;
   disabled?: boolean;
+  searchInputId?: string;
 };
 
 export function MapLocationSearch({
@@ -21,6 +22,7 @@ export function MapLocationSearch({
   onSelectShop,
   onSelectPlace,
   disabled = false,
+  searchInputId,
 }: Props) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -114,6 +116,7 @@ export function MapLocationSearch({
           aria-hidden
         />
         <input
+          id={searchInputId}
           type="search"
           role="combobox"
           aria-expanded={showDropdown}
@@ -189,10 +192,6 @@ export function MapLocationSearch({
                 ))
               )}
             </div>
-          ) : q.length >= 1 && matchedShops.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-muted-foreground">
-              輸入至少 2 個字以搜尋地址或地標
-            </p>
           ) : null}
 
           <p className="border-t border-black/[0.06] px-3 py-2 text-[10px] text-muted-foreground">

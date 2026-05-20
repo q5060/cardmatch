@@ -52,6 +52,11 @@ export function getNotificationTitle(
         return `${payload.inviterName} 回應你的約戰公告`;
       }
       return "有人回應你的約戰公告";
+    case "RANDOM_MATCH":
+      if (typeof payload === "object" && payload?.inviterName) {
+        return `${payload.inviterName}（隨機配對）`;
+      }
+      return "隨機配對找到對手";
     case "MATCH_CREATED":
       return "對戰邀請";
     case "MATCH_COMPLETED":
@@ -80,6 +85,7 @@ export function getNotificationBody(
 
   switch (type) {
     case "SPOT_INVITE":
+    case "RANDOM_MATCH":
       if (typeof payload === "object" && payload?.meetLabel) {
         return `地點：${payload.meetLabel}`;
       }

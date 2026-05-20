@@ -54,9 +54,6 @@ export function ShopLobbyContent({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="space-y-1 border-b border-border p-5">
-        <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-          店家大廳
-        </p>
         <h2 className="text-lg font-semibold text-foreground">{shop.name}</h2>
         {shop.addressNote ? (
           <p className="text-sm text-muted-foreground">{shop.addressNote}</p>
@@ -74,9 +71,10 @@ export function ShopLobbyContent({
         {loading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">載入中…</p>
         ) : players.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            目前沒有玩家在此店約戰
-          </p>
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <p className="text-sm text-muted-foreground">目前沒有玩家在此店約戰</p>
+            <p className="text-xs text-muted-foreground">在此店發布約戰，成為第一位</p>
+          </div>
         ) : (
           <ul className="space-y-3">
             {players.map((p) => {
@@ -168,7 +166,7 @@ export function ShopLobbyContent({
           className="btn btn-primary w-full"
           title={myEntry ? "你已有此店的公告" : undefined}
         >
-          {myEntry ? "你已在此店公告中" : "發布約戰公告"}
+          {myEntry ? "你已在此店公告中" : "在此店發布約戰"}
         </button>
       </div>
     </div>

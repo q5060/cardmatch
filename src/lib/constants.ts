@@ -34,6 +34,9 @@ export const FRIENDSHIP_STATUS = {
 /** Hours until a map battle announcement expires. */
 export const ANNOUNCEMENT_TTL_HOURS = 4;
 
+/** How long a random-match queue entry stays valid (ms). */
+export const MATCH_QUEUE_TTL_MS = 30 * 60 * 1000;
+
 export const BATTLE_OUTCOME = {
   WIN: "WIN",
   LOSS: "LOSS",

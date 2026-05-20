@@ -9,9 +9,13 @@ import {
   type MapAnnouncementPin,
   type MapShopPin,
 } from "@/components/map/MeetMap";
-import { MapLocationSearch } from "@/components/map/MapLocationSearch";
+
 import type { MapFlyToTarget, MapPreviewPin } from "@/components/map/MeetMapClient";
 import { MatchChat } from "@/components/battle/MatchChat";
+import { BattleMyAnnouncementBar } from "@/components/battle/BattleMyAnnouncementBar";
+import { BattleExplorePanel } from "@/components/battle/BattleExplorePanel";
+import { BattleRandomMatch } from "@/components/battle/BattleRandomMatch";
+import { BattleShopExploreCard } from "@/components/battle/BattleShopExploreCard";
 import { ResponsiveSheet } from "@/components/battle/ResponsiveSheet";
 import { ShopLobbyContent } from "@/components/battle/ShopLobbyContent";
 import { AnnouncementContent } from "@/components/battle/AnnouncementContent";
@@ -33,6 +37,7 @@ import { clearBattleAnnouncement } from "@/actions/meetSpot";
 import { MATCH_STATUS } from "@/lib/constants";
 import type { ActiveMatchDTO, BattleResultDTO } from "@/lib/matchDto";
 import type { MapAnnouncementDTO } from "@/lib/queries";
+import type { QueueStatus } from "@/actions/matchQueue";
 import {
   useRealtimeConnected,
   useRealtimeEvent,
@@ -50,6 +55,8 @@ export function BattleClient({
   defaultLat,
   defaultLng,
   battleResult: initialBattleResult,
+  defaultShopId = null,
+  initialQueueStatus = null,
 }: {
   userId: number;
   shops: MapShopPin[];
@@ -59,6 +66,8 @@ export function BattleClient({
   defaultLat: number;
   defaultLng: number;
   battleResult?: BattleResultDTO;
+  defaultShopId?: string | null;
+  initialQueueStatus?: QueueStatus | null;
 }) {
   const sseConnected = useRealtimeConnected();
   const [activeMatch, setActiveMatch] = useState<ActiveMatchDTO | null>(
@@ -290,6 +299,26 @@ export function BattleClient({
     });
   }
 
+  function openPublishAt(lat: number, lng: number, label: string, shopId?: string | null) {
+    setPublishDraft({ lat, lng, label, shopId });
+  }
+
+  function handleAnnouncementClick(spotId: string) {
+    const ann = announcementBySpotId.get(spotId);
+    if (ann) setSheetAnnouncement(ann);
+  }
+
+  function selectShopOnMap(shop: MapShopPin) {
+    setPublishDraft(null);
+    setSheetAnnouncement(null);
+    setFlyTo({ lat: shop.lat, lng: shop.lng, zoom: 15, key: Date.now() });
+    setPreviewPin(null);
+    setSelectedShop(shop);
+  }
+
+  const mapSheetOpen = !!(selectedShop || sheetAnnouncement || publishDraft);
+  const mapHeight = mapSheetOpen ? 380 : 500;
+
   const otherPlayer = activeMatch
     ? activeMatch.playerAId === userId
       ? activeMatch.playerB
@@ -328,7 +357,7 @@ export function BattleClient({
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-primary">有人回應你的約戰公告</p>
               <p className="mt-0.5 text-sm text-foreground">
-                {otherPlayer?.displayName ?? "玩家"} 邀請你對戰，請在下方接受或拒絕。
+                {otherPlayer?.displayName ?? "玩家"} 邀請你對戰
               </p>
             </div>
             <button
@@ -452,6 +481,7 @@ export function BattleClient({
               center={[activeMatch.meetLat, activeMatch.meetLng]}
               zoom={14}
               height={280}
+              showLegend={false}
               onRefresh={refresh}
             />
             <MatchChat matchId={activeMatch.id.toString()} currentUserId={userId} />
@@ -519,9 +549,6 @@ export function BattleClient({
                   <strong className="mx-0.5">{myReady ? "已準備" : "未準備"}</strong>
                   ，對方：
                   <strong className="mx-0.5">{theirReady ? "已準備" : "未準備"}</strong>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  對方按下準備後，此處約每 2.5 秒自動同步；仍不符時請重新整理頁面。
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -883,81 +910,93 @@ export function BattleClient({
     );
   }
 
-  function openPublishAt(lat: number, lng: number, label: string, shopId?: string | null) {
-    setPublishDraft({ lat, lng, label, shopId });
-  }
+  const sheetOpen = !!(selectedShop || sheetAnnouncement || publishDraft);
 
-  function handleAnnouncementClick(spotId: string) {
-    const ann = announcementBySpotId.get(spotId);
-    if (ann) setSheetAnnouncement(ann);
-  }
+  const exploreSheets = (
+    <>
+      <ResponsiveSheet
+        isOpen={!!selectedShop}
+        onClose={() => setSelectedShop(null)}
+        title={selectedShop?.name}
+      >
+        {selectedShop && (
+          <ShopLobbyContent
+            shop={selectedShop}
+            currentUserId={userId}
+            parentPending={pending}
+            onSelectPlayer={(ann) => {
+              setSelectedShop(null);
+              setSheetAnnouncement(ann);
+            }}
+            onPublishAtShop={(shop) => {
+              setSelectedShop(null);
+              openPublishAt(shop.lat, shop.lng, shop.name, shop.id);
+            }}
+            onCleared={() => {
+              setSelectedShop(null);
+            }}
+          />
+        )}
+      </ResponsiveSheet>
+
+      <ResponsiveSheet
+        isOpen={!!sheetAnnouncement}
+        onClose={() => setSheetAnnouncement(null)}
+        title={sheetAnnouncement?.displayName}
+      >
+        {sheetAnnouncement && (
+          <AnnouncementContent
+            announcement={sheetAnnouncement}
+            isOwn={sheetAnnouncement.userId === userId}
+            pending={pending}
+            onInvite={() => {
+              if (!sheetAnnouncement) return;
+              run(async () => {
+                await sendInviteFromSpot(sheetAnnouncement.spotId);
+                setSheetAnnouncement(null);
+              });
+            }}
+            onClear={() =>
+              run(async () => {
+                await clearBattleAnnouncement();
+                setSheetAnnouncement(null);
+              })
+            }
+          />
+        )}
+      </ResponsiveSheet>
+
+      <ResponsiveSheet
+        isOpen={!!publishDraft}
+        onClose={() => setPublishDraft(null)}
+        title="發布約戰公告"
+      >
+        {publishDraft && (
+          <PublishAnnouncementContent
+            draft={publishDraft}
+            onClose={() => setPublishDraft(null)}
+            onPublished={handleAnnouncementPublished}
+          />
+        )}
+      </ResponsiveSheet>
+    </>
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="card card-hover space-y-2 p-4">
-        <h2 className="font-semibold text-foreground">地圖公告</h2>
-        {myAnnouncement ? (
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="text-sm text-muted-foreground">
-              <p>
-                公告中：
-                <span className="font-medium text-foreground">{myAnnouncement.label}</span>
-                {myAnnouncement.shopId ? "（卡店）" : "（自訂地點）"}
-              </p>
-              {myAnnouncement.playNote ? (
-                <p className="mt-1 text-xs text-foreground line-clamp-2">
-                  {myAnnouncement.playNote}
-                </p>
-              ) : null}
-              {myAnnouncement.timeNote ? (
-                <p className="mt-0.5 text-xs">時段：{myAnnouncement.timeNote}</p>
-              ) : null}
-              {myAnnouncement.shopId ? (
-                <p className="mt-1 text-xs">
-                  你正在此卡店等候對戰 · 點「查看大廳」看同店玩家
-                </p>
-              ) : null}
-              <p className="mt-2 rounded-md border border-primary/25 bg-primary/5 px-2 py-1.5 text-xs text-primary">
-                有人從地圖邀請你時，此頁會自動顯示接受／拒絕
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {myAnnouncement.shopId ? (
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={() => {
-                    const shop = shops.find((s) => s.id === myAnnouncement.shopId);
-                    if (shop) setSelectedShop(shop);
-                  }}
-                >
-                  查看大廳
-                </button>
-              ) : null}
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    await clearBattleAnnouncement();
-                  })
-                }
-                className="btn btn-outline btn-sm"
-              >
-                結束公告
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            可用上方搜尋欄找卡店或地址；點擊
-            <span className="font-medium text-[#2563eb]">藍色卡店</span>
-            進入店家大廳，或點擊地圖空白處發布
-            <span className="font-medium text-[#16a34a]">綠色玩家釘</span>
-            自訂地點公告（預設 4 小時後自動下架）。
-          </p>
-        )}
-      </div>
+    <div className="space-y-4">
+      {myAnnouncement ? (
+        <BattleMyAnnouncementBar
+          announcement={myAnnouncement}
+          shops={shops}
+          pending={pending}
+          onViewLobby={selectShopOnMap}
+          onClear={() =>
+            run(async () => {
+              await clearBattleAnnouncement();
+            })
+          }
+        />
+      ) : null}
 
       {successMessage ? (
         <div
@@ -982,132 +1021,67 @@ export function BattleClient({
         </p>
       ) : null}
 
-      <div className="space-y-2">
-        <MapLocationSearch
-          shops={shops}
-          onSelectShop={(shop) => {
-            setPublishDraft(null);
-            setSheetAnnouncement(null);
-            setFlyTo({ lat: shop.lat, lng: shop.lng, zoom: 15, key: Date.now() });
-            setPreviewPin(null);
-            setSelectedShop(shop);
-          }}
-          onSelectPlace={(place) => {
-            setSelectedShop(null);
-            setSheetAnnouncement(null);
-            setFlyTo({ lat: place.lat, lng: place.lng, zoom: 15, key: Date.now() });
-            setPreviewPin(place);
-            openPublishAt(place.lat, place.lng, place.label);
-          }}
-        />
-
-        {/* Map container with responsive layout */}
-        <div
-          className={`card relative grid overflow-hidden p-0 transition-all duration-300 ${
-            selectedShop || sheetAnnouncement || publishDraft
-              ? "grid-cols-1 sm:grid-cols-[1fr_384px]"
-              : "grid-cols-1"
-          }`}
-        >
-          {/* Map */}
-          <div className="w-full h-full relative z-0">
-            <MeetMap
+      <BattleExplorePanel
+        sheetOpen={sheetOpen}
+        matchSetup={
+          !activeMatch ? (
+            <BattleRandomMatch
               shops={shops}
-              announcements={mapPins}
-              center={[gpsLocation?.lat ?? defaultLat, gpsLocation?.lng ?? defaultLng]}
-              zoom={14}
-              height={400}
-              flyTo={flyTo}
-              previewPin={previewPin}
-              onMapClick={(lat, lng) => {
-                setSelectedShop(null);
-                setSheetAnnouncement(null);
-                setPreviewPin({ lat, lng, label: "" });
-                openPublishAt(lat, lng, "");
-              }}
-              onShopClick={(shop) => {
-                setPublishDraft(null);
-                setSheetAnnouncement(null);
-                setPreviewPin(null);
-                setSelectedShop(shop);
-              }}
-              onAnnouncementClick={(spotId) => {
-                setSelectedShop(null);
-                setPublishDraft(null);
-                setPreviewPin(null);
-                handleAnnouncementClick(spotId);
-              }}
-              onRefresh={refresh}
+              defaultShopId={defaultShopId ?? null}
+              initialQueueStatus={initialQueueStatus ?? null}
             />
-          </div>
-
-          <ResponsiveSheet
-            isOpen={!!selectedShop}
-            onClose={() => setSelectedShop(null)}
-            title={selectedShop?.name}
-          >
-            {selectedShop && (
-              <ShopLobbyContent
-                shop={selectedShop}
-                currentUserId={userId}
-                parentPending={pending}
-                onSelectPlayer={(ann) => {
-                  setSelectedShop(null);
-                  setSheetAnnouncement(ann);
-                }}
-                onPublishAtShop={(shop) => {
-                  setSelectedShop(null);
-                  openPublishAt(shop.lat, shop.lng, shop.name, shop.id);
-                }}
-                onCleared={() => {
-                  setSelectedShop(null);
-                }}
-              />
-            )}
-          </ResponsiveSheet>
-
-          <ResponsiveSheet
-            isOpen={!!sheetAnnouncement}
-            onClose={() => setSheetAnnouncement(null)}
-            title={sheetAnnouncement?.displayName}
-          >
-            {sheetAnnouncement && (
-              <AnnouncementContent
-                announcement={sheetAnnouncement}
-                isOwn={sheetAnnouncement.userId === userId}
-                pending={pending}
-                onInvite={() => {
-                  if (!sheetAnnouncement) return;
-                  run(async () => {
-                    await sendInviteFromSpot(sheetAnnouncement.spotId);
-                    setSheetAnnouncement(null);
-                  });
-                }}
-                onClear={() =>
-                  run(async () => {
-                    await clearBattleAnnouncement();
-                    setSheetAnnouncement(null);
-                  })
-                }
-              />
-            )}
-          </ResponsiveSheet>
-
-          <ResponsiveSheet
-            isOpen={!!publishDraft}
-            onClose={() => setPublishDraft(null)}
-            title="發布約戰公告"
-          >
-            {publishDraft && (
-              <PublishAnnouncementContent
-                draft={publishDraft}
-                onClose={() => setPublishDraft(null)}
-                onPublished={handleAnnouncementPublished}
-              />
-            )}
-          </ResponsiveSheet>
-        </div>
-      </div>
+          ) : null
+        }
+        shopExplore={
+          <BattleShopExploreCard
+            shops={shops}
+            announcements={announcements}
+            hideShopList={!!myAnnouncement}
+            onSelectShop={selectShopOnMap}
+            onSelectPlace={(place) => {
+              setSelectedShop(null);
+              setSheetAnnouncement(null);
+              setFlyTo({ lat: place.lat, lng: place.lng, zoom: 15, key: Date.now() });
+              setPreviewPin(place);
+              openPublishAt(place.lat, place.lng, place.label);
+            }}
+            onSelectAnnouncement={(ann) => setSheetAnnouncement(ann)}
+          />
+        }
+        map={
+          <MeetMap
+            shops={shops}
+            announcements={mapPins}
+            center={[gpsLocation?.lat ?? defaultLat, gpsLocation?.lng ?? defaultLng]}
+            zoom={14}
+            height={mapHeight}
+            fillHeight
+            showLegend={false}
+            flyTo={flyTo}
+            previewPin={previewPin}
+            onMapClick={(lat, lng) => {
+              setSelectedShop(null);
+              setSheetAnnouncement(null);
+              setPreviewPin({ lat, lng, label: "" });
+              openPublishAt(lat, lng, "");
+            }}
+            onShopClick={(shop) => {
+              setPublishDraft(null);
+              setSheetAnnouncement(null);
+              setPreviewPin(null);
+              setSelectedShop(shop);
+            }}
+            onAnnouncementClick={(spotId) => {
+              setSelectedShop(null);
+              setPublishDraft(null);
+              setPreviewPin(null);
+              handleAnnouncementClick(spotId);
+            }}
+            onRefresh={refresh}
+          />
+        }
+        sheets={exploreSheets}
+      />
     </div>
   );
 }

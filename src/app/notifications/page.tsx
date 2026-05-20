@@ -34,6 +34,7 @@ export default async function NotificationsPage() {
   const getNotificationLink = (notification: (typeof notifications)[0]) => {
     switch (notification.type) {
       case "SPOT_INVITE":
+      case "RANDOM_MATCH":
       case "MATCH_CREATED":
       case "MATCH_COMPLETED":
       case "BATTLE_RESULT":
@@ -69,12 +70,13 @@ export default async function NotificationsPage() {
           {notifications.map((notification) => {
             const title = getNotificationTitle(notification.type, notification.data);
             const body = getNotificationBody(notification.type, notification.data);
-            const isSpotInvite =
-              notification.type === "SPOT_INVITE" && !notification.read;
+            const isPriorityInvite =
+              (notification.type === "SPOT_INVITE" || notification.type === "RANDOM_MATCH") &&
+              !notification.read;
             const unread = !notification.read;
 
             let cardClass = "card card-hover block p-4 transition-colors ";
-            if (isSpotInvite) {
+            if (isPriorityInvite) {
               cardClass += "notification-spot-invite";
             } else if (unread) {
               cardClass += "notification-unread";
@@ -85,9 +87,11 @@ export default async function NotificationsPage() {
                 <Link href={getNotificationLink(notification)} className={cardClass}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      {isSpotInvite ? (
+                      {isPriorityInvite ? (
                         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                          約戰公告 · 新邀請
+                          {notification.type === "RANDOM_MATCH"
+                            ? "隨機配對"
+                            : "約戰公告 · 新邀請"}
                         </p>
                       ) : null}
                       <p className="font-medium text-foreground">{title}</p>

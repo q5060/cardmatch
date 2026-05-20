@@ -60,11 +60,6 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
   return (
     <div className="flex flex-col h-full space-y-4 p-5">
 
-      {/* Coordinates */}
-      <p className="text-sm text-muted-foreground">
-        座標：{draft.lat.toFixed(5)}, {draft.lng.toFixed(5)}
-      </p>
-
       {/* Location Name */}
       <label className="block text-sm font-medium text-foreground">
         <span className="text-muted-foreground">地點名稱</span>
@@ -90,9 +85,6 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
           maxLength={500}
           rows={3}
         />
-        <p className="mt-1 text-xs text-muted-foreground">
-          讓其他人快速了解你想打什麼、什麼程度。
-        </p>
       </label>
 
       {/* Time */}
