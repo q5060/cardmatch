@@ -203,10 +203,10 @@ export function ProfileDashboard({
     return base;
   }, [variant, battleStats, deckCount, publicDeckCount]);
 
-  const headerBlock =
-    variant === "other" ? (
-      <header className="space-y-3">
-        <Link
+  // const headerBlock =
+  //   variant === "other" ? (
+  //     <header className="space-y-2">
+        {/* <Link
           href="/friends"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
         >
@@ -225,11 +225,11 @@ export function ProfileDashboard({
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
           檢視對方公開的對戰統計與牌組；頂部「我的檔案」才是你自己的設定頁。
-        </p>
-      </header>
-    ) : (
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        </p> */}
+    //   </header>
+    // ) : (
+    //   <header className="space-y-2">
+        {/* <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">
               我的檔案
@@ -244,13 +244,13 @@ export function ProfileDashboard({
           <Link href="/settings" className="btn btn-outline btn-sm shrink-0">
             編輯設定
           </Link>
-        </div>
-      </header>
-    );
+        </div> */}
+    //   </header>
+    // );
 
   return (
       <div className="space-y-8">
-        {headerBlock}
+        {/* {headerBlock} */}
 
         <div className="card card-hover overflow-hidden p-0 shadow-none">
           <div
