@@ -96,10 +96,11 @@ export function BattleClient({
   const [locationAttempted, setLocationAttempted] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [incomingInviteAlert, setIncomingInviteAlert] = useState(false);
-  const [radiusCircle, setRadiusCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
   const seenInviteMatchIdRef = useRef<number | null>(null);
   const autoCleanedRef = useRef<number | null>(null);
+  const isFlyingRef = useRef(false);
 
   const isIncomingInvite =
     activeMatch?.status === MATCH_STATUS.INVITE_PENDING &&
@@ -174,13 +175,8 @@ export function BattleClient({
 
   const refresh = useCallback(async () => {
     await Promise.all([syncActiveMatch(), syncMapSnapshot()]);
-    // Reset to current GPS location or default location
-    if (gpsLocation) {
-      setFlyTo({ lat: gpsLocation.lat, lng: gpsLocation.lng, zoom: 14, key: Date.now() });
-    } else {
-      setFlyTo({ lat: defaultLat, lng: defaultLng, zoom: 14, key: Date.now() });
-    }
-  }, [syncActiveMatch, syncMapSnapshot, gpsLocation, defaultLat, defaultLng]);
+    // Don't auto-adjust map position - let user control it
+  }, [syncActiveMatch, syncMapSnapshot]);
 
   const onMatchUpdated = useCallback((e: RealtimeEvent) => {
     if (e.type !== "match.updated") return;
@@ -224,6 +220,15 @@ export function BattleClient({
     };
   }, [isIncomingInvite]);
 
+  /** Initialize map position once on mount */
+  useEffect(() => {
+    if (gpsLocation) {
+      setMapCenter({ lat: gpsLocation.lat, lng: gpsLocation.lng });
+    } else {
+      setMapCenter({ lat: defaultLat, lng: defaultLng });
+    }
+  }, []); // Only run once on mount
+
   /** Request user's GPS location when component mounts */
   useEffect(() => {
     if (!locationAttempted && navigator.geolocation) {
@@ -234,8 +239,7 @@ export function BattleClient({
           const lng = position.coords.longitude;
           setGpsLocation({ lat, lng });
           console.log("GPS定位成功:", lat, lng);
-          // Fly to GPS location on map
-          setFlyTo({ lat, lng, zoom: 15, key: Date.now() });
+          // Don't auto-fly to GPS location - let user see the default map first
         },
         (error) => {
           console.log("GPS定位失敗:", error.message);
@@ -316,14 +320,27 @@ export function BattleClient({
     if (ann) {
       setSheetAnnouncement(ann);
       // Fly to the player's location
+      isFlyingRef.current = true;
       setFlyTo({ lat: ann.lat, lng: ann.lng, zoom: 15, key: Date.now() });
+      // Clear flyTo after animation completes to prevent map from being pulled back
+      setTimeout(() => {
+        setFlyTo(null);
+        isFlyingRef.current = false;
+      }, 1000);
     }
   }
 
   function selectShopOnMap(shop: MapShopPin) {
     setPublishDraft(null);
     setSheetAnnouncement(null);
+    isFlyingRef.current = true;
     setFlyTo({ lat: shop.lat, lng: shop.lng, zoom: 15, key: Date.now() });
+    // Clear flyTo after animation completes to prevent map from being pulled back
+    setTimeout(() => {
+      setFlyTo(null);
+      isFlyingRef.current = false;
+    }, 1000);
+    setMapCenter({ lat: shop.lat, lng: shop.lng });
     setPreviewPin(null);
     setSelectedShop(shop);
   }
@@ -342,6 +359,17 @@ export function BattleClient({
       ? activeMatch.playerBId
       : activeMatch.playerAId
     : null;
+
+  // Memoized callback for map center changes - must be defined at top level to follow Rules of Hooks
+  const handleMapCenterChange = useCallback((lat: number, lng: number) => {
+    // Ignore map center changes while flying to prevent infinite update loops
+    if (isFlyingRef.current) return;
+    
+    setMapCenter(prev => {
+      if (prev.lat === lat && prev.lng === lng) return prev;
+      return { lat, lng };
+    });
+  }, []);
 
   const iAmA = activeMatch ? activeMatch.playerAId === userId : false;
   const myReady = activeMatch
@@ -994,6 +1022,97 @@ export function BattleClient({
     </>
   );
 
+  // Determine if we should show detail view on the left side
+  const showDetailView = !!(selectedShop || sheetAnnouncement || publishDraft);
+  
+  // Detail view content for left sidebar (replaces shopExplore when viewing details)
+  const detailView = selectedShop ? (
+    <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-foreground">{selectedShop.name}</h2>
+        <button
+          type="button"
+          onClick={() => setSelectedShop(null)}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="返回列表"
+        >
+          <span className="text-lg">✕</span>
+        </button>
+      </div>
+      <ShopLobbyContent
+        shop={selectedShop}
+        currentUserId={userId}
+        parentPending={pending}
+        onSelectPlayer={(ann) => {
+          setSelectedShop(null);
+          setSheetAnnouncement(ann);
+        }}
+        onPublishAtShop={(shop) => {
+          setSelectedShop(null);
+          openPublishAt(shop.lat, shop.lng, shop.name, shop.id);
+        }}
+        onCleared={() => {
+          setSelectedShop(null);
+        }}
+      />
+    </div>
+  ) : sheetAnnouncement ? (
+    <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-foreground">{sheetAnnouncement.displayName}</h2>
+        <button
+          type="button"
+          onClick={() => setSheetAnnouncement(null)}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="返回列表"
+        >
+          <span className="text-lg">✕</span>
+        </button>
+      </div>
+      <div className="min-h-0 overflow-y-auto">
+        <AnnouncementContent
+          announcement={sheetAnnouncement}
+          isOwn={sheetAnnouncement.userId === userId}
+          pending={pending}
+          onInvite={() => {
+            if (!sheetAnnouncement) return;
+            run(async () => {
+              await sendInviteFromSpot(sheetAnnouncement.spotId);
+              setSheetAnnouncement(null);
+            });
+          }}
+          onClear={() =>
+            run(async () => {
+              await clearBattleAnnouncement();
+              setSheetAnnouncement(null);
+            })
+          }
+        />
+      </div>
+    </div>
+  ) : publishDraft ? (
+    <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-foreground">發布約戰公告</h2>
+        <button
+          type="button"
+          onClick={() => setPublishDraft(null)}
+          className="text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="返回列表"
+        >
+          <span className="text-lg">✕</span>
+        </button>
+      </div>
+      <div className="min-h-0 overflow-y-auto">
+        <PublishAnnouncementContent
+          draft={publishDraft}
+          onClose={() => setPublishDraft(null)}
+          onPublished={handleAnnouncementPublished}
+        />
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="space-y-4">
       {myAnnouncement ? (
@@ -1053,7 +1172,14 @@ export function BattleClient({
             onSelectPlace={(place) => {
               setSelectedShop(null);
               setSheetAnnouncement(null);
+              isFlyingRef.current = true;
               setFlyTo({ lat: place.lat, lng: place.lng, zoom: 15, key: Date.now() });
+              // Clear flyTo after animation completes to prevent map from being pulled back
+              setTimeout(() => {
+                setFlyTo(null);
+                isFlyingRef.current = false;
+              }, 1000);
+              setMapCenter({ lat: place.lat, lng: place.lng });
               setPreviewPin(place);
               openPublishAt(place.lat, place.lng, place.label);
             }}
@@ -1061,13 +1187,19 @@ export function BattleClient({
               setSelectedShop(null);
               setSheetAnnouncement(ann);
               // Fly to the player's location
+              isFlyingRef.current = true;
               setFlyTo({ lat: ann.lat, lng: ann.lng, zoom: 15, key: Date.now() });
+              // Clear flyTo after animation completes to prevent map from being pulled back
+              setTimeout(() => {
+                setFlyTo(null);
+                isFlyingRef.current = false;
+              }, 1000);
+              setMapCenter({ lat: ann.lat, lng: ann.lng });
             }}
             mapCenterLat={mapCenter.lat}
             mapCenterLng={mapCenter.lng}
-            onRadiusChange={useCallback((lat, lng, radiusKm) => {
-              setRadiusCircle({ centerLat: lat, centerLng: lng, radiusKm });
-            }, [])}
+            radiusKm={radiusKm}
+            onRadiusChange={setRadiusKm}
           />
         }
         map={
@@ -1081,7 +1213,7 @@ export function BattleClient({
             showLegend={false}
             flyTo={flyTo}
             previewPin={previewPin}
-            radiusCircle={radiusCircle}
+            radiusCircle={{ centerLat: mapCenter.lat, centerLng: mapCenter.lng, radiusKm }}
             onMapClick={(lat, lng) => {
               setSelectedShop(null);
               setSheetAnnouncement(null);
@@ -1100,13 +1232,13 @@ export function BattleClient({
               setPreviewPin(null);
               handleAnnouncementClick(spotId);
             }}
-            onMapCenterChange={(lat, lng) => {
-              setMapCenter({ lat, lng });
-            }}
+            onMapCenterChange={handleMapCenterChange}
             onRefresh={refresh}
           />
         }
         sheets={exploreSheets}
+        showDetailView={showDetailView}
+        detailView={detailView}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -111,16 +111,23 @@ function MapCenterTracker({
 }: {
   onMapCenterChange?: (lat: number, lng: number) => void;
 }) {
-  useMapEvents({
-    moveend(e) {
-      const center = e.target.getCenter();
-      onMapCenterChange?.(center.lat, center.lng);
-    },
-    zoomend(e) {
-      const center = e.target.getCenter();
-      onMapCenterChange?.(center.lat, center.lng);
-    },
-  });
+  const map = useMap();
+  const cb = useRef(onMapCenterChange);
+  cb.current = onMapCenterChange;
+
+  useEffect(() => {
+    const onMove = () => {
+      const center = map.getCenter();
+      cb.current?.(center.lat, center.lng);
+    };
+    map.on("moveend", onMove);
+    map.on("zoomend", onMove);
+    return () => {
+      map.off("moveend", onMove);
+      map.off("zoomend", onMove);
+    };
+  }, [map]);
+
   return null;
 }
 

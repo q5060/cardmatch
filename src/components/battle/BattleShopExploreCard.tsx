@@ -16,7 +16,8 @@ type Props = {
   onSelectAnnouncement: (announcement: MapAnnouncementDTO) => void;
   mapCenterLat?: number;
   mapCenterLng?: number;
-  onRadiusChange?: (lat: number, lng: number, radiusKm: number) => void;
+  radiusKm?: number;
+  onRadiusChange?: (radiusKm: number) => void;
 };
 
 // Calculate distance between two coordinates (in km)
@@ -43,26 +44,19 @@ export function BattleShopExploreCard({
   onSelectAnnouncement,
   mapCenterLat = 25.033,
   mapCenterLng = 121.565,
+  radiusKm = 5,
   onRadiusChange,
 }: Props) {
-  const [radiusKm, setRadiusKm] = useState(5); // Default 5 km radius
   const [tab, setTab] = useState<"players" | "shops">("players");
-  
+
   // Determine available content
   const hasOtherPlayers = announcements.length > 0;
   const canShowShops = !hideShopList;
 
-  // Handle radius change with useCallback to avoid infinite updates
+  // Handle radius change directly
   const handleRadiusChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setRadiusKm(parseFloat(e.target.value));
-  }, []);
-
-  // Notify parent about radius change
-  useEffect(() => {
-    onRadiusChange?.(mapCenterLat, mapCenterLng, radiusKm);
-  }, [radiusKm, mapCenterLat, mapCenterLng, onRadiusChange]);
-
-  // Filter announcements by radius (use map center as reference point)
+    onRadiusChange?.(parseFloat(e.target.value));
+  }, [onRadiusChange]);
   const filteredAnnouncements = useMemo(() => {
     if (announcements.length === 0) return [];
     
