@@ -9,12 +9,11 @@ type Props = {
 };
 
 export function BattleShopList({ shops, onSelectShop }: Props) {
-  if (shops.length === 0) return null;
-
   return (
     <ul
-      className="max-h-[min(28rem,52vh)] space-y-2 overflow-y-auto overscroll-contain pr-0.5"
+      className="min-h-[352px] space-y-2 overflow-y-auto overscroll-contain pr-0.5"
       role="list"
+      style={{ minHeight: "calc(3 * 110px + 16px)" }} // 3 items * ~110px each + gaps
     >
       {shops.map((shop) => (
         <li key={shop.id}>

@@ -96,6 +96,8 @@ export function BattleClient({
   const [locationAttempted, setLocationAttempted] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [incomingInviteAlert, setIncomingInviteAlert] = useState(false);
+  const [radiusCircle, setRadiusCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
   const seenInviteMatchIdRef = useRef<number | null>(null);
   const autoCleanedRef = useRef<number | null>(null);
 
@@ -172,7 +174,13 @@ export function BattleClient({
 
   const refresh = useCallback(async () => {
     await Promise.all([syncActiveMatch(), syncMapSnapshot()]);
-  }, [syncActiveMatch, syncMapSnapshot]);
+    // Reset to current GPS location or default location
+    if (gpsLocation) {
+      setFlyTo({ lat: gpsLocation.lat, lng: gpsLocation.lng, zoom: 14, key: Date.now() });
+    } else {
+      setFlyTo({ lat: defaultLat, lng: defaultLng, zoom: 14, key: Date.now() });
+    }
+  }, [syncActiveMatch, syncMapSnapshot, gpsLocation, defaultLat, defaultLng]);
 
   const onMatchUpdated = useCallback((e: RealtimeEvent) => {
     if (e.type !== "match.updated") return;
@@ -305,7 +313,11 @@ export function BattleClient({
 
   function handleAnnouncementClick(spotId: string) {
     const ann = announcementBySpotId.get(spotId);
-    if (ann) setSheetAnnouncement(ann);
+    if (ann) {
+      setSheetAnnouncement(ann);
+      // Fly to the player's location
+      setFlyTo({ lat: ann.lat, lng: ann.lng, zoom: 15, key: Date.now() });
+    }
   }
 
   function selectShopOnMap(shop: MapShopPin) {
@@ -1045,7 +1057,17 @@ export function BattleClient({
               setPreviewPin(place);
               openPublishAt(place.lat, place.lng, place.label);
             }}
-            onSelectAnnouncement={(ann) => setSheetAnnouncement(ann)}
+            onSelectAnnouncement={(ann) => {
+              setSelectedShop(null);
+              setSheetAnnouncement(ann);
+              // Fly to the player's location
+              setFlyTo({ lat: ann.lat, lng: ann.lng, zoom: 15, key: Date.now() });
+            }}
+            mapCenterLat={mapCenter.lat}
+            mapCenterLng={mapCenter.lng}
+            onRadiusChange={useCallback((lat, lng, radiusKm) => {
+              setRadiusCircle({ centerLat: lat, centerLng: lng, radiusKm });
+            }, [])}
           />
         }
         map={
@@ -1059,6 +1081,7 @@ export function BattleClient({
             showLegend={false}
             flyTo={flyTo}
             previewPin={previewPin}
+            radiusCircle={radiusCircle}
             onMapClick={(lat, lng) => {
               setSelectedShop(null);
               setSheetAnnouncement(null);
@@ -1076,6 +1099,9 @@ export function BattleClient({
               setPublishDraft(null);
               setPreviewPin(null);
               handleAnnouncementClick(spotId);
+            }}
+            onMapCenterChange={(lat, lng) => {
+              setMapCenter({ lat, lng });
             }}
             onRefresh={refresh}
           />

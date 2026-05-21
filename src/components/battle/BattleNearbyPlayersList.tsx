@@ -10,12 +10,11 @@ type Props = {
 };
 
 export function BattleNearbyPlayersList({ announcements, onSelect }: Props) {
-  if (announcements.length === 0) return null;
-
   return (
     <ul
-      className="max-h-[min(28rem,52vh)] space-y-2 overflow-y-auto overscroll-contain pr-0.5"
+      className="min-h-[352px] space-y-2 overflow-y-auto overscroll-contain pr-0.5"
       role="list"
+      style={{ minHeight: "calc(3 * 110px + 16px)" }} // 3 items * ~110px each + gaps
     >
       {announcements.map((ann) => (
         <li key={ann.spotId}>

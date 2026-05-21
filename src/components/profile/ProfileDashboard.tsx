@@ -72,7 +72,7 @@ function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, numb
 
   return (
     <div className="card card-hover p-4">
-      <h3 className="text-sm font-semibold text-foreground">約戰熱度</h3>
+      <h3 className="text-sm font-semibold text-foreground">對戰熱度</h3>
       {/* <p className="mt-1 text-xs text-muted-foreground">最近 84 天（每日完成對戰場次）</p> */}
       <div
         className="mt-3 grid gap-1"
@@ -82,7 +82,7 @@ function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, numb
           gridAutoFlow: "column",
         }}
         role="img"
-        aria-label="約戰熱度格子圖"
+        aria-label="對戰熱度"
       >
         {cellsColumnMajor.map((c) => (
           <span
@@ -349,7 +349,7 @@ export function ProfileDashboard({
                 ) : (
                   <>
                     <Link 
-                      href={`/friends?chat=${friendshipStatus.id}`}
+                      href={`/chat/${friendshipStatus.id}`}
                       className="btn btn-primary btn-sm"
                     >
                       私訊
