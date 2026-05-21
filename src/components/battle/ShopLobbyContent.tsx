@@ -54,7 +54,7 @@ export function ShopLobbyContent({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="space-y-1 border-b border-border p-5">
-        <h2 className="text-lg font-semibold text-foreground">{shop.name}</h2>
+        {/* <h2 className="text-lg font-semibold text-foreground">{shop.name}</h2> */}
         {shop.addressNote ? (
           <p className="text-sm text-muted-foreground">{shop.addressNote}</p>
         ) : null}
@@ -73,7 +73,6 @@ export function ShopLobbyContent({
         ) : players.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <p className="text-sm text-muted-foreground">目前沒有玩家在此店約戰</p>
-            <p className="text-xs text-muted-foreground">在此店發布約戰，成為第一位</p>
           </div>
         ) : (
           <ul className="space-y-3">

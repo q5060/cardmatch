@@ -72,8 +72,8 @@ function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, numb
 
   return (
     <div className="card card-hover p-4">
-      <h3 className="text-sm font-semibold text-foreground">約戰熱度</h3>
-      <p className="mt-1 text-xs text-muted-foreground">最近 84 天（每日完成對戰場次）</p>
+      <h3 className="text-sm font-semibold text-foreground">對戰熱度</h3>
+      {/* <p className="mt-1 text-xs text-muted-foreground">最近 84 天（每日完成對戰場次）</p> */}
       <div
         className="mt-3 grid gap-1"
         style={{
@@ -82,7 +82,7 @@ function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, numb
           gridAutoFlow: "column",
         }}
         role="img"
-        aria-label="約戰熱度格子圖"
+        aria-label="對戰熱度"
       >
         {cellsColumnMajor.map((c) => (
           <span
@@ -163,22 +163,22 @@ export function ProfileDashboard({
   );
 
   const statTiles = useMemo(() => {
-    const deckHint =
-      variant === "other"
-        ? publicDeckCount > 0
-          ? "皆為公開"
-          : undefined
-        : `${publicDeckCount} 公開`;
+    // const deckHint =
+    //   variant === "other"
+    //     ? publicDeckCount > 0
+    //       ? "皆為公開"
+    //       : undefined
+    //     : `${publicDeckCount} 公開`;
 
     const base = [
       {
         icon: Swords,
         value: battleStats.completedTotal,
         label: "已完成對戰",
-        hint:
-          battleStats.recordedTotal > 0
-            ? `已紀錄戰果 ${battleStats.recordedTotal} 場`
-            : undefined,
+        // hint:
+        //   battleStats.recordedTotal > 0
+        //     ? `已紀錄戰果 ${battleStats.recordedTotal} 場`
+        //     : undefined,
       },
       {
         icon: Trophy,
@@ -196,17 +196,17 @@ export function ProfileDashboard({
         icon: Layers,
         value: deckCount,
         label: "牌組",
-        hint: deckHint,
+        // hint: deckHint,
       },
     ];
 
     return base;
   }, [variant, battleStats, deckCount, publicDeckCount]);
 
-  const headerBlock =
-    variant === "other" ? (
-      <header className="space-y-3">
-        <Link
+  // const headerBlock =
+  //   variant === "other" ? (
+  //     <header className="space-y-2">
+        {/* <Link
           href="/friends"
           className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
         >
@@ -225,11 +225,11 @@ export function ProfileDashboard({
         </h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
           檢視對方公開的對戰統計與牌組；頂部「我的檔案」才是你自己的設定頁。
-        </p>
-      </header>
-    ) : (
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        </p> */}
+    //   </header>
+    // ) : (
+    //   <header className="space-y-2">
+        {/* <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wider text-primary">
               我的檔案
@@ -244,13 +244,13 @@ export function ProfileDashboard({
           <Link href="/settings" className="btn btn-outline btn-sm shrink-0">
             編輯設定
           </Link>
-        </div>
-      </header>
-    );
+        </div> */}
+    //   </header>
+    // );
 
   return (
       <div className="space-y-8">
-        {headerBlock}
+        {/* {headerBlock} */}
 
         <div className="card card-hover overflow-hidden p-0 shadow-none">
           <div
@@ -349,7 +349,7 @@ export function ProfileDashboard({
                 ) : (
                   <>
                     <Link 
-                      href={`/friends?chat=${friendshipStatus.id}`}
+                      href={`/chat/${friendshipStatus.id}`}
                       className="btn btn-primary btn-sm"
                     >
                       私訊
@@ -427,10 +427,7 @@ export function ProfileDashboard({
               </div>
 
               <div className="card card-hover p-5">
-                <h2 className="text-lg font-semibold text-foreground">近期約戰</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  僅顯示已完成對戰；戰果為單方紀錄時之視角換算。
-                </p>
+                <h2 className="text-lg font-semibold text-foreground">近期對戰</h2>
                 {feed.length === 0 ? (
                   <p className="mt-6 text-sm text-muted-foreground">尚無紀錄。</p>
                 ) : (
@@ -474,12 +471,12 @@ export function ProfileDashboard({
 
             <aside className="space-y-6 lg:sticky lg:top-24">
               <ActivityHeatmap activityByDay={battleStats.activityByDay} />
-              <div className="card card-hover p-4 text-xs leading-relaxed text-muted-foreground">
+              {/* <div className="card card-hover p-4 text-xs leading-relaxed text-muted-foreground">
                 <p>
                   統計中的勝敗平僅包含<strong className="text-foreground">已送出戰果</strong>
                   的對戰；熱度圖依對戰「完成」日期計算。
                 </p>
-              </div>
+              </div> */}
             </aside>
           </div>
         )}

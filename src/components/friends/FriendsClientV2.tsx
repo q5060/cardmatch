@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FriendsListView } from "./FriendsListView";
 import { acceptFriendship, rejectFriendship } from "@/actions/friends";
@@ -45,6 +45,20 @@ export function FriendsClientV2({
       }
     });
   }
+
+  // Auto-switch to friends tab if pending list becomes empty
+  useEffect(() => {
+    const pendingIn = friendships.filter(
+      (f) => f.status === "PENDING" && f.addresseeId === userId,
+    );
+    const pendingOut = friendships.filter(
+      (f) => f.status === "PENDING" && f.requesterId === userId,
+    );
+    
+    if (tab === "pending" && pendingIn.length === 0 && pendingOut.length === 0) {
+      setTab("friends");
+    }
+  }, [friendships, userId, tab]);
 
   const pendingIn = friendships.filter(
     (f) => f.status === "PENDING" && f.addresseeId === userId,

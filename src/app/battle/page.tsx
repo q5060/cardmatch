@@ -60,7 +60,6 @@ export default async function BattlePage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="對戰" />
       <BattleClient
         userId={user.id}
         shops={shops}

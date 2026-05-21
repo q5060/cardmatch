@@ -62,12 +62,6 @@ function SearchContent() {
     <div className="mx-auto max-w-2xl space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <BackLink />
-        <PageHeader
-          className="flex-1"
-          eyebrow="探索"
-          title="搜尋"
-          description="搜尋使用者名稱或約戰地點標籤"
-        />
       </div>
 
       <div className="card card-hover p-6">

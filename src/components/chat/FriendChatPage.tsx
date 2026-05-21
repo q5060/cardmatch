@@ -307,8 +307,8 @@ export function FriendChatPage({
           )}
 
           {messages.length === 0 ? (
-            <p className="text-muted-foreground">
-              尚無訊息，開始對話吧。
+            <p className="text-muted-foreground text-center px-4">
+              尚無訊息，在這裡開啟你們之間的第一句話。
             </p>
           ) : (
             messages.map((m) => {

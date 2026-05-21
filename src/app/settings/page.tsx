@@ -279,9 +279,7 @@ function SettingsContent() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="帳號"
         title="設定"
-        description="管理您的帳號資訊、隱私設定與密碼安全"
       />
 
       {message ? (

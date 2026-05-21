@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -8,6 +8,7 @@ import {
   Popup,
   useMap,
   useMapEvents,
+  Circle,
 } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
@@ -73,6 +74,14 @@ type Props = {
   flyTo?: MapFlyToTarget | null;
   previewPin?: MapPreviewPin | null;
   onRefresh?: () => void;
+  /** Show a circle on the map representing a search radius */
+  radiusCircle?: {
+    centerLat: number;
+    centerLng: number;
+    radiusKm: number;
+  } | null;
+  /** Called when map center changes (drag/pan/zoom) */
+  onMapCenterChange?: (lat: number, lng: number) => void;
 };
 
 function MapFlyTo({ target }: { target?: MapFlyToTarget | null }) {
@@ -94,6 +103,31 @@ function MapClickLayer({
       onMapClick?.(e.latlng.lat, e.latlng.lng);
     },
   });
+  return null;
+}
+
+function MapCenterTracker({
+  onMapCenterChange,
+}: {
+  onMapCenterChange?: (lat: number, lng: number) => void;
+}) {
+  const map = useMap();
+  const cb = useRef(onMapCenterChange);
+  cb.current = onMapCenterChange;
+
+  useEffect(() => {
+    const onMove = () => {
+      const center = map.getCenter();
+      cb.current?.(center.lat, center.lng);
+    };
+    map.on("moveend", onMove);
+    map.on("zoomend", onMove);
+    return () => {
+      map.off("moveend", onMove);
+      map.off("zoomend", onMove);
+    };
+  }, [map]);
+
   return null;
 }
 
@@ -202,6 +236,8 @@ export function MeetMapClient({
   flyTo,
   previewPin,
   onRefresh,
+  radiusCircle = null,
+  onMapCenterChange,
 }: Props) {
   useEffect(() => {
     delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
@@ -216,7 +252,22 @@ export function MeetMapClient({
       />
       <MapFlyTo target={flyTo} />
       <MapClickLayer onMapClick={onMapClick} />
+      <MapCenterTracker onMapCenterChange={onMapCenterChange} />
       <MapRefreshControl onRefresh={onRefresh} />
+      {radiusCircle ? (
+        <Circle
+          center={[radiusCircle.centerLat, radiusCircle.centerLng]}
+          radius={radiusCircle.radiusKm * 1000} // Convert km to meters
+          pathOptions={{
+            color: "hsl(var(--primary))",
+            weight: 2,
+            opacity: 0.3,
+            fill: true,
+            fillColor: "hsl(var(--primary))",
+            fillOpacity: 0.08,
+          }}
+        />
+      ) : null}
       {previewPin ? (
         <Marker position={[previewPin.lat, previewPin.lng]} icon={previewPinIcon}>
           <Popup>
