@@ -30,7 +30,7 @@ export default async function BattlePage() {
     getActiveMatchForUser(user.id),
     getMapAnnouncements(user.id),
     getMyActiveAnnouncement(user.id),
-    getShops(),
+    getShops(user.id),
     prisma.user.findUnique({
       where: { id: user.id },
       select: { defaultShopId: true },

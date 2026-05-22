@@ -31,8 +31,17 @@ export const FRIENDSHIP_STATUS = {
   ACCEPTED: "ACCEPTED",
 } as const;
 
-/** Hours until a map battle announcement expires. */
-export const ANNOUNCEMENT_TTL_HOURS = 4;
+/** Default hours until a battle announcement expires. */
+export const ANNOUNCEMENT_TTL_DEFAULT_HOURS = 4;
+/** @deprecated Use ANNOUNCEMENT_TTL_DEFAULT_HOURS */
+export const ANNOUNCEMENT_TTL_HOURS = ANNOUNCEMENT_TTL_DEFAULT_HOURS;
+export const ANNOUNCEMENT_TTL_MIN_HOURS = 1;
+export const ANNOUNCEMENT_TTL_MAX_HOURS = 24;
+
+/** Max completed matches shown on profile overview. */
+export const PROFILE_RECENT_MATCHES = 3;
+/** Max matches loaded on profile all-matches page. */
+export const PROFILE_ALL_MATCHES = 100;
 
 /** How long a random-match queue entry stays valid (ms). */
 export const MATCH_QUEUE_TTL_MS = 30 * 60 * 1000;

@@ -6,6 +6,7 @@ import { UserRound } from "lucide-react";
 import type { MapShopPin } from "@/components/map/MeetMap";
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { fetchShopLobby, clearBattleAnnouncement } from "@/actions/meetSpot";
+import { formatExpiresAt } from "@/lib/format";
 
 type Props = {
   shop: MapShopPin;
@@ -113,11 +114,7 @@ export function ShopLobbyContent({
                         <p className="text-xs text-foreground line-clamp-2">{p.playNote}</p>
                       ) : null}
                       <p className="text-xs text-muted-foreground">
-                        {p.timeNote
-                          ? `時段：${p.timeNote}`
-                          : p.playNote
-                            ? "未填時段"
-                            : "未填說明"}
+                        公告至 {formatExpiresAt(p.expiresAt)}
                       </p>
                     </div>
                   </div>

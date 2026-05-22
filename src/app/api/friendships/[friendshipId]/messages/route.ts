@@ -5,6 +5,7 @@ import {
   publishFriendMessage,
   publishNotification,
 } from "@/lib/realtime/publish";
+import { assertNotBlocked } from "@/lib/block";
 
 async function assertFriendship(friendshipId: string, userId: number) {
   const f = await prisma.friendship.findUnique({ where: { id: friendshipId } });
@@ -31,6 +32,14 @@ export async function GET(
   const ok = await assertFriendship(friendshipId, session.userId);
   if (!ok) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+
+  const otherId =
+    ok.requesterId === session.userId ? ok.addresseeId : ok.requesterId;
+  try {
+    await assertNotBlocked(session.userId, otherId);
+  } catch {
+    return NextResponse.json({ error: "BLOCKED" }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -93,6 +102,14 @@ export async function POST(
   const ok = await assertFriendship(friendshipId, session.userId);
   if (!ok) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+
+  const otherIdPost =
+    ok.requesterId === session.userId ? ok.addresseeId : ok.requesterId;
+  try {
+    await assertNotBlocked(session.userId, otherIdPost);
+  } catch {
+    return NextResponse.json({ error: "BLOCKED" }, { status: 403 });
   }
 
   let body: { body?: string };

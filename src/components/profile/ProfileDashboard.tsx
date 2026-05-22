@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,10 +10,13 @@ import {
   Calendar,
   Layers,
   Swords,
+  MoreHorizontal,
   Trophy,
   UserRound,
 } from "lucide-react";
 import type { ProfileBattleStats, ProfileMatchFeedRow } from "@/lib/queries";
+import { MatchFeedList } from "@/components/profile/MatchFeedList";
+import { PROFILE_RECENT_MATCHES } from "@/lib/constants";
 
 const TABS_SELF = [
   { id: "overview" as const, label: "總覽" },
@@ -118,7 +121,13 @@ export type ProfileDashboardProps = {
   battleStats: ProfileBattleStats;
   deckCount: number;
   publicDeckCount: number;
-  feed: ProfileMatchFeedRow[];
+  recentFeed: ProfileMatchFeedRow[];
+  /** Link target for the full match history page. */
+  allMatchesHref: string;
+  /** Viewer has blocked the profile owner (other profile only). */
+  blockedByViewer?: boolean;
+  /** Either direction of block — hide friend / report / block actions. */
+  interactionBlocked?: boolean;
   decksSlot: ReactNode;
 };
 
@@ -132,13 +141,33 @@ export function ProfileDashboard({
   battleStats,
   deckCount,
   publicDeckCount,
-  feed,
+  recentFeed,
+  allMatchesHref,
+  blockedByViewer = false,
+  interactionBlocked = false,
   decksSlot,
 }: ProfileDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = normalizeTab(searchParams.get("tab"), variant);
   const tabs = variant === "other" ? TABS_OTHER : TABS_SELF;
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [modErr, setModErr] = useState<string | null>(null);
+  const [modPending, startModTransition] = useTransition();
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [moreMenuOpen]);
 
   const setTab = useCallback(
     (next: ProfileTabId) => {
@@ -304,37 +333,45 @@ export function ProfileDashboard({
                 )}
               </div>
 
-            {/* Friend Operations */}
+            {/* Friend / moderation */}
             {variant === "other" && viewedUserId && viewerId && (
               <div className="flex gap-2 relative z-10 flex-wrap items-start shrink-0 mt-6 pb-2">
-                {!friendshipStatus ? (
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (!viewedUserId) return;
-                        const { sendFriendRequest } = await import("@/actions/profile");
-                        await sendFriendRequest(viewedUserId);
-                        window.location.reload();
-                      } catch (e) {
-                        alert(e instanceof Error ? e.message : "操作失敗");
-                      }
-                    }}
-                    className="btn btn-primary btn-sm"
-                  >
-                    加入好友
-                  </button>
-                ) : friendshipStatus.status === "PENDING" ? (
+                {blockedByViewer ? (
                   <>
-                    {friendshipStatus.requesterId === viewerId ? (
-                      <button disabled className="btn btn-secondary btn-sm">
-                        待審核
-                      </button>
-                    ) : (
+                    <span className="text-sm text-muted-foreground">已封鎖此使用者</span>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={modPending}
+                      onClick={() => {
+                        if (!confirm("確定要解除封鎖？對方將可再次出現在大廳，你也可重新加好友或私訊。")) {
+                          return;
+                        }
+                        startModTransition(async () => {
+                          try {
+                            const { unblockUser } = await import("@/actions/moderation");
+                            await unblockUser(viewedUserId!);
+                            window.location.reload();
+                          } catch (e) {
+                            alert(e instanceof Error ? e.message : "操作失敗");
+                          }
+                        });
+                      }}
+                    >
+                      {modPending ? "處理中…" : "解除封鎖"}
+                    </button>
+                  </>
+                ) : interactionBlocked ? (
+                  <span className="text-sm text-muted-foreground">無法與此使用者互動</span>
+                ) : (
+                  <>
+                    {!friendshipStatus ? (
                       <button
                         onClick={async () => {
                           try {
-                            const { acceptFriendship } = await import("@/actions/friends");
-                            await acceptFriendship(friendshipStatus.id);
+                            if (!viewedUserId) return;
+                            const { sendFriendRequest } = await import("@/actions/profile");
+                            await sendFriendRequest(viewedUserId);
                             window.location.reload();
                           } catch (e) {
                             alert(e instanceof Error ? e.message : "操作失敗");
@@ -342,38 +379,185 @@ export function ProfileDashboard({
                         }}
                         className="btn btn-primary btn-sm"
                       >
-                        接受邀請
+                        加入好友
                       </button>
+                    ) : friendshipStatus.status === "PENDING" ? (
+                      <>
+                        {friendshipStatus.requesterId === viewerId ? (
+                          <button disabled className="btn btn-secondary btn-sm">
+                            待審核
+                          </button>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const { acceptFriendship } = await import("@/actions/friends");
+                                await acceptFriendship(friendshipStatus.id);
+                                window.location.reload();
+                              } catch (e) {
+                                alert(e instanceof Error ? e.message : "操作失敗");
+                              }
+                            }}
+                            className="btn btn-primary btn-sm"
+                          >
+                            接受邀請
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <Link
+                        href={`/chat/${friendshipStatus.id}`}
+                        className="btn btn-primary btn-sm"
+                      >
+                        私訊
+                      </Link>
                     )}
-                  </>
-                ) : (
-                  <>
-                    <Link 
-                      href={`/chat/${friendshipStatus.id}`}
-                      className="btn btn-primary btn-sm"
-                    >
-                      私訊
-                    </Link>
-                    <button
-                      onClick={async () => {
-                        if (confirm("確定要刪除此好友？")) {
-                          try {
-                            const { rejectFriendship } = await import("@/actions/friends");
-                            await rejectFriendship(friendshipStatus.id);
-                            window.location.reload();
-                          } catch (e) {
-                            alert(e instanceof Error ? e.message : "操作失敗");
-                          }
-                        }
-                      }}
-                      className="btn btn-outline btn-sm text-red-600 hover:bg-red-50"
-                    >
-                      刪除好友
-                    </button>
+                    <div className="relative" ref={moreMenuRef}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm inline-flex items-center gap-1"
+                        aria-expanded={moreMenuOpen}
+                        aria-haspopup="menu"
+                        onClick={() => setMoreMenuOpen((open) => !open)}
+                      >
+                        <MoreHorizontal className="h-4 w-4" aria-hidden />
+                        更多
+                      </button>
+                      {moreMenuOpen ? (
+                        <div
+                          className="absolute right-0 top-full z-20 mt-1 min-w-[9.5rem] overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
+                          role="menu"
+                        >
+                          {friendshipStatus?.status === "ACCEPTED" ? (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                              onClick={() => {
+                                setMoreMenuOpen(false);
+                                if (!confirm("確定要刪除此好友？")) return;
+                                void (async () => {
+                                  try {
+                                    const { rejectFriendship } = await import(
+                                      "@/actions/friends"
+                                    );
+                                    await rejectFriendship(friendshipStatus.id);
+                                    window.location.reload();
+                                  } catch (e) {
+                                    alert(e instanceof Error ? e.message : "操作失敗");
+                                  }
+                                })();
+                              }}
+                            >
+                              刪除好友
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-black/[0.04]"
+                            onClick={() => {
+                              setMoreMenuOpen(false);
+                              setModErr(null);
+                              setReportReason("");
+                              setReportOpen(true);
+                            }}
+                          >
+                            檢舉
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={modPending}
+                            className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            onClick={() => {
+                              setMoreMenuOpen(false);
+                              if (
+                                !confirm(
+                                  "確定要封鎖此使用者？將解除好友關係、無法私訊，且雙方不會在店家大廳看到彼此的公告。",
+                                )
+                              ) {
+                                return;
+                              }
+                              startModTransition(async () => {
+                                try {
+                                  const { blockUser } = await import("@/actions/moderation");
+                                  await blockUser(viewedUserId);
+                                  window.location.reload();
+                                } catch (e) {
+                                  alert(e instanceof Error ? e.message : "操作失敗");
+                                }
+                              });
+                            }}
+                          >
+                            封鎖
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </>
                 )}
               </div>
             )}
+            {reportOpen && variant === "other" && viewedUserId ? (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="report-dialog-title"
+              >
+                <div className="card w-full max-w-md p-5 shadow-lg">
+                  <h3 id="report-dialog-title" className="text-lg font-semibold text-foreground">
+                    檢舉使用者
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    請簡述原因（選填）。檢舉不會自動封鎖對方。
+                  </p>
+                  <textarea
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="input-field mt-3 min-h-[80px] resize-y"
+                    maxLength={500}
+                    placeholder="選填"
+                  />
+                  {modErr ? (
+                    <p className="mt-2 text-sm text-red-700" role="alert">
+                      {modErr}
+                    </p>
+                  ) : null}
+                  <div className="mt-4 flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={modPending}
+                      onClick={() => setReportOpen(false)}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={modPending}
+                      onClick={() => {
+                        setModErr(null);
+                        startModTransition(async () => {
+                          try {
+                            const { reportUser } = await import("@/actions/moderation");
+                            await reportUser(viewedUserId, reportReason);
+                            setReportOpen(false);
+                            alert("已收到檢舉，感謝回報");
+                          } catch (e) {
+                            setModErr(e instanceof Error ? e.message : "送出失敗");
+                          }
+                        });
+                      }}
+                    >
+                      {modPending ? "送出中…" : "送出檢舉"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <nav
@@ -427,45 +611,18 @@ export function ProfileDashboard({
               </div>
 
               <div className="card card-hover p-5">
-                <h2 className="text-lg font-semibold text-foreground">近期對戰</h2>
-                {feed.length === 0 ? (
-                  <p className="mt-6 text-sm text-muted-foreground">尚無紀錄。</p>
-                ) : (
-                  <ul className="mt-4 space-y-3">
-                    {feed.map((row) => (
-                      <li
-                        key={row.id}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-black/[0.02] px-4 py-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-foreground">
-                            vs{" "}
-                            <Link
-                              href={`/profile/${row.otherUserId}`}
-                              className="text-primary underline-offset-2 hover:underline"
-                            >
-                              {row.otherDisplayName}
-                            </Link>
-                          </div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">
-                            {row.meetLabel} ·{" "}
-                            {new Date(row.updatedAt).toLocaleString("zh-Hant", {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })}
-                          </div>
-                        </div>
-                        {row.outcomeLabel ? (
-                          <span className="shrink-0 rounded-full bg-primary/12 px-2.5 py-1 text-xs font-semibold text-primary">
-                            {row.outcomeLabel}
-                          </span>
-                        ) : (
-                          <span className="shrink-0 text-xs text-muted-foreground">未紀錄</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-foreground">近期對戰</h2>
+                  {battleStats.completedTotal > PROFILE_RECENT_MATCHES ? (
+                    <Link
+                      href={allMatchesHref}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      所有約戰
+                    </Link>
+                  ) : null}
+                </div>
+                <MatchFeedList feed={recentFeed} />
               </div>
             </div>
 

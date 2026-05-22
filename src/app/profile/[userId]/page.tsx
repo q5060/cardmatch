@@ -6,7 +6,9 @@ import prisma from "@/lib/prisma";
 import { ProfileDashboard } from "@/components/profile/ProfileDashboard";
 import { PublicDeckList } from "@/components/profile/PublicDeckList";
 import { getProfileBattleStats, getProfileMatchFeed } from "@/lib/queries";
-import { DECK_VISIBILITY } from "@/lib/constants";
+import { DECK_VISIBILITY, PROFILE_RECENT_MATCHES } from "@/lib/constants";
+import { isBlockedBetween } from "@/lib/block";
+import { viewerHasBlocked } from "@/actions/moderation";
 
 export async function generateMetadata(
   { params }: { params: Promise<{ userId: string }> }
@@ -80,7 +82,8 @@ export default async function OtherProfilePage({
   if (!viewer) redirect("/login");
   if (viewer.id === userId) redirect("/profile");
 
-  const [profile, battleStats, feed, friendship] = await Promise.all([
+  const [profile, battleStats, recentFeed, friendship, blockedByViewer, blockedEither] =
+    await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -97,7 +100,7 @@ export default async function OtherProfilePage({
       },
     }),
     getProfileBattleStats(userId),
-    getProfileMatchFeed(userId, 15),
+    getProfileMatchFeed(userId, PROFILE_RECENT_MATCHES),
     prisma.friendship.findFirst({
       where: {
         OR: [
@@ -107,7 +110,12 @@ export default async function OtherProfilePage({
       },
       select: { id: true, status: true, requesterId: true },
     }),
+    viewerHasBlocked(viewer.id, userId),
+    isBlockedBetween(viewer.id, userId),
   ]);
+
+  const friendshipForUi =
+    blockedEither ? null : friendship;
 
   if (!profile) notFound();
 
@@ -121,7 +129,9 @@ export default async function OtherProfilePage({
         profileBasePath={`/profile/${userId}`}
         viewedUserId={userId}
         viewerId={viewer.id}
-        friendshipStatus={friendship}
+        friendshipStatus={friendshipForUi}
+        blockedByViewer={blockedByViewer}
+        interactionBlocked={blockedEither}
         user={{
           displayName: profile.displayName,
           bio: profile.bio,
@@ -132,7 +142,8 @@ export default async function OtherProfilePage({
         battleStats={battleStats}
         deckCount={deckCount}
         publicDeckCount={publicDeckCount}
-        feed={feed}
+        recentFeed={recentFeed}
+        allMatchesHref={`/profile/${userId}/matches`}
         decksSlot={<PublicDeckList decks={profile.decks} />}
       />
     </Suspense>

@@ -3,8 +3,15 @@ import {
   MATCH_ACTIVE_STATUSES,
   MATCH_STATUS,
 } from "./constants";
+import { getBlockedUserIds } from "./block";
 
-export async function getShops() {
+async function hiddenUserIdsForViewer(viewerId: number): Promise<number[]> {
+  const blocked = await getBlockedUserIds(viewerId);
+  return [viewerId, ...blocked];
+}
+
+export async function getShops(viewerId: number) {
+  const hidden = await hiddenUserIdsForViewer(viewerId);
   const [shops, counts] = await Promise.all([
     prisma.shop.findMany({ orderBy: { name: "asc" } }),
     prisma.meetSpot.groupBy({
@@ -12,6 +19,7 @@ export async function getShops() {
       where: {
         ...activeAnnouncementWhere(),
         shopId: { not: null },
+        userId: { notIn: hidden },
       },
       _count: { _all: true },
     }),
@@ -95,13 +103,14 @@ const userInclude = {
 
 /** Custom-location announcements only (green campfire pins on map). */
 export async function getMapAnnouncements(
-  excludeUserId: number,
+  viewerId: number,
 ): Promise<MapAnnouncementDTO[]> {
+  const hidden = await hiddenUserIdsForViewer(viewerId);
   const spots = await prisma.meetSpot.findMany({
     where: {
       ...activeAnnouncementWhere(),
       shopId: null,
-      userId: { not: excludeUserId },
+      userId: { notIn: hidden },
     },
     include: userInclude,
   });
@@ -111,11 +120,14 @@ export async function getMapAnnouncements(
 
 export async function getAnnouncementsAtShop(
   shopId: string,
+  viewerId: number,
 ): Promise<MapAnnouncementDTO[]> {
+  const hidden = await hiddenUserIdsForViewer(viewerId);
   const spots = await prisma.meetSpot.findMany({
     where: {
       ...activeAnnouncementWhere(),
       shopId,
+      userId: { notIn: hidden },
     },
     include: userInclude,
     orderBy: { updatedAt: "desc" },

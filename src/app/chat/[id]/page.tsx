@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { FriendChatPage } from "@/components/chat/FriendChatPage";
+import { isBlockedBetween } from "@/lib/block";
 
 export const metadata: Metadata = {
   title: "私訊 | CardMatch",
@@ -39,6 +40,10 @@ export default async function ChatPage({
     friendship.requesterId === user.id
       ? friendship.addressee
       : friendship.requester;
+
+  if (await isBlockedBetween(user.id, otherUser.id)) {
+    redirect("/friends");
+  }
 
   return (
     <FriendChatPage

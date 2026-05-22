@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { MATCH_STATUS } from "@/lib/constants";
+import { assertNotBlocked } from "@/lib/block";
 import { publishMatchSnapshot, publishNotification } from "@/lib/realtime/publish";
 
 async function requireUserId() {
@@ -36,6 +37,7 @@ export async function sendInviteFromSpot(spotId: string) {
 
   const targetUserId = spot.userId;
   if (targetUserId === userId) throw new Error("無法邀請自己");
+  await assertNotBlocked(userId, targetUserId);
 
   await createInviteMatch({
     inviterId: userId,

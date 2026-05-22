@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { publishNotification } from "@/lib/realtime/publish";
+import { assertNotBlocked } from "@/lib/block";
 
 async function requireUserId(): Promise<number> {
   const session = await getSession();
@@ -15,6 +16,8 @@ export async function acceptFriendship(friendshipId: string) {
   const userId = await requireUserId();
   const f = await prisma.friendship.findUnique({ where: { id: friendshipId } });
   if (!f || f.addresseeId !== userId) throw new Error("NOT_FOUND");
+
+  await assertNotBlocked(userId, f.requesterId);
 
   await prisma.friendship.update({
     where: { id: friendshipId },
@@ -49,6 +52,9 @@ export async function sendFriendMessage(friendshipId: string, body: string) {
   if (f.requesterId !== userId && f.addresseeId !== userId) {
     throw new Error("FORBIDDEN");
   }
+
+  const otherId = f.requesterId === userId ? f.addresseeId : f.requesterId;
+  await assertNotBlocked(userId, otherId);
 
   const msg = await prisma.friendMessage.create({
     data: {

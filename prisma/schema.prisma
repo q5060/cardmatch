@@ -37,6 +37,32 @@ model User {
   battleResults      BattleResult[]
   notifications      Notification[]
   matchQueueEntries  MatchQueueEntry[]
+  reportsMade        UserReport[]     @relation("ReportsMade")
+  reportsReceived    UserReport[]     @relation("ReportsReceived")
+  blocksMade         UserBlock[]      @relation("BlocksMade")
+  blocksReceived     UserBlock[]      @relation("BlocksReceived")
+}
+
+model UserReport {
+  id         String   @id @default(cuid())
+  reporterId Int
+  reportedId Int
+  reason     String   @default("")
+  createdAt  DateTime @default(now())
+  reporter   User     @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported   User     @relation("ReportsReceived", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([reportedId])
+}
+
+model UserBlock {
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
+  blocker   User @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
 }
 
 model Deck {

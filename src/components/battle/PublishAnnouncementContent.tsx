@@ -4,6 +4,11 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { publishBattleAnnouncement } from "@/actions/meetSpot";
+import {
+  ANNOUNCEMENT_TTL_DEFAULT_HOURS,
+  ANNOUNCEMENT_TTL_MAX_HOURS,
+  ANNOUNCEMENT_TTL_MIN_HOURS,
+} from "@/lib/constants";
 
 export type PublishDraft = {
   lat: number;
@@ -19,7 +24,7 @@ type Props = {
 };
 
 export function PublishAnnouncementContent({ draft, onClose, onPublished }: Props) {
-  const [timeNote, setTimeNote] = useState("");
+  const [ttlHours, setTtlHours] = useState(ANNOUNCEMENT_TTL_DEFAULT_HOURS);
   const [playNote, setPlayNote] = useState("");
   const [label, setLabel] = useState(draft.label);
   const [err, setErr] = useState<string | null>(null);
@@ -27,7 +32,7 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
 
   useEffect(() => {
     setLabel(draft.label);
-    setTimeNote("");
+    setTtlHours(ANNOUNCEMENT_TTL_DEFAULT_HOURS);
     setPlayNote("");
     setErr(null);
   }, [draft.lat, draft.lng, draft.label, draft.shopId]);
@@ -45,9 +50,9 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
           lat: draft.lat,
           lng: draft.lng,
           label: trimmed,
-          timeNote,
           playNote,
           shopId: draft.shopId,
+          ttlHours,
         });
         onPublished({ ...draft, label: trimmed });
         onClose();
@@ -87,16 +92,22 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
         />
       </label>
 
-      {/* Time */}
+      {/* TTL hours */}
       <label className="block text-sm font-medium text-foreground">
-        <span className="text-muted-foreground">方便時段（選填）</span>
+        <span className="text-muted-foreground">公告時長（小時）</span>
         <input
-          value={timeNote}
-          onChange={(e) => setTimeNote(e.target.value)}
-          placeholder="例：週六 14:00–18:00"
+          type="number"
+          value={ttlHours}
+          onChange={(e) => setTtlHours(Number(e.target.value))}
+          min={ANNOUNCEMENT_TTL_MIN_HOURS}
+          max={ANNOUNCEMENT_TTL_MAX_HOURS}
+          step={1}
           className="input-field mt-2"
-          maxLength={200}
         />
+        <p className="mt-1 text-xs text-muted-foreground">
+          預設 {ANNOUNCEMENT_TTL_DEFAULT_HOURS} 小時，可設定 {ANNOUNCEMENT_TTL_MIN_HOURS}–
+          {ANNOUNCEMENT_TTL_MAX_HOURS} 小時
+        </p>
       </label>
 
       {/* Error */}

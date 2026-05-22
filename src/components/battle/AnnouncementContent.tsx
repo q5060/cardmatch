@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { UserRound } from "lucide-react";
 import type { MapAnnouncementDTO } from "@/lib/queries";
+import { formatExpiresAt } from "@/lib/format";
 
 type Props = {
   announcement: MapAnnouncementDTO;
@@ -12,16 +13,6 @@ type Props = {
   onInvite?: () => void;
   onClear?: () => void;
 };
-
-function formatExpiresAt(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString("zh-Hant", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 export function AnnouncementContent({
   announcement,
@@ -61,13 +52,6 @@ export function AnnouncementContent({
         </p>
       ) : null}
 
-      {announcement.timeNote ? (
-        <p className="text-sm text-foreground">
-          <span className="text-muted-foreground">方便時段：</span>
-          {announcement.timeNote}
-        </p>
-      ) : null}
-
       {announcement.bio ? (
         <p className="text-xs text-muted-foreground line-clamp-2 border-t border-border pt-2">
           <span className="font-medium">個人簡介：</span>
@@ -80,36 +64,42 @@ export function AnnouncementContent({
         公告至 {formatExpiresAt(announcement.expiresAt)}
       </p>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2 pt-2">
-        {isOwn ? (
+      {!isOwn && onInvite ? (
+        <div className="mt-auto border-t border-border pt-4">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onInvite}
+            className="btn btn-primary w-full"
+          >
+            {pending ? "處理中…" : "邀請對戰"}
+          </button>
+        </div>
+      ) : null}
+
+      {isOwn && onClear ? (
+        <div className="mt-auto border-t border-border pt-4">
           <button
             type="button"
             disabled={pending}
             onClick={onClear}
-            className="btn btn-outline border-red-200 text-red-700 hover:bg-red-50 flex-1"
+            className="btn btn-outline w-full border-red-200 text-red-700 hover:bg-red-50"
           >
             結束公告
           </button>
-        ) : (
-          <>
-            <Link
-              href={`/profile/${announcement.userId}`}
-              className="btn btn-outline flex-1"
-            >
-              查看檔案
-            </Link>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onInvite}
-              className="btn btn-primary flex-1"
-            >
-              邀請對戰
-            </button>
-          </>
-        )}
-      </div>
+        </div>
+      ) : null}
+
+      {!isOwn ? (
+        <p className="text-center text-xs text-muted-foreground">
+          <Link
+            href={`/profile/${announcement.userId}`}
+            className="text-primary underline-offset-2 hover:underline"
+          >
+            查看個人檔案
+          </Link>
+        </p>
+      ) : null}
     </div>
   );
 }

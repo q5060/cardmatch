@@ -115,8 +115,8 @@ export function BattleClient({
       lat: a.lat,
       lng: a.lng,
       label: a.label,
-      timeNote: a.timeNote || undefined,
       playNote: a.playNote || undefined,
+      expiresAt: a.expiresAt,
       isOwn: false,
     }));
     if (myAnnouncement && !myAnnouncement.shopId) {
@@ -128,8 +128,8 @@ export function BattleClient({
         lat: myAnnouncement.lat,
         lng: myAnnouncement.lng,
         label: myAnnouncement.label,
-        timeNote: myAnnouncement.timeNote || undefined,
         playNote: myAnnouncement.playNote || undefined,
+        expiresAt: myAnnouncement.expiresAt,
         isOwn: true,
       });
     }

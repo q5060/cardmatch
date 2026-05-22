@@ -52,8 +52,8 @@ export type MapAnnouncementPin = {
   lat: number;
   lng: number;
   label: string;
-  timeNote?: string;
   playNote?: string;
+  expiresAt?: string;
   isOwn?: boolean;
 };
 
@@ -314,8 +314,15 @@ export function MeetMapClient({
             <strong>{a.displayName}</strong>
             <div className="text-xs text-muted-foreground">{a.label}</div>
             {a.playNote ? <p className="mt-1 text-xs line-clamp-3">{a.playNote}</p> : null}
-            {a.timeNote ? (
-              <p className="mt-0.5 text-xs text-muted-foreground">時段：{a.timeNote}</p>
+            {a.expiresAt ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                公告至 {new Date(a.expiresAt).toLocaleString("zh-Hant", {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
             ) : null}
           </Popup>
         </Marker>

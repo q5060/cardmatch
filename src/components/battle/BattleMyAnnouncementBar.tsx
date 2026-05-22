@@ -1,6 +1,7 @@
 "use client";
 
 import type { MapAnnouncementDTO } from "@/lib/queries";
+import { formatExpiresAt } from "@/lib/format";
 import type { MapShopPin } from "@/components/map/MeetMap";
 
 type Props = {
@@ -34,9 +35,9 @@ export function BattleMyAnnouncementBar({
         {announcement.playNote ? (
           <p className="mt-1 line-clamp-2 text-xs text-foreground">{announcement.playNote}</p>
         ) : null}
-        {announcement.timeNote ? (
-          <p className="mt-0.5 text-xs text-muted-foreground">時段：{announcement.timeNote}</p>
-        ) : null}
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          公告至 {formatExpiresAt(announcement.expiresAt)}
+        </p>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
         {shop ? (

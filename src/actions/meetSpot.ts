@@ -3,7 +3,11 @@
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { ANNOUNCEMENT_TTL_HOURS } from "@/lib/constants";
+import {
+  ANNOUNCEMENT_TTL_DEFAULT_HOURS,
+  ANNOUNCEMENT_TTL_MAX_HOURS,
+  ANNOUNCEMENT_TTL_MIN_HOURS,
+} from "@/lib/constants";
 import {
   countActiveMatchesForUser,
   getAnnouncementsAtShop,
@@ -16,17 +20,30 @@ async function requireUserId() {
   return session.userId;
 }
 
-function announcementExpiresAt() {
-  return new Date(Date.now() + ANNOUNCEMENT_TTL_HOURS * 60 * 60 * 1000);
+function normalizeTtlHours(raw: number | undefined): number {
+  const hours = raw ?? ANNOUNCEMENT_TTL_DEFAULT_HOURS;
+  if (!Number.isFinite(hours) || !Number.isInteger(hours)) {
+    throw new Error("請輸入有效的公告時長（整數小時）");
+  }
+  if (hours < ANNOUNCEMENT_TTL_MIN_HOURS || hours > ANNOUNCEMENT_TTL_MAX_HOURS) {
+    throw new Error(
+      `公告時長須為 ${ANNOUNCEMENT_TTL_MIN_HOURS}–${ANNOUNCEMENT_TTL_MAX_HOURS} 小時`,
+    );
+  }
+  return hours;
+}
+
+function announcementExpiresAt(ttlHours: number) {
+  return new Date(Date.now() + ttlHours * 60 * 60 * 1000);
 }
 
 export async function publishBattleAnnouncement(input: {
   lat: number;
   lng: number;
   label: string;
-  timeNote?: string;
   playNote?: string;
   shopId?: string | null;
+  ttlHours?: number;
 }) {
   const userId = await requireUserId();
 
@@ -35,14 +52,14 @@ export async function publishBattleAnnouncement(input: {
   }
   const label = input.label.trim();
   if (!label) throw new Error("請輸入地點名稱");
-  const timeNote = (input.timeNote ?? "").trim().slice(0, 200);
   const playNote = (input.playNote ?? "").trim().slice(0, 500);
+  const ttlHours = normalizeTtlHours(input.ttlHours);
 
   if ((await countActiveMatchesForUser(userId)) > 0) {
     throw new Error("已有進行中的約戰，無法發布公告");
   }
 
-  const expiresAt = announcementExpiresAt();
+  const expiresAt = announcementExpiresAt(ttlHours);
 
   await prisma.$transaction(async (tx) => {
     await tx.meetSpot.updateMany({
@@ -62,7 +79,7 @@ export async function publishBattleAnnouncement(input: {
           lat: input.lat,
           lng: input.lng,
           label: label.slice(0, 120),
-          timeNote,
+          timeNote: "",
           playNote,
           shopId: input.shopId ?? null,
           looking: true,
@@ -77,7 +94,7 @@ export async function publishBattleAnnouncement(input: {
           lat: input.lat,
           lng: input.lng,
           label: label.slice(0, 120),
-          timeNote,
+          timeNote: "",
           playNote,
           shopId: input.shopId ?? null,
           looking: true,
@@ -103,7 +120,7 @@ export async function clearBattleAnnouncement() {
 }
 
 export async function fetchShopLobby(shopId: string): Promise<MapAnnouncementDTO[]> {
-  await requireUserId();
+  const userId = await requireUserId();
   if (!shopId) throw new Error("無效的卡店");
-  return getAnnouncementsAtShop(shopId);
+  return getAnnouncementsAtShop(shopId, userId);
 }
