@@ -5,6 +5,7 @@ import Link from "next/link";
 import { UserRound } from "lucide-react";
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { formatExpiresAt } from "@/lib/format";
+import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
 
 type Props = {
   announcement: MapAnnouncementDTO;
@@ -42,9 +43,14 @@ export function AnnouncementContent({
         </div>
         <div className="min-w-0">
           <p className="font-semibold text-foreground">{announcement.displayName}</p>
-          <p className="text-sm text-muted-foreground">{announcement.label}</p>
         </div>
       </div>
+
+      <LocationNavBlock
+        label={announcement.label}
+        lat={announcement.lat}
+        lng={announcement.lng}
+      />
 
       {announcement.playNote ? (
         <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">

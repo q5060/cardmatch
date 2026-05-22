@@ -19,6 +19,7 @@ import { BattleShopExploreCard } from "@/components/battle/BattleShopExploreCard
 import { ResponsiveSheet } from "@/components/battle/ResponsiveSheet";
 import { ShopLobbyContent } from "@/components/battle/ShopLobbyContent";
 import { AnnouncementContent } from "@/components/battle/AnnouncementContent";
+import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
 import {
   PublishAnnouncementContent,
   type PublishDraft,
@@ -425,9 +426,13 @@ export function BattleClient({
             ) : (
               otherPlayer?.displayName
             )}
-            {" · "}
-            {activeMatch.meetLabel}
           </p>
+          <LocationNavBlock
+            className="mt-3"
+            label={activeMatch.meetLabel}
+            lat={activeMatch.meetLat}
+            lng={activeMatch.meetLng}
+          />
           {err ? (
             <p className="alert-error mt-3" role="alert">
               {err}
@@ -463,10 +468,6 @@ export function BattleClient({
                     otherPlayer?.displayName
                   )}
                   <span className="font-normal text-foreground"> 邀請你約戰</span>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  地點：
-                  <span className="font-medium text-foreground">{activeMatch.meetLabel}</span>
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <button
