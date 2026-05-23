@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, UserRound } from "lucide-react";
+import { Bell, UserRound, ArrowLeft } from "lucide-react";
 import {
   MeetMap,
   type MapAnnouncementPin,
@@ -34,7 +34,7 @@ import {
   sendInviteFromSpot,
   setReady,
 } from "@/actions/match";
-import { clearBattleAnnouncement } from "@/actions/meetSpot";
+import { clearBattleAnnouncement, refreshShops } from "@/actions/meetSpot";
 import { MATCH_STATUS } from "@/lib/constants";
 import type { ActiveMatchDTO, BattleResultDTO } from "@/lib/matchDto";
 import type { MapAnnouncementDTO } from "@/lib/queries";
@@ -82,6 +82,7 @@ export function BattleClient({
   const [myAnnouncement, setMyAnnouncement] = useState<MapAnnouncementDTO | null>(
     initialMyAnnouncement,
   );
+  const [shopsData, setShopsData] = useState<MapShopPin[]>(shops);
 
   const [outcome, setOutcome] = useState<"WIN" | "LOSS" | "DRAW">("WIN");
   const [addFriend, setAddFriend] = useState(false);
@@ -108,18 +109,20 @@ export function BattleClient({
     activeMatch.invitedById !== userId;
 
   const mapPins: MapAnnouncementPin[] = useMemo(() => {
-    const pins: MapAnnouncementPin[] = announcements.map((a) => ({
-      spotId: a.spotId,
-      userId: a.userId,
-      displayName: a.displayName,
-      avatarUrl: a.avatarUrl,
-      lat: a.lat,
-      lng: a.lng,
-      label: a.label,
-      playNote: a.playNote || undefined,
-      expiresAt: a.expiresAt,
-      isOwn: false,
-    }));
+    const pins: MapAnnouncementPin[] = announcements
+      .filter((a) => !a.shopId) // Only show custom-location announcements on map, not shop-based ones
+      .map((a) => ({
+        spotId: a.spotId,
+        userId: a.userId,
+        displayName: a.displayName,
+        avatarUrl: a.avatarUrl,
+        lat: a.lat,
+        lng: a.lng,
+        label: a.label,
+        playNote: a.playNote || undefined,
+        expiresAt: a.expiresAt,
+        isOwn: false,
+      }));
     if (myAnnouncement && !myAnnouncement.shopId) {
       pins.push({
         spotId: myAnnouncement.spotId,
@@ -299,6 +302,20 @@ export function BattleClient({
 
     return () => window.clearInterval(id);
   }, [activeMatch?.id, activeMatch?.status, sseConnected, syncActiveMatch]);
+
+  // Periodically refresh shop counts (every 10 seconds)
+  useEffect(() => {
+    const id = window.setInterval(async () => {
+      try {
+        const updatedShops = await refreshShops();
+        setShopsData(updatedShops);
+      } catch (err) {
+        console.error("Failed to refresh shop data:", err);
+      }
+    }, 10_000);
+
+    return () => window.clearInterval(id);
+  }, []);
 
   function run(action: () => Promise<unknown>) {
     setErr(null);
@@ -517,7 +534,7 @@ export function BattleClient({
         {(st === MATCH_STATUS.ACCEPTED || st === MATCH_STATUS.IN_PROGRESS) && (
           <div className="grid gap-4 lg:grid-cols-2">
             <MeetMap
-              shops={shops}
+              shops={shopsData}
               announcements={[]}
               center={[activeMatch.meetLat, activeMatch.meetLng]}
               zoom={14}
@@ -1029,16 +1046,16 @@ export function BattleClient({
   // Detail view content for left sidebar (replaces shopExplore when viewing details)
   const detailView = selectedShop ? (
     <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-foreground">{selectedShop.name}</h2>
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setSelectedShop(null)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
           aria-label="返回列表"
         >
-          <span className="text-lg">✕</span>
+          <ArrowLeft className="w-5 h-5" />
         </button>
+        <h2 className="text-base font-semibold text-foreground truncate">{selectedShop.name}</h2>
       </div>
       <ShopLobbyContent
         shop={selectedShop}
@@ -1059,16 +1076,16 @@ export function BattleClient({
     </div>
   ) : sheetAnnouncement ? (
     <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-foreground">{sheetAnnouncement.displayName}</h2>
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setSheetAnnouncement(null)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
           aria-label="返回列表"
         >
-          <span className="text-lg">✕</span>
+          <ArrowLeft className="w-5 h-5" />
         </button>
+        <h2 className="text-base font-semibold text-foreground truncate">{sheetAnnouncement.displayName}</h2>
       </div>
       <div className="min-h-0 overflow-y-auto">
         <AnnouncementContent
@@ -1093,16 +1110,16 @@ export function BattleClient({
     </div>
   ) : publishDraft ? (
     <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-foreground">發布約戰公告</h2>
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => setPublishDraft(null)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
           aria-label="返回列表"
         >
-          <span className="text-lg">✕</span>
+          <ArrowLeft className="w-5 h-5" />
         </button>
+        <h2 className="text-base font-semibold text-foreground">發布約戰公告</h2>
       </div>
       <div className="min-h-0 overflow-y-auto">
         <PublishAnnouncementContent
@@ -1158,7 +1175,7 @@ export function BattleClient({
         matchSetup={
           !activeMatch ? (
             <BattleRandomMatch
-              shops={shops}
+              shops={shopsData}
               defaultShopId={defaultShopId ?? null}
               initialQueueStatus={initialQueueStatus ?? null}
             />
@@ -1166,7 +1183,7 @@ export function BattleClient({
         }
         shopExplore={
           <BattleShopExploreCard
-            shops={shops}
+            shops={shopsData}
             announcements={announcements}
             hideShopList={!!myAnnouncement}
             onSelectShop={selectShopOnMap}
@@ -1205,7 +1222,7 @@ export function BattleClient({
         }
         map={
           <MeetMap
-            shops={shops}
+            shops={shopsData}
             announcements={mapPins}
             center={[gpsLocation?.lat ?? defaultLat, gpsLocation?.lng ?? defaultLng]}
             zoom={14}

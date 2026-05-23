@@ -70,11 +70,14 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
         <span className="text-muted-foreground">地點名稱</span>
         <input
           value={label}
-          onChange={(e) => setLabel(e.target.value)}
+          onChange={(e) => !draft.shopId && setLabel(e.target.value)}
           placeholder={
             draft.label.trim() ? "例：XX 卡店、咖啡廳" : "輸入地點名稱（必填）"
           }
-          className="input-field mt-2"
+          className={`input-field mt-2 ${
+            draft.shopId ? "opacity-60 cursor-not-allowed bg-muted" : ""
+          }`}
+          disabled={!!draft.shopId}
           required
         />
       </label>

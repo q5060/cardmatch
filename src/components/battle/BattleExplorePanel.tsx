@@ -22,12 +22,14 @@ export function BattleExplorePanel({
   showDetailView = false,
   detailView,
 }: Props) {
-  /* Two columns with fixed left sidebar height matching the list */
+  /* Two columns with fixed left sidebar height matching the list.
+     When showing detail view, display it above shopExplore so radius filter stays visible. */
   return (
     <div className="grid items-stretch lg:gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] auto-rows-max lg:auto-rows-[1fr]">
       <div className="flex min-h-0 min-w-0 flex-col gap-4">
         {matchSetup}
         <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto">
+          {/* Show detail view when open, otherwise show shopExplore */}
           {showDetailView ? detailView : shopExplore}
         </div>
       </div>

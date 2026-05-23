@@ -86,7 +86,7 @@ export function NotificationDropdown({
       case "FRIEND_REQUEST":
         return `/friends`;
       case "MESSAGE":
-        return notification.referenceId ? `/chat/${notification.referenceId}` : `/friends`;
+        return notification.senderId ? `/chat/${notification.senderId}` : `/friends`;
       default:
         return "/notifications";
     }

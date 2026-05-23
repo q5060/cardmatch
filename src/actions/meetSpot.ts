@@ -11,6 +11,7 @@ import {
 import {
   countActiveMatchesForUser,
   getAnnouncementsAtShop,
+  getShops,
   type MapAnnouncementDTO,
 } from "@/lib/queries";
 
@@ -123,4 +124,9 @@ export async function fetchShopLobby(shopId: string): Promise<MapAnnouncementDTO
   const userId = await requireUserId();
   if (!shopId) throw new Error("無效的卡店");
   return getAnnouncementsAtShop(shopId, userId);
+}
+
+export async function refreshShops() {
+  const userId = await requireUserId();
+  return getShops(userId);
 }

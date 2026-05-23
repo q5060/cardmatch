@@ -338,7 +338,6 @@ export function ProfileDashboard({
               <div className="flex gap-2 relative z-10 flex-wrap items-start shrink-0 mt-6 pb-2">
                 {blockedByViewer ? (
                   <>
-                    <span className="text-sm text-muted-foreground">已封鎖此使用者</span>
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
@@ -510,15 +509,12 @@ export function ProfileDashboard({
                   <h3 id="report-dialog-title" className="text-lg font-semibold text-foreground">
                     檢舉使用者
                   </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    請簡述原因（選填）。檢舉不會自動封鎖對方。
-                  </p>
                   <textarea
                     value={reportReason}
                     onChange={(e) => setReportReason(e.target.value)}
                     className="input-field mt-3 min-h-[80px] resize-y"
                     maxLength={500}
-                    placeholder="選填"
+                    placeholder="請簡述原因（選填）"
                   />
                   {modErr ? (
                     <p className="mt-2 text-sm text-red-700" role="alert">

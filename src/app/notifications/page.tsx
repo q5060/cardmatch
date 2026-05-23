@@ -40,8 +40,9 @@ export default async function NotificationsPage() {
       case "BATTLE_RESULT":
         return `/battle`;
       case "FRIEND_REQUEST":
-      case "MESSAGE":
         return `/friends`;
+      case "MESSAGE":
+        return notification.senderId ? `/chat/${notification.senderId}` : `/friends`;
       default:
         return "#";
     }
@@ -53,9 +54,7 @@ export default async function NotificationsPage() {
         <BackLink href="/" />
         <PageHeader
           className="flex-1"
-          eyebrow="動態"
           title="通知"
-          description="當您有新活動時，通知會出現在這裡"
         />
       </div>
 

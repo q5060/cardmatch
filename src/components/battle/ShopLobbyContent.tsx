@@ -7,6 +7,7 @@ import type { MapShopPin } from "@/components/map/MeetMap";
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { fetchShopLobby, clearBattleAnnouncement } from "@/actions/meetSpot";
 import { formatExpiresAt } from "@/lib/format";
+import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
 
 type Props = {
   shop: MapShopPin;
@@ -54,11 +55,13 @@ export function ShopLobbyContent({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="space-y-1 border-b border-border p-5">
-        {/* <h2 className="text-lg font-semibold text-foreground">{shop.name}</h2> */}
-        {shop.addressNote ? (
-          <p className="text-sm text-muted-foreground">{shop.addressNote}</p>
-        ) : null}
+      <div className="border-b border-border p-5">
+        <LocationNavBlock
+          label={shop.name}
+          lat={shop.lat}
+          lng={shop.lng}
+          showLabel={true}
+        />
       </div>
 
       {/* Content */}

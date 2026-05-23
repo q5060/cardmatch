@@ -20,13 +20,39 @@ export default async function ChatPage({
 
   const { id } = await params;
 
-  const friendship = await prisma.friendship.findUnique({
+  let friendship = await prisma.friendship.findUnique({
     where: { id },
     include: {
       requester: { select: { id: true, displayName: true, avatarUrl: true } },
       addressee: { select: { id: true, displayName: true, avatarUrl: true } },
     },
   });
+
+  // If not found as friendship ID, try parsing as user ID
+  if (!friendship) {
+    const userId = parseInt(id);
+    if (!isNaN(userId)) {
+      // Find the most recent friendship with this user (in either direction)
+      friendship = await prisma.friendship.findFirst({
+        where: {
+          OR: [
+            { requesterId: userId, addresseeId: user.id },
+            { requesterId: user.id, addresseeId: userId },
+          ],
+        },
+        include: {
+          requester: { select: { id: true, displayName: true, avatarUrl: true } },
+          addressee: { select: { id: true, displayName: true, avatarUrl: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+      });
+
+      // If friendship found, redirect to the correct friendship ID URL
+      if (friendship) {
+        redirect(`/chat/${friendship.id}`);
+      }
+    }
+  }
 
   if (
     !friendship ||

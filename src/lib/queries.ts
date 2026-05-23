@@ -11,7 +11,8 @@ async function hiddenUserIdsForViewer(viewerId: number): Promise<number[]> {
 }
 
 export async function getShops(viewerId: number) {
-  const hidden = await hiddenUserIdsForViewer(viewerId);
+  const blocked = await getBlockedUserIds(viewerId);
+  const blockedArray = Array.from(blocked);
   const [shops, counts] = await Promise.all([
     prisma.shop.findMany({ orderBy: { name: "asc" } }),
     prisma.meetSpot.groupBy({
@@ -19,7 +20,7 @@ export async function getShops(viewerId: number) {
       where: {
         ...activeAnnouncementWhere(),
         shopId: { not: null },
-        userId: { notIn: hidden },
+        userId: { notIn: blockedArray },  // Only exclude blocked users, include self
       },
       _count: { _all: true },
     }),
@@ -101,33 +102,45 @@ const userInclude = {
   },
 } as const;
 
-/** Custom-location announcements only (green campfire pins on map). */
+/** Map announcements including both custom-location and shop-based announcements. Only the latest per user. */
 export async function getMapAnnouncements(
   viewerId: number,
 ): Promise<MapAnnouncementDTO[]> {
   const hidden = await hiddenUserIdsForViewer(viewerId);
-  const spots = await prisma.meetSpot.findMany({
+  
+  // Get all active spots, then group by userId and take only the latest for each user
+  const allSpots = await prisma.meetSpot.findMany({
     where: {
       ...activeAnnouncementWhere(),
-      shopId: null,
       userId: { notIn: hidden },
     },
     include: userInclude,
+    orderBy: { updatedAt: "desc" },
   });
 
-  return spots.map(mapSpotToDTO);
+  // Group by userId and keep only the first (latest) one per user
+  const latestByUser = new Map<number, typeof allSpots[0]>();
+  for (const spot of allSpots) {
+    if (!latestByUser.has(spot.userId)) {
+      latestByUser.set(spot.userId, spot);
+    }
+  }
+
+  return Array.from(latestByUser.values()).map(mapSpotToDTO);
 }
 
 export async function getAnnouncementsAtShop(
   shopId: string,
   viewerId: number,
 ): Promise<MapAnnouncementDTO[]> {
-  const hidden = await hiddenUserIdsForViewer(viewerId);
+  // Include own announcements in shop lobby, but still filter out blocked users
+  const blocked = await getBlockedUserIds(viewerId);
+  const blockedArray = Array.from(blocked); // Convert Set to array for Prisma
   const spots = await prisma.meetSpot.findMany({
     where: {
       ...activeAnnouncementWhere(),
       shopId,
-      userId: { notIn: hidden },
+      userId: { notIn: blockedArray },
     },
     include: userInclude,
     orderBy: { updatedAt: "desc" },

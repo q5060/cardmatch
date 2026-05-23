@@ -278,7 +278,6 @@ export function MeetMapClient({
               <p className="text-xs text-muted-foreground">
                 {previewPin.lat.toFixed(5)}, {previewPin.lng.toFixed(5)}
               </p>
-              <p className="text-xs text-muted-foreground">可填寫約戰公告</p>
             </div>
           </Popup>
         </Marker>

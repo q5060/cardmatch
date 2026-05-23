@@ -128,8 +128,8 @@ export function BattleShopExploreCard({
             onChange={handleRadiusChange}
             className="flex-1"
           />
-          <span className="text-xs font-medium text-foreground whitespace-nowrap w-12 text-right">
-            {radiusKm.toFixed(1)} km
+          <span className="text-xs font-medium text-foreground text-right">
+            <div className="whitespace-nowrap">{radiusKm.toFixed(1)} km</div>
           </span>
         </div>
       )}
