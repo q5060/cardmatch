@@ -118,8 +118,12 @@ function MapCenterTracker({
   useEffect(() => {
     const onMove = () => {
       const center = map.getCenter();
-      cb.current?.(center.lat, center.lng);
+      const fixedLat = Math.round(center.lat * 1000000) / 1000000;
+      const fixedLng = Math.round(center.lng * 1000000) / 1000000;
+      
+      cb.current?.(fixedLat, fixedLng);
     };
+    
     map.on("moveend", onMove);
     map.on("zoomend", onMove);
     return () => {
@@ -127,7 +131,6 @@ function MapCenterTracker({
       map.off("zoomend", onMove);
     };
   }, [map]);
-
   return null;
 }
 
