@@ -164,3 +164,27 @@ model Notification {
   read        Boolean  @default(false)
   createdAt   DateTime @default(now())
 }
+
+
+model Card {
+  id             Int          @id @default(autoincrement())
+  name           String
+  category       String // 寶可夢、訓練家、能量
+  
+  // 寶可夢專屬欄位
+  stage          String?      // 進化階段：基礎、一階等
+  type           String?      // 屬性：草、火等
+  hp             Int?         // 血量
+  
+  // 訓練家 / 能量專屬欄位
+  subType        String?      // 子類型：物品、支援者、特殊能量等
+  isAceSpec      Boolean      @default(false) // 是否為 ACE SPEC
+
+  // 共用欄位
+  regulationMark String?      // 賽制標記 (如: G, H)
+  imageUrl       String?      // 圖片網址
+  sourceUrl      String       @unique // 官方詳細頁網址 (⚠️ 設為 Unique 非常重要，用來判斷是否已爬過)
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
