@@ -80,7 +80,7 @@ export function BattleShopExploreCard({
     <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-foreground">
-          {tab === "players" ? "附近玩家" : "附近店家"}
+          {tab === "players" ? "公開大廳－附近玩家" : "公開大廳－附近店家"}
         </h2>
         <div className="flex gap-1 text-xs">
           <button
@@ -111,28 +111,6 @@ export function BattleShopExploreCard({
         onSelectShop={onSelectShop}
         onSelectPlace={onSelectPlace}
       />
-
-      {/* Radius filter - show when we have content to filter */}
-      {(hasOtherPlayers || !hideShopList) && (
-        <div className="flex items-center gap-2">
-          <label htmlFor="radius-filter" className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-            篩選範圍：
-          </label>
-          <input
-            id="radius-filter"
-            type="range"
-            min="0.5"
-            max="50"
-            step="0.5"
-            value={radiusKm}
-            onChange={handleRadiusChange}
-            className="flex-1"
-          />
-          <span className="text-xs font-medium text-foreground text-right">
-            <div className="whitespace-nowrap">{radiusKm.toFixed(1)} km</div>
-          </span>
-        </div>
-      )}
 
       {/* Players content */}
       {tab === "players" && (

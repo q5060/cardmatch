@@ -15,6 +15,7 @@ import { MatchChat } from "@/components/battle/MatchChat";
 import { BattleMyAnnouncementBar } from "@/components/battle/BattleMyAnnouncementBar";
 import { BattleExplorePanel } from "@/components/battle/BattleExplorePanel";
 import { BattleRandomMatch } from "@/components/battle/BattleRandomMatch";
+import { RadiusFilter } from "@/components/battle/RadiusFilter";
 import { BattleShopExploreCard } from "@/components/battle/BattleShopExploreCard";
 import { ResponsiveSheet } from "@/components/battle/ResponsiveSheet";
 import { ShopLobbyContent } from "@/components/battle/ShopLobbyContent";
@@ -1172,12 +1173,19 @@ export function BattleClient({
 
       <BattleExplorePanel
         sheetOpen={sheetOpen}
+        radiusFilter={
+          <RadiusFilter
+            radiusKm={radiusKm}
+            onRadiusChange={setRadiusKm}
+          />
+        }
         matchSetup={
           !activeMatch ? (
             <BattleRandomMatch
               shops={shopsData}
               defaultShopId={defaultShopId ?? null}
               initialQueueStatus={initialQueueStatus ?? null}
+              radiusKm={radiusKm}
             />
           ) : null
         }

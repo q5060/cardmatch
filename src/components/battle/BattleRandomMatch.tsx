@@ -1,77 +1,26 @@
 "use client";
 
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2, Shuffle } from "lucide-react";
+import { Loader2, Shuffle } from "lucide-react";
 import { joinRandomQueue, leaveRandomQueue } from "@/actions/matchQueue";
 import type { QueueStatus } from "@/actions/matchQueue";
 import type { MapShopPin } from "@/components/map/MeetMap";
-
-type MatchScope = "same_shop_priority" | "global";
 
 type Props = {
   shops: MapShopPin[];
   defaultShopId: string | null;
   initialQueueStatus: QueueStatus | null;
+  radiusKm?: number;
 };
 
-function SelectField({
-  label,
-  value,
-  onChange,
-  disabled,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  disabled?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="sr-only">{label}</span>
-      <div className="relative">
-        <select
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value)}
-          className="input-field w-full appearance-none pr-10 disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={label}
-        >
-          {children}
-        </select>
-        <ChevronDown
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden
-        />
-      </div>
-    </label>
-  );
-}
-
-export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus }: Props) {
+export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, radiusKm = 5 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [shopId, setShopId] = useState<string>("");
-  const [matchScope, setMatchScope] = useState<MatchScope>("same_shop_priority");
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(initialQueueStatus);
   const [err, setErr] = useState<string | null>(null);
 
   const inQueue = queueStatus?.inQueue === true;
-  const hasShop = shopId.length > 0;
-
-  useEffect(() => {
-    if (defaultShopId && shops.some((s) => s.id === defaultShopId)) {
-      setShopId(defaultShopId);
-    }
-  }, [defaultShopId, shops]);
-
-  useEffect(() => {
-    if (!hasShop && matchScope !== "same_shop_priority") {
-      setMatchScope("same_shop_priority");
-    }
-  }, [hasShop, matchScope]);
 
   useEffect(() => {
     if (!inQueue) return;
@@ -95,17 +44,11 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus }: 
     return () => clearInterval(id);
   }, [inQueue]);
 
-  function resolveQueueShopId(): string | null {
-    if (!hasShop) return null;
-    return matchScope === "same_shop_priority" ? shopId : null;
-  }
-
   function runJoin() {
     setErr(null);
-    const queueShopId = resolveQueueShopId();
     startTransition(async () => {
       try {
-        const result = await joinRandomQueue({ shopId: queueShopId });
+        const result = await joinRandomQueue({ shopId: null });
         if (result.status === "matched") {
           setQueueStatus(null);
           router.refresh();
@@ -113,9 +56,9 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus }: 
         }
         setQueueStatus({
           inQueue: true,
-          shopId: queueShopId,
-          shopName: queueShopId ? shops.find((s) => s.id === queueShopId)?.name ?? null : null,
-          scope: queueShopId ? "shop" : "any",
+          shopId: null,
+          shopName: null,
+          scope: "any",
           joinedAt: new Date().toISOString(),
         });
         router.refresh();
@@ -141,7 +84,7 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus }: 
   if (inQueue) {
     return (
       <div className="card rounded-2xl p-4" role="status" aria-live="polite">
-        <h2 className="text-base font-semibold text-foreground">配對設置</h2>
+        <h2 className="text-base font-semibold text-foreground">隨機配對</h2>
         <div className="mt-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] p-3">
           <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" aria-hidden />
           <div className="min-w-0 flex-1">
@@ -170,7 +113,10 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus }: 
 
   return (
     <div className="card rounded-2xl p-4">
-      <h2 className="text-base font-semibold text-foreground">配對設置</h2>
+      <h2 className="text-base font-semibold text-foreground">隨機配對</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        在篩選範圍內隨機配對對手
+      </p>
 
       <button
         type="button"
@@ -181,32 +127,6 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus }: 
         <Shuffle className="h-5 w-5" strokeWidth={1.75} aria-hidden />
         隨機配對
       </button>
-
-      <div className="mt-3 space-y-2">
-        <SelectField
-          label="配對範圍"
-          value={shopId}
-          disabled={pending}
-          onChange={setShopId}
-        >
-          <option value="">全站（不限店）</option>
-          {shops.map((shop) => (
-            <option key={shop.id} value={shop.id}>
-              {shop.name}
-            </option>
-          ))}
-        </SelectField>
-
-        <SelectField
-          label="配對方式"
-          value={matchScope}
-          disabled={pending || !hasShop}
-          onChange={(v) => setMatchScope(v as MatchScope)}
-        >
-          <option value="same_shop_priority">同店優先配對</option>
-          <option value="global">全站排隊（不限店別）</option>
-        </SelectField>
-      </div>
 
       {err ? (
         <p className="mt-3 text-xs text-red-700" role="alert">

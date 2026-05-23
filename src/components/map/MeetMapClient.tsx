@@ -294,7 +294,7 @@ export function MeetMapClient({
           <Popup>
             <strong>{s.name}</strong>
             {s.lobbyCount && s.lobbyCount > 0 ? (
-              <div className="text-xs text-primary">目前 {s.lobbyCount} 人在此公告</div>
+              <div className="text-xs text-primary">{s.lobbyCount} 人在此公告</div>
             ) : null}
             {s.addressNote ? <div className="text-xs text-gray-600">{s.addressNote}</div> : null}
           </Popup>

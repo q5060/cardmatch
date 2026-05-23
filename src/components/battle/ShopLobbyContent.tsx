@@ -107,11 +107,6 @@ export function ShopLobbyContent({
                     <div className="min-w-0">
                       <p className="font-medium text-foreground">
                         {p.displayName}
-                        {isSelf ? (
-                          <span className="ml-2 text-xs font-normal text-primary">
-                            （你）
-                          </span>
-                        ) : null}
                       </p>
                       {p.playNote ? (
                         <p className="text-xs text-foreground line-clamp-2">{p.playNote}</p>

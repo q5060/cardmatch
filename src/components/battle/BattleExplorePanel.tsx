@@ -8,6 +8,8 @@ type Props = {
   map: ReactNode;
   sheetOpen: boolean;
   sheets: ReactNode;
+  /** Radius filter component to display before matchSetup */
+  radiusFilter?: ReactNode;
   /** When true, display the detail view on the left side instead of shopExplore */
   showDetailView?: boolean;
   detailView?: ReactNode;
@@ -19,6 +21,7 @@ export function BattleExplorePanel({
   map,
   sheetOpen,
   sheets,
+  radiusFilter,
   showDetailView = false,
   detailView,
 }: Props) {
@@ -27,6 +30,7 @@ export function BattleExplorePanel({
   return (
     <div className="grid items-stretch lg:gap-4 lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)] auto-rows-max lg:auto-rows-[1fr]">
       <div className="flex min-h-0 min-w-0 flex-col gap-4">
+        {radiusFilter}
         {matchSetup}
         <div className="flex min-h-0 min-w-0 flex-col overflow-y-auto">
           {/* Show detail view when open, otherwise show shopExplore */}
