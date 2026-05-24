@@ -126,13 +126,18 @@ export async function fetchShopLobby(shopId: string): Promise<{
   players: MapAnnouncementDTO[];
   events: ShopEventDTO[];
 }> {
-  const userId = await requireUserId();
-  if (!shopId) throw new Error("無效的卡店");
-  const [players, events] = await Promise.all([
-    getAnnouncementsAtShop(shopId, userId),
-    getShopRecentEvents(shopId),
-  ]);
-  return { players, events };
+  try {
+    const userId = await requireUserId();
+    if (!shopId) throw new Error("無效的卡店");
+    const [players, events] = await Promise.all([
+      getAnnouncementsAtShop(shopId, userId),
+      getShopRecentEvents(shopId),
+    ]);
+    return { players, events };
+  } catch (error) {
+    console.error("fetchShopLobby error:", error);
+    throw error;
+  }
 }
 
 export async function refreshShops() {

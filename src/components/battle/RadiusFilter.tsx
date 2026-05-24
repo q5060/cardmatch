@@ -18,7 +18,7 @@ export function RadiusFilter({ radiusKm, onRadiusChange }: Props) {
   return (
     <div className="card flex min-w-0 flex-col gap-2 rounded-2xl p-4">
       <label htmlFor="radius-filter" className="text-xs font-medium text-muted-foreground">
-        篩選範圍：
+        篩選範圍
       </label>
       <div className="flex items-center gap-2">
         <input

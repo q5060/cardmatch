@@ -20,35 +20,49 @@ export type ShopEventDTO = {
 };
 
 export async function getShops(viewerId: number) {
-  const blocked = await getBlockedUserIds(viewerId);
-  const blockedArray = Array.from(blocked);
-  const [shops, counts] = await Promise.all([
-    prisma.shop.findMany({ orderBy: { name: "asc" } }),
-    prisma.meetSpot.groupBy({
-      by: ["shopId"],
-      where: {
-        ...activeAnnouncementWhere(),
-        shopId: { not: null },
-        userId: { notIn: blockedArray },  // Only exclude blocked users, include self
-      },
-      _count: { _all: true },
-    }),
-  ]);
+  try {
+    const blocked = await getBlockedUserIds(viewerId);
+    const blockedArray = Array.from(blocked);
+    const [shops, counts] = await Promise.all([
+      prisma.shop.findMany({ orderBy: { name: "asc" } }),
+      prisma.meetSpot.groupBy({
+        by: ["shopId"],
+        where: {
+          ...activeAnnouncementWhere(),
+          shopId: { not: null },
+          userId: { notIn: blockedArray },  // Only exclude blocked users, include self
+        },
+        _count: { _all: true },
+      }),
+    ]);
 
-  const countByShopId = new Map(
-    counts
-      .filter((row) => row.shopId)
-      .map((row) => [row.shopId!, row._count._all]),
-  );
+    const countByShopId = new Map(
+      counts
+        .filter((row) => row.shopId)
+        .map((row) => [row.shopId!, row._count._all]),
+    );
 
-  return shops.map((shop) => {
-    const parsedHours = parseShopHours(shop.hoursJson);
-    return {
-      ...shop,
-      lobbyCount: countByShopId.get(shop.id) ?? 0,
-      openNow: parsedHours ? isShopOpenNow(parsedHours) : false,
-    };
-  });
+    return shops.map((shop) => {
+      try {
+        const parsedHours = parseShopHours(shop.hoursJson);
+        return {
+          ...shop,
+          lobbyCount: countByShopId.get(shop.id) ?? 0,
+          openNow: parsedHours ? isShopOpenNow(parsedHours) : false,
+        };
+      } catch (err) {
+        console.error(`Error processing shop ${shop.id}:`, err);
+        return {
+          ...shop,
+          lobbyCount: countByShopId.get(shop.id) ?? 0,
+          openNow: false,
+        };
+      }
+    });
+  } catch (err) {
+    console.error("Error in getShops:", err);
+    return [];
+  }
 }
 
 export async function getShopRecentEvents(
@@ -56,6 +70,10 @@ export async function getShopRecentEvents(
   limit = 5,
 ): Promise<ShopEventDTO[]> {
   const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  if (!prisma || !prisma.shopEvent) {
+    console.error("Prisma client not initialized properly");
+    return [];
+  }
   const events = await prisma.shopEvent.findMany({
     where: {
       shopId,
@@ -172,6 +190,10 @@ export async function getAnnouncementsAtShop(
   // Include own announcements in shop lobby, but still filter out blocked users
   const blocked = await getBlockedUserIds(viewerId);
   const blockedArray = Array.from(blocked); // Convert Set to array for Prisma
+  if (!prisma || !prisma.meetSpot) {
+    console.error("Prisma client not initialized properly");
+    return [];
+  }
   const spots = await prisma.meetSpot.findMany({
     where: {
       ...activeAnnouncementWhere(),

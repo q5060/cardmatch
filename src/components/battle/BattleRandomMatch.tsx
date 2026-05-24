@@ -89,9 +89,6 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
           <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-foreground">搜尋對手中…</p>
-            <p className="text-xs text-muted-foreground">
-              {queueStatus.shopName ?? (queueStatus.scope === "any" ? "全站" : "")}
-            </p>
           </div>
           <button
             type="button"

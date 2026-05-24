@@ -39,8 +39,8 @@ function parseDayHours(value: unknown): DayHours {
   return [open, close];
 }
 
-export function parseShopHours(json: string): ShopHoursWeek | null {
-  if (!json.trim()) return null;
+export function parseShopHours(json: string | undefined | null): ShopHoursWeek | null {
+  if (!json || !json.trim()) return null;
   try {
     const raw: unknown = JSON.parse(json);
     if (!raw || typeof raw !== "object") return null;
@@ -95,20 +95,27 @@ function parseTimeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
-export function isShopOpenNow(hours: ShopHoursWeek, now: Date = new Date()): boolean {
-  const key = weekdayKeyFromDate(now);
-  const day = hours[key];
-  if (!day) return false;
+export function isShopOpenNow(hours: ShopHoursWeek | null | undefined, now: Date = new Date()): boolean {
+  if (!hours || typeof hours !== "object") return false;
+  try {
+    const key = weekdayKeyFromDate(now);
+    const day = hours[key];
+    if (!day) return false;
 
-  const { hours: h, minutes: m } = taipeiParts(now);
-  const nowMinutes = minutesSinceMidnight(h, m);
-  const openMinutes = parseTimeToMinutes(day[0]);
-  const closeMinutes = parseTimeToMinutes(day[1]);
+    const { hours: h, minutes: m } = taipeiParts(now);
+    const nowMinutes = minutesSinceMidnight(h, m);
+    const openMinutes = parseTimeToMinutes(day[0]);
+    const closeMinutes = parseTimeToMinutes(day[1]);
 
-  return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+    return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+  } catch (e) {
+    console.error("Error checking shop open status:", e);
+    return false;
+  }
 }
 
-export function formatTodayHours(hours: ShopHoursWeek, now: Date = new Date()): string {
+export function formatTodayHours(hours: ShopHoursWeek | null | undefined, now: Date = new Date()): string {
+  if (!hours || typeof hours !== "object") return "營業時間不詳";
   const key = weekdayKeyFromDate(now);
   const day = hours[key];
   if (!day) return "今日休息";
@@ -116,8 +123,9 @@ export function formatTodayHours(hours: ShopHoursWeek, now: Date = new Date()): 
 }
 
 export function formatWeeklyHours(
-  hours: ShopHoursWeek,
+  hours: ShopHoursWeek | null | undefined,
 ): { day: string; label: string }[] {
+  if (!hours || typeof hours !== "object") return [];
   return WEEKDAY_KEYS.map((key) => {
     const day = hours[key];
     return {

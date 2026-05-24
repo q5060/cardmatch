@@ -21,16 +21,25 @@ type Props = {
 export function ShopInfoPanel({ shop, playerCount, events, eventsLoading }: Props) {
   const [hoursExpanded, setHoursExpanded] = useState(false);
 
-  const hours = useMemo(
-    () => (shop.hoursJson ? parseShopHours(shop.hoursJson) : null),
-    [shop.hoursJson],
-  );
+  const hours = useMemo(() => {
+    try {
+      if (!shop || !shop.hoursJson) return null;
+      return parseShopHours(shop.hoursJson);
+    } catch (e) {
+      console.error("Failed to parse shop hours:", e);
+      return null;
+    }
+  }, [shop?.hoursJson]);
 
   const todayHours = hours ? formatTodayHours(hours) : null;
   const weeklyHours = hours ? formatWeeklyHours(hours) : [];
 
-  const openNow = shop.openNow ?? false;
-  const hasBattleArea = shop.hasPtcgBattleArea ?? false;
+  const openNow = shop?.openNow ?? false;
+  const hasBattleArea = shop?.hasPtcgBattleArea ?? false;
+
+  if (!shop || !shop.id) {
+    return <div className="text-sm text-muted-foreground p-4">店家資訊不可用</div>;
+  }
 
   return (
     <div className="space-y-4 border-b border-border px-5 py-4">
