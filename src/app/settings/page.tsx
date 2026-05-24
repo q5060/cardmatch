@@ -4,10 +4,11 @@ import { useState, useEffect, Suspense } from "react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { User, Lock, Shield, LogOut, Plus, Trash2, Edit2, Layers } from "lucide-react";
+import { User, Lock, Shield, LogOut, Plus, Trash2, Edit2, Layers, UserX } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { BlockedUsersList } from "@/components/settings/BlockedUsersList";
 
 interface UserSettings {
   id: number;
@@ -28,7 +29,7 @@ interface Deck {
   cardCount: number;
 }
 
-const TAB_IDS = ["account", "decks", "privacy", "security"] as const;
+const TAB_IDS = ["account", "decks", "privacy", "blocked", "security"] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 function normalizeTab(raw: string | null): TabId {
@@ -40,6 +41,7 @@ const tabs: { id: TabId; label: string; icon: typeof User }[] = [
   { id: "account", label: "帳戶設定", icon: User },
   { id: "decks", label: "管理牌組", icon: Layers },
   { id: "privacy", label: "隱私設定", icon: Shield },
+  { id: "blocked", label: "封鎖列表", icon: UserX },
   { id: "security", label: "密碼與安全", icon: Lock },
 ];
 
@@ -481,6 +483,16 @@ function SettingsContent() {
               >
                 {loading ? "更新中..." : "保存隱私設定"}
               </button>
+            </div>
+          )}
+
+          {activeTab === "blocked" && (
+            <div className="card space-y-6 p-6">
+              <h2 className="text-lg font-semibold text-foreground">封鎖列表</h2>
+              <BlockedUsersList
+                active={activeTab === "blocked"}
+                onMessage={setMessage}
+              />
             </div>
           )}
 

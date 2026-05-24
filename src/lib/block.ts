@@ -39,3 +39,28 @@ export async function assertNotBlocked(viewerId: number, otherId: number): Promi
     throw new Error("無法與此使用者互動");
   }
 }
+
+/** Users the viewer has blocked (one-way; for settings list). */
+export async function listUsersBlockedByViewer(viewerId: number) {
+  const rows = await prisma.userBlock.findMany({
+    where: { blockerId: viewerId },
+    select: {
+      createdAt: true,
+      blocked: {
+        select: {
+          id: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rows.map((row) => ({
+    id: row.blocked.id,
+    displayName: row.blocked.displayName,
+    avatarUrl: row.blocked.avatarUrl,
+    blockedAt: row.createdAt.toISOString(),
+  }));
+}

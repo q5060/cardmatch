@@ -52,6 +52,7 @@ export async function blockUser(blockedId: number) {
   revalidatePath(`/profile/${blockedId}`);
   revalidatePath("/friends");
   revalidatePath("/battle");
+  revalidatePath("/settings");
 }
 
 export async function unblockUser(blockedId: number) {
@@ -66,6 +67,7 @@ export async function unblockUser(blockedId: number) {
   revalidatePath(`/profile/${blockedId}`);
   revalidatePath("/friends");
   revalidatePath("/battle");
+  revalidatePath("/settings");
 }
 
 export async function viewerHasBlocked(
