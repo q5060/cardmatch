@@ -11,39 +11,34 @@ async function requireUserId() {
   return session.userId;
 }
 
-export async function reportUser(reportedId: number, reason?: string) {
-  const reporterId = await requireUserId();
-  if (reporterId === reportedId) throw new Error("無法檢舉自己");
-
-  const trimmed = (reason ?? "").trim().slice(0, 500);
-
-  await prisma.userReport.create({
-    data: {
-      reporterId,
-      reportedId,
-      reason: trimmed,
-    },
-  });
-}
-
-export async function blockUser(blockedId: number) {
+export async function blockUser(blockedId: number, note?: string) {
   const blockerId = await requireUserId();
-  if (blockerId === blockedId) throw new Error("無法封鎖自己");
+  if (blockerId === blockedId) throw new Error("不能封鎖自己");
 
   const existing = await prisma.block.findUnique({
     where: { blockerId_blockedId: { blockerId, blockedId } },
   });
 
-  if (existing?.active) return;
+  if (existing?.active) throw new Error("已封鎖此用戶");
+
+  if (existing && !existing.active && existing.unblockedAt) {
+    const cooldownEnd = new Date(existing.unblockedAt.getTime() + 10 * 60 * 1000);
+    if (new Date() < cooldownEnd) {
+      const remaining = Math.ceil((cooldownEnd.getTime() - Date.now()) / 60000);
+      throw new Error(`請等待 ${remaining} 分鐘後才能重新封鎖此用戶`);
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     if (existing) {
       await tx.block.update({
         where: { id: existing.id },
-        data: { active: true, unblockedAt: null, createdAt: new Date() },
+        data: { active: true, note: note?.trim() || null, unblockedAt: null, createdAt: new Date() },
       });
     } else {
-      await tx.block.create({ data: { blockerId, blockedId } });
+      await tx.block.create({
+        data: { blockerId, blockedId, note: note?.trim() || null },
+      });
     }
 
     await tx.friendship.deleteMany({
@@ -76,10 +71,10 @@ export async function blockUser(blockedId: number) {
     });
   });
 
-  revalidatePath("/profile");
   revalidatePath(`/profile/${blockedId}`);
-  revalidatePath("/friends");
+  revalidatePath("/profile");
   revalidatePath("/battle");
+  revalidatePath("/friends");
 }
 
 export async function unblockUser(blockedId: number) {
@@ -92,19 +87,34 @@ export async function unblockUser(blockedId: number) {
 
   revalidatePath("/profile");
   revalidatePath(`/profile/${blockedId}`);
-  revalidatePath("/friends");
-  revalidatePath("/battle");
 }
 
-export async function viewerHasBlocked(
-  viewerId: number,
-  otherId: number,
-): Promise<boolean> {
-  const row = await prisma.block.findUnique({
-    where: {
-      blockerId_blockedId: { blockerId: viewerId, blockedId: otherId },
+export type BlockListItem = {
+  id: string;
+  blockedId: number;
+  displayName: string;
+  avatarUrl: string | null;
+  note: string | null;
+  createdAt: string;
+};
+
+export async function getBlockList(): Promise<BlockListItem[]> {
+  const blockerId = await requireUserId();
+
+  const blocks = await prisma.block.findMany({
+    where: { blockerId, active: true },
+    include: {
+      blocked: { select: { id: true, displayName: true, avatarUrl: true } },
     },
-    select: { active: true },
+    orderBy: { createdAt: "desc" },
   });
-  return row?.active === true;
+
+  return blocks.map((b) => ({
+    id: b.id,
+    blockedId: b.blockedId,
+    displayName: b.blocked.displayName,
+    avatarUrl: b.blocked.avatarUrl,
+    note: b.note,
+    createdAt: b.createdAt.toISOString(),
+  }));
 }

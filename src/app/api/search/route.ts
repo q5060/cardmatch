@@ -20,14 +20,13 @@ export async function GET(request: NextRequest) {
     const trimmedQuery = query.trim().toLowerCase();
     const blocked = await getBlockedUserIds(user.id);
     const blockedIds = [...blocked];
+    const excludeIds = [user.id, ...blockedIds];
 
     // Search for users
     const users = await prisma.user.findMany({
       where: {
-        id: { notIn: [user.id, ...blockedIds] },
-        displayName: {
-          contains: trimmedQuery,
-        },
+        displayName: { contains: trimmedQuery },
+        id: { notIn: excludeIds },
       },
       select: {
         id: true,
@@ -40,13 +39,11 @@ export async function GET(request: NextRequest) {
     // Search for meet spots
     const spots = await prisma.meetSpot.findMany({
       where: {
-        userId: { notIn: [user.id, ...blockedIds] },
-        label: {
-          contains: trimmedQuery,
-        },
+        label: { contains: trimmedQuery },
         active: true,
         looking: true,
         expiresAt: { gt: new Date() },
+        userId: { notIn: excludeIds },
       },
       select: {
         id: true,

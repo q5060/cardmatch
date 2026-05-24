@@ -2,8 +2,9 @@ import prisma from "@/lib/prisma";
 
 /** User IDs that should be hidden from viewer (either direction of block). */
 export async function getBlockedUserIds(viewerId: number): Promise<Set<number>> {
-  const rows = await prisma.userBlock.findMany({
+  const rows = await prisma.block.findMany({
     where: {
+      active: true,
       OR: [{ blockerId: viewerId }, { blockedId: viewerId }],
     },
     select: { blockerId: true, blockedId: true },
@@ -21,8 +22,9 @@ export async function getBlockedUserIds(viewerId: number): Promise<Set<number>> 
 }
 
 export async function isBlockedBetween(userA: number, userB: number): Promise<boolean> {
-  const row = await prisma.userBlock.findFirst({
+  const row = await prisma.block.findFirst({
     where: {
+      active: true,
       OR: [
         { blockerId: userA, blockedId: userB },
         { blockerId: userB, blockedId: userA },
@@ -42,8 +44,8 @@ export async function assertNotBlocked(viewerId: number, otherId: number): Promi
 
 /** Users the viewer has blocked (one-way; for settings list). */
 export async function listUsersBlockedByViewer(viewerId: number) {
-  const rows = await prisma.userBlock.findMany({
-    where: { blockerId: viewerId },
+  const rows = await prisma.block.findMany({
+    where: { blockerId: viewerId, active: true },
     select: {
       createdAt: true,
       blocked: {

@@ -27,16 +27,16 @@ export default async function BattlePage() {
 
   const [activeMatch, announcements, myAnnouncement, shops, userPrefs, queueStatus] =
     await Promise.all([
-    getActiveMatchForUser(user.id),
-    getMapAnnouncements(user.id),
-    getMyActiveAnnouncement(user.id),
-    getShops(user.id),
-    prisma.user.findUnique({
-      where: { id: user.id },
-      select: { defaultShopId: true },
-    }),
-    getMyQueueStatus(),
-  ]);
+      getActiveMatchForUser(user.id),
+      getMapAnnouncements(user.id),
+      getMyActiveAnnouncement(user.id),
+      getShops(user.id),
+      prisma.user.findUnique({
+        where: { id: user.id },
+        select: { defaultShopId: true },
+      }),
+      getMyQueueStatus(),
+    ]);
 
   let battleResult = null;
   if (activeMatch) {

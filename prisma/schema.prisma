@@ -39,8 +39,8 @@ model User {
   matchQueueEntries  MatchQueueEntry[]
   reportsMade        UserReport[]     @relation("ReportsMade")
   reportsReceived    UserReport[]     @relation("ReportsReceived")
-  blocksMade         UserBlock[]      @relation("BlocksMade")
-  blocksReceived     UserBlock[]      @relation("BlocksReceived")
+  blocking           Block[]          @relation("BlockerBlocks")
+  blockedBy          Block[]          @relation("BlockedByBlocks")
 }
 
 model UserReport {
@@ -53,16 +53,6 @@ model UserReport {
   reported   User     @relation("ReportsReceived", fields: [reportedId], references: [id], onDelete: Cascade)
 
   @@index([reportedId])
-}
-
-model UserBlock {
-  blockerId Int
-  blockedId Int
-  createdAt DateTime @default(now())
-  blocker   User @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
-  blocked   User @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
-
-  @@id([blockerId, blockedId])
 }
 
 model Deck {
@@ -211,8 +201,23 @@ model MatchQueueEntry {
   shopId   String?
   shop     Shop?    @relation(fields: [shopId], references: [id], onDelete: SetNull)
   playNote String   @default("")
-  lat      Float?   // Map center latitude for random matching
-  lng      Float?   // Map center longitude for random matching
-  radiusKm Float?   // Search radius in km for random matching
+  lat      Float?
+  lng      Float?
+  radiusKm Float?
   joinedAt DateTime @default(now())
+}
+
+model Block {
+  id          String    @id @default(cuid())
+  blockerId   Int
+  blockedId   Int
+  note        String?
+  active      Boolean   @default(true)
+  unblockedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  blocker     User      @relation("BlockerBlocks", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked     User      @relation("BlockedByBlocks", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
 }

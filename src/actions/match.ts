@@ -61,6 +61,9 @@ export async function acceptInvite(matchId: string) {
   if (match.status !== MATCH_STATUS.INVITE_PENDING) throw new Error("邀請狀態已變更");
   if (match.invitedById === userId) throw new Error("不能接受自己發出的邀請");
 
+  const otherPlayerId = match.playerAId === userId ? match.playerBId : match.playerAId;
+  await assertNotBlocked(userId, otherPlayerId);
+
   await prisma.match.update({
     where: { id },
     data: { status: MATCH_STATUS.ACCEPTED, playerAReady: false, playerBReady: false },

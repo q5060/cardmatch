@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { ProfileBattleStats, ProfileMatchFeedRow } from "@/lib/queries";
 import { MatchFeedList } from "@/components/profile/MatchFeedList";
+import { BlockButton } from "@/components/profile/BlockButton";
 import { PROFILE_RECENT_MATCHES } from "@/lib/constants";
 
 const TABS_SELF = [
@@ -111,6 +112,8 @@ export type ProfileDashboardProps = {
     status: string;
     requesterId: number;
   } | null;
+  isBlocked?: boolean;
+  viewerIsBlockedBy?: boolean;
   user: {
     displayName: string;
     bio: string;
@@ -137,6 +140,8 @@ export function ProfileDashboard({
   viewedUserId,
   viewerId,
   friendshipStatus,
+  isBlocked = false,
+  viewerIsBlockedBy = false,
   user,
   battleStats,
   deckCount,
@@ -334,36 +339,11 @@ export function ProfileDashboard({
               </div>
 
             {/* Friend / moderation */}
-            {variant === "other" && viewedUserId && viewerId && (
+            {variant === "other" && viewedUserId && viewerId && !viewerIsBlockedBy && (
               <div className="flex gap-2 relative z-10 flex-wrap items-start shrink-0 mt-6 pb-2">
-                {blockedByViewer ? (
+                {!isBlocked ? (
                   <>
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      disabled={modPending}
-                      onClick={() => {
-                        if (!confirm("確定要解除封鎖？對方將可再次出現在大廳，你也可重新加好友或私訊。")) {
-                          return;
-                        }
-                        startModTransition(async () => {
-                          try {
-                            const { unblockUser } = await import("@/actions/moderation");
-                            await unblockUser(viewedUserId!);
-                            window.location.reload();
-                          } catch (e) {
-                            alert(e instanceof Error ? e.message : "操作失敗");
-                          }
-                        });
-                      }}
-                    >
-                      {modPending ? "處理中…" : "解除封鎖"}
-                    </button>
-                  </>
-                ) : interactionBlocked ? (
-                  <span className="text-sm text-muted-foreground">無法與此使用者互動</span>
-                ) : (
-                  <>
+
                     {!friendshipStatus ? (
                       <button
                         onClick={async () => {
@@ -404,12 +384,14 @@ export function ProfileDashboard({
                         )}
                       </>
                     ) : (
-                      <Link
-                        href={`/chat/${friendshipStatus.id}`}
-                        className="btn btn-primary btn-sm"
-                      >
-                        私訊
-                      </Link>
+                      <>
+                        <Link
+                          href={`/friends?chat=${friendshipStatus.id}`}
+                          className="btn btn-primary btn-sm"
+                        >
+                          私訊
+                        </Link>
+                      </>
                     )}
                     <div className="relative" ref={moreMenuRef}>
                       <button
@@ -437,9 +419,7 @@ export function ProfileDashboard({
                                 if (!confirm("確定要刪除此好友？")) return;
                                 void (async () => {
                                   try {
-                                    const { rejectFriendship } = await import(
-                                      "@/actions/friends"
-                                    );
+                                    const { rejectFriendship } = await import("@/actions/friends");
                                     await rejectFriendship(friendshipStatus.id);
                                     window.location.reload();
                                   } catch (e) {
@@ -464,38 +444,12 @@ export function ProfileDashboard({
                           >
                             檢舉
                           </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            disabled={modPending}
-                            className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-                            onClick={() => {
-                              setMoreMenuOpen(false);
-                              if (
-                                !confirm(
-                                  "確定要封鎖此使用者？將解除好友關係、無法私訊，且雙方不會在店家大廳看到彼此的公告。",
-                                )
-                              ) {
-                                return;
-                              }
-                              startModTransition(async () => {
-                                try {
-                                  const { blockUser } = await import("@/actions/moderation");
-                                  await blockUser(viewedUserId);
-                                  window.location.reload();
-                                } catch (e) {
-                                  alert(e instanceof Error ? e.message : "操作失敗");
-                                }
-                              });
-                            }}
-                          >
-                            封鎖
-                          </button>
                         </div>
                       ) : null}
                     </div>
                   </>
-                )}
+                ) : null}
+                <BlockButton blockedId={viewedUserId} isBlocked={isBlocked} />
               </div>
             )}
             {reportOpen && variant === "other" && viewedUserId ? (

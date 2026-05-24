@@ -7,8 +7,6 @@ import { ProfileDashboard } from "@/components/profile/ProfileDashboard";
 import { PublicDeckList } from "@/components/profile/PublicDeckList";
 import { getProfileBattleStats, getProfileMatchFeed } from "@/lib/queries";
 import { DECK_VISIBILITY, PROFILE_RECENT_MATCHES } from "@/lib/constants";
-import { isBlockedBetween } from "@/lib/block";
-import { viewerHasBlocked } from "@/actions/moderation";
 
 export async function generateMetadata(
   { params }: { params: Promise<{ userId: string }> }
@@ -82,8 +80,7 @@ export default async function OtherProfilePage({
   if (!viewer) redirect("/login");
   if (viewer.id === userId) redirect("/profile");
 
-  const [profile, battleStats, recentFeed, friendship, blockedByViewer, blockedEither] =
-    await Promise.all([
+  const [profile, battleStats, recentFeed, friendship, blockStatus] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -110,14 +107,22 @@ export default async function OtherProfilePage({
       },
       select: { id: true, status: true, requesterId: true },
     }),
-    viewerHasBlocked(viewer.id, userId),
-    isBlockedBetween(viewer.id, userId),
+    prisma.block.findMany({
+      where: {
+        active: true,
+        OR: [
+          { blockerId: viewer.id, blockedId: userId },
+          { blockerId: userId, blockedId: viewer.id },
+        ],
+      },
+      select: { blockerId: true },
+    }),
   ]);
 
-  const friendshipForUi =
-    blockedEither ? null : friendship;
-
   if (!profile) notFound();
+
+  const viewerHasBlocked = blockStatus.some((b) => b.blockerId === viewer.id);
+  const viewerIsBlockedBy = blockStatus.some((b) => b.blockerId === userId);
 
   const deckCount = profile.decks.length;
   const publicDeckCount = deckCount;
@@ -129,9 +134,9 @@ export default async function OtherProfilePage({
         profileBasePath={`/profile/${userId}`}
         viewedUserId={userId}
         viewerId={viewer.id}
-        friendshipStatus={friendshipForUi}
-        blockedByViewer={blockedByViewer}
-        interactionBlocked={blockedEither}
+        friendshipStatus={viewerHasBlocked ? null : friendship}
+        isBlocked={viewerHasBlocked}
+        viewerIsBlockedBy={viewerIsBlockedBy}
         user={{
           displayName: profile.displayName,
           bio: profile.bio,

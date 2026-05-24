@@ -30,7 +30,7 @@ export async function getShops(viewerId: number) {
         where: {
           ...activeAnnouncementWhere(),
           shopId: { not: null },
-          userId: { notIn: blockedArray },  // Only exclude blocked users, include self
+          userId: { notIn: blockedArray },
         },
         _count: { _all: true },
       }),
@@ -70,10 +70,6 @@ export async function getShopRecentEvents(
   limit = 5,
 ): Promise<ShopEventDTO[]> {
   const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-  if (!prisma || !prisma.shopEvent) {
-    console.error("Prisma client not initialized properly");
-    return [];
-  }
   const events = await prisma.shopEvent.findMany({
     where: {
       shopId,
@@ -161,8 +157,7 @@ export async function getMapAnnouncements(
   viewerId: number,
 ): Promise<MapAnnouncementDTO[]> {
   const hidden = await hiddenUserIdsForViewer(viewerId);
-  
-  // Get all active spots, then group by userId and take only the latest for each user
+
   const allSpots = await prisma.meetSpot.findMany({
     where: {
       ...activeAnnouncementWhere(),
@@ -187,18 +182,14 @@ export async function getAnnouncementsAtShop(
   shopId: string,
   viewerId: number,
 ): Promise<MapAnnouncementDTO[]> {
-  // Include own announcements in shop lobby, but still filter out blocked users
   const blocked = await getBlockedUserIds(viewerId);
-  const blockedArray = Array.from(blocked); // Convert Set to array for Prisma
-  if (!prisma || !prisma.meetSpot) {
-    console.error("Prisma client not initialized properly");
-    return [];
-  }
+  const blockedArray = Array.from(blocked);
+
   const spots = await prisma.meetSpot.findMany({
     where: {
       ...activeAnnouncementWhere(),
       shopId,
-      userId: { notIn: blockedArray },
+      ...(blockedArray.length > 0 ? { userId: { notIn: blockedArray } } : {}),
     },
     include: userInclude,
     orderBy: { updatedAt: "desc" },

@@ -2,8 +2,12 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { UserRound } from "lucide-react";
 import { FriendsListView } from "./FriendsListView";
 import { acceptFriendship, rejectFriendship } from "@/actions/friends";
+import { unblockUser } from "@/actions/block";
+import type { BlockListItem } from "@/actions/block";
 import Link from "next/link";
 
 type Row = {
@@ -19,14 +23,17 @@ type Row = {
 export function FriendsClientV2({
   userId,
   friendships,
+  blockList: initialBlockList,
 }: {
   userId: number;
   friendships: Row[];
+  blockList: BlockListItem[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"friends" | "pending">("friends");
+  const [tab, setTab] = useState<"friends" | "pending" | "blocked">("friends");
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  const [blockList, setBlockList] = useState(initialBlockList);
 
   function other(f: Row) {
     return f.requesterId === userId ? f.addressee : f.requester;
@@ -39,9 +46,19 @@ export function FriendsClientV2({
         await fn();
         router.refresh();
       } catch (e) {
-        const msg =
-          e instanceof Error ? e.message : "操作失敗";
-        setErr(msg);
+        setErr(e instanceof Error ? e.message : "操作失敗");
+      }
+    });
+  }
+
+  function handleUnblock(blockedId: number) {
+    if (!confirm("確定要解除封鎖此用戶？")) return;
+    startTransition(async () => {
+      try {
+        await unblockUser(blockedId);
+        setBlockList((prev) => prev.filter((b) => b.blockedId !== blockedId));
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "操作失敗");
       }
     });
   }
@@ -92,11 +109,19 @@ export function FriendsClientV2({
             }`}
           >
             待審中 ({pendingIn.length + pendingOut.length})
-            {(pendingIn.length > 0 || pendingOut.length > 0) && (
-              <span className="absolute top-2 right-0 h-2 w-2 rounded-full bg-red-500" />
-            )}
+            <span className="absolute top-2 right-0 h-2 w-2 rounded-full bg-red-500" />
           </button>
         )}
+        <button
+          onClick={() => setTab("blocked")}
+          className={`px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
+            tab === "blocked"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          封鎖清單{blockList.length > 0 && ` (${blockList.length})`}
+        </button>
       </div>
 
       {/* Friends Tab */}
@@ -204,6 +229,59 @@ export function FriendsClientV2({
             <div className="text-center py-12">
               <p className="text-muted-foreground">沒有待審的邀請</p>
             </div>
+          )}
+        </section>
+      )}
+
+      {/* Blocked Tab */}
+      {tab === "blocked" && (
+        <section>
+          {blockList.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">目前沒有封鎖任何用戶</p>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {blockList.map((b) => (
+                <li
+                  key={b.id}
+                  className="flex items-start gap-3 rounded-xl border border-border bg-card p-4"
+                >
+                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-neutral-100">
+                    {b.avatarUrl ? (
+                      <Image
+                        src={b.avatarUrl}
+                        alt=""
+                        width={40}
+                        height={40}
+                        unoptimized
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <UserRound className="h-5 w-5 opacity-70" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground">{b.displayName}</p>
+                    {b.note && (
+                      <p className="mt-0.5 text-xs text-muted-foreground">備註：{b.note}</p>
+                    )}
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      封鎖於 {new Date(b.createdAt).toLocaleDateString("zh-Hant")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleUnblock(b.blockedId)}
+                    disabled={pending}
+                    className="btn btn-outline btn-sm shrink-0 text-xs"
+                  >
+                    解除封鎖
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       )}

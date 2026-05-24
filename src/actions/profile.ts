@@ -146,7 +146,6 @@ export async function sendFriendRequest(targetUserId: number) {
 
   await assertNotBlocked(session.userId, targetUserId);
 
-  // 检查是否已有友谊关系
   const existing = await prisma.friendship.findFirst({
     where: {
       OR: [
