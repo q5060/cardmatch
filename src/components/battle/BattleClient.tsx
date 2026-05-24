@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, UserRound, ArrowLeft } from "lucide-react";
+import { UserRound, ArrowLeft } from "lucide-react";
 import {
   MeetMap,
   type MapAnnouncementPin,
@@ -44,6 +44,9 @@ import {
   useRealtimeConnected,
   useRealtimeEvent,
 } from "@/hooks/useRealtimeEvent";
+import { useMatchCeremony } from "@/hooks/useMatchCeremony";
+import { BattleCeremonyOverlay } from "@/components/battle/BattleCeremonyOverlay";
+import { BattleReadyStrip } from "@/components/battle/BattleReadyStrip";
 import type { RealtimeEvent } from "@/lib/realtime/types";
 
 export type { ActiveMatchDTO, BattleResultDTO };
@@ -98,7 +101,6 @@ export function BattleClient({
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationAttempted, setLocationAttempted] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [incomingInviteAlert, setIncomingInviteAlert] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number>(5);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
   const seenInviteMatchIdRef = useRef<number | null>(null);
@@ -200,19 +202,6 @@ export function BattleClient({
     }, ms);
     return () => window.clearInterval(id);
   }, [activeMatch, myAnnouncement, sseConnected, syncMapSnapshot]);
-
-  useEffect(() => {
-    if (!isIncomingInvite || !activeMatch) return;
-    if (seenInviteMatchIdRef.current === activeMatch.id) return;
-    seenInviteMatchIdRef.current = activeMatch.id;
-    setIncomingInviteAlert(true);
-    requestAnimationFrame(() => {
-      document.getElementById("pending-invite")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-  }, [isIncomingInvite, activeMatch?.id]);
 
   useEffect(() => {
     if (!isIncomingInvite) {
@@ -402,32 +391,57 @@ export function BattleClient({
       : activeMatch.playerAReady
     : false;
 
+  const { ceremony, dismissCeremony } = useMatchCeremony(
+    activeMatch,
+    userId,
+    seenInviteMatchIdRef,
+  );
+
   if (activeMatch) {
     const st = activeMatch.status;
+    const showCeremony =
+      ceremony !== null && ceremony.matchId === activeMatch.id;
 
     return (
       <div className="space-y-6">
-        {isIncomingInvite && incomingInviteAlert ? (
-          <div
-            role="alert"
-            className="flex items-start gap-3 rounded-xl border-2 border-primary bg-primary/15 px-4 py-3 shadow-md ring-2 ring-primary/25"
-          >
-            <Bell className="mt-0.5 h-5 w-5 shrink-0 animate-pulse text-primary" aria-hidden />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-primary">有人回應你的約戰公告</p>
-              <p className="mt-0.5 text-sm text-foreground">
-                {otherPlayer?.displayName ?? "玩家"} 邀請你對戰
-              </p>
-            </div>
-            <button
-              type="button"
-              className="shrink-0 text-xs text-primary underline-offset-2 hover:underline"
-              onClick={() => setIncomingInviteAlert(false)}
-              aria-label="關閉提示"
-            >
-              關閉
-            </button>
-          </div>
+        {showCeremony ? (
+          <BattleCeremonyOverlay
+            key={`${ceremony.matchId}-${ceremony.kind}`}
+            ceremony={ceremony}
+            onDismiss={dismissCeremony}
+            inviteActions={
+              ceremony.kind === "incoming_invite" ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      run(async () => {
+                        await acceptInvite(activeMatch.id.toString());
+                        dismissCeremony();
+                      })
+                    }
+                    className="btn btn-primary min-w-[7rem]"
+                  >
+                    接受約戰
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      run(async () => {
+                        await rejectInvite(activeMatch.id.toString());
+                        dismissCeremony();
+                      })
+                    }
+                    className="btn btn-outline border-red-200 font-semibold text-red-700 hover:bg-red-50"
+                  >
+                    拒絕
+                  </button>
+                </>
+              ) : undefined
+            }
+          />
         ) : null}
 
         <div className="card card-hover p-5">
@@ -488,6 +502,14 @@ export function BattleClient({
                   <span className="font-normal text-foreground"> 邀請你約戰</span>
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
+                  {otherPlayerId ? (
+                    <Link
+                      href={`/profile/${otherPlayerId}`}
+                      className="btn btn-outline btn-sm"
+                    >
+                      查看個人檔案
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
                     disabled={pending}
@@ -602,40 +624,40 @@ export function BattleClient({
                 </div>
               </>
             ) : (
-              <>
-                <p className="text-sm text-foreground">
-                  雙方準備完成後將自動開始對戰。你的狀態：
-                  <strong className="mx-0.5">{myReady ? "已準備" : "未準備"}</strong>
-                  ，對方：
-                  <strong className="mx-0.5">{theirReady ? "已準備" : "未準備"}</strong>
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() =>
-                      run(async () => {
-                        await setReady(activeMatch.id.toString(), !myReady);
-                      })
-                    }
-                    className="btn btn-primary"
-                  >
-                    {myReady ? "取消準備" : "我準備好了"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() =>
-                      run(async () => {
-                        await cancelMatch(activeMatch.id.toString());
-                      })
-                    }
-                    className="btn btn-outline"
-                  >
-                    請求取消約戰
-                  </button>
-                </div>
-              </>
+              <BattleReadyStrip
+                activeMatch={activeMatch}
+                userId={userId}
+                myReady={myReady}
+                theirReady={theirReady}
+                readyButtonClassName="flex flex-wrap gap-2"
+              >
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      await setReady(activeMatch.id.toString(), !myReady);
+                    })
+                  }
+                  className={`btn btn-primary ${
+                    theirReady && !myReady ? "ring-2 ring-primary/40" : ""
+                  }`}
+                >
+                  {myReady ? "取消準備" : "我準備好了"}
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      await cancelMatch(activeMatch.id.toString());
+                    })
+                  }
+                  className="btn btn-outline"
+                >
+                  請求取消約戰
+                </button>
+              </BattleReadyStrip>
             )}
           </div>
         )}
