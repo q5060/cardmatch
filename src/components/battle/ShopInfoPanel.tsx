@@ -47,7 +47,7 @@ export function ShopInfoPanel({ shop, playerCount, events, eventsLoading }: Prop
 
       {todayHours ? (
         <p className="text-sm text-muted-foreground">
-          今日 <span className="font-medium text-foreground">{todayHours}</span>
+          <span className="font-medium text-foreground">{todayHours}</span>
         </p>
       ) : null}
 
@@ -104,11 +104,10 @@ function StatusBadges({
   return (
     <div className="flex flex-wrap gap-2">
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-          openNow
-            ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
-            : "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200"
-        }`}
+        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${openNow
+          ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
+          : "bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200"
+          }`}
       >
         <span
           className={`h-1.5 w-1.5 rounded-full ${openNow ? "bg-emerald-500" : "bg-neutral-400"}`}
@@ -117,13 +116,12 @@ function StatusBadges({
         {openNow ? "營業中" : "休息中"}
       </span>
       <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${
-          hasBattleArea
-            ? "bg-primary/10 text-primary ring-primary/20"
-            : "bg-neutral-100 text-neutral-600 ring-neutral-200"
-        }`}
+        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${hasBattleArea
+          ? "bg-primary/10 text-primary ring-primary/20"
+          : "bg-neutral-100 text-neutral-600 ring-neutral-200"
+          }`}
       >
-        {hasBattleArea ? "PTCG 對戰區" : "無對戰區"}
+        {hasBattleArea ? "有對戰區" : "無對戰區"}
       </span>
       <span className="inline-flex rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700 ring-1 ring-neutral-200">
         {playerCount} 人在店
@@ -148,7 +146,7 @@ function WeeklyHoursSection({
         onClick={onToggle}
         className="flex w-full items-center justify-between text-sm font-medium text-foreground"
       >
-        一週營業時間
+        營業時間
         {expanded ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground" aria-hidden />
         ) : (

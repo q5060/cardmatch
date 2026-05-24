@@ -99,6 +99,24 @@ export const campfireIcon = pinIcon(playerSvg, 32, 40);
 export const ownCampfireIcon = pinIcon(ownPlayerSvg, 38, 46);
 export const previewPinIcon = pinIcon(previewSvg, 30, 38);
 
+/** Red pin — agreed meeting location on the active-match map */
+const meetPinSvg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="34" height="42" viewBox="0 0 34 42" aria-hidden="true">
+  <defs>
+    <linearGradient id="meetPinGrad" x1="17" y1="1" x2="17" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f87171"/>
+      <stop offset="1" stop-color="#b91c1c"/>
+    </linearGradient>
+    ${shadow.replace('pinShadow', 'pinShadowM')}
+  </defs>
+  <g filter="url(#pinShadowM)">
+    <path d="M17 2C10.8 2 5.5 7.1 5.5 13.5c0 7.5 11.5 24.5 11.5 24.5S28.5 21 28.5 13.5C28.5 7.1 23.2 2 17 2z" fill="url(#meetPinGrad)" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="17" cy="13.5" r="6.5" fill="#fff"/>
+    <path d="M17 9.5l1.8 3.6 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6z" fill="#dc2626"/>
+  </g>
+</svg>`;
+export const meetPinIcon = pinIcon(meetPinSvg, 34, 42);
+
 export function shopIconWithCount(count = 0) {
   if (count <= 0) return shopBaseIcon;
 

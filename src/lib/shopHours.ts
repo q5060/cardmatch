@@ -114,11 +114,11 @@ export function isShopOpenNow(hours: ShopHoursWeek | null | undefined, now: Date
   }
 }
 
-export function formatTodayHours(hours: ShopHoursWeek | null | undefined, now: Date = new Date()): string {
-  if (!hours || typeof hours !== "object") return "營業時間不詳";
+export function formatTodayHours(hours: ShopHoursWeek | null | undefined, now: Date = new Date()): string | null {
+  if (!hours || typeof hours !== "object") return null;
   const key = weekdayKeyFromDate(now);
   const day = hours[key];
-  if (!day) return "今日休息";
+  if (!day) return null;
   return `${day[0]}–${day[1]}`;
 }
 

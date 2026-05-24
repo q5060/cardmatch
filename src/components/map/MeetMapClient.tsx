@@ -17,6 +17,7 @@ import {
   campfireIcon,
   ownCampfireIcon,
   previewPinIcon,
+  meetPinIcon,
   legendShopSvg,
   legendPlayerSvg,
   shopIconWithCount,
@@ -88,6 +89,12 @@ type Props = {
     centerLat: number;
     centerLng: number;
     radiusKm: number;
+  } | null;
+  /** Red pin at the agreed meeting point (active match maps) */
+  meetPin?: {
+    lat: number;
+    lng: number;
+    label: string;
   } | null;
   /** Called when map center changes (drag/pan/zoom) */
   onMapCenterChange?: (lat: number, lng: number) => void;
@@ -250,6 +257,7 @@ export function MeetMapClient({
   onRefresh,
   radiusCircle = null,
   randomMatchCircle = null,
+  meetPin = null,
   onMapCenterChange,
 }: Props) {
   useEffect(() => {
@@ -305,6 +313,16 @@ export function MeetMapClient({
               <p className="text-xs text-muted-foreground">
                 {previewPin.lat.toFixed(5)}, {previewPin.lng.toFixed(5)}
               </p>
+            </div>
+          </Popup>
+        </Marker>
+      ) : null}
+      {meetPin ? (
+        <Marker position={[meetPin.lat, meetPin.lng]} icon={meetPinIcon}>
+          <Popup>
+            <div className="space-y-1 text-sm">
+              <p className="font-semibold text-foreground">📍 配對地點</p>
+              <p className="text-xs text-muted-foreground">{meetPin.label}</p>
             </div>
           </Popup>
         </Marker>

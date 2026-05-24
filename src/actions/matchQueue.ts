@@ -23,9 +23,9 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -53,21 +53,21 @@ function circleOverlapArea(
   r2: number,
 ): number {
   const d = haversineDistance(lat1, lng1, lat2, lng2);
-  
+
   // No overlap
   if (d >= r1 + r2) return 0;
-  
+
   // One circle completely inside the other
   if (d <= Math.abs(r1 - r2)) {
     const smallerRadius = Math.min(r1, r2);
     return Math.PI * smallerRadius * smallerRadius;
   }
-  
+
   // Partial overlap - lens area formula
   const part1 = (r1 * r1 * Math.acos((d * d + r1 * r1 - r2 * r2) / (2 * d * r1))) || 0;
   const part2 = (r2 * r2 * Math.acos((d * d + r2 * r2 - r1 * r1) / (2 * d * r2))) || 0;
   const part3 = 0.5 * Math.sqrt((-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2));
-  
+
   return part1 + part2 - part3;
 }
 
@@ -216,11 +216,11 @@ async function resolveMeetLocation(
 ): Promise<MeetLocation> {
   // Calculate the center of overlap as the meeting point
   const center = overlapCenter(joinerLat, joinerLng, joinerRadiusKm, waiterLat, waiterLng, waiterRadiusKm);
-  
+
   return {
     lat: center.lat,
     lng: center.lng,
-    label: "隨機配對地點",
+    label: center.lat.toFixed(5) + ", " + center.lng.toFixed(5),
     shopId: null,
   };
 }
@@ -347,16 +347,16 @@ export async function leaveRandomQueue() {
 export type QueueStatus =
   | null
   | {
-      inQueue: true;
-      shopId: string | null;
-      shopName: string | null;
-      scope: "shop" | "any";
-      joinedAt: string;
-      /** Saved map-center and radius used when the player joined the random queue */
-      lat: number | null;
-      lng: number | null;
-      radiusKm: number | null;
-    };
+    inQueue: true;
+    shopId: string | null;
+    shopName: string | null;
+    scope: "shop" | "any";
+    joinedAt: string;
+    /** Saved map-center and radius used when the player joined the random queue */
+    lat: number | null;
+    lng: number | null;
+    radiusKm: number | null;
+  };
 
 export async function getMyQueueStatus(): Promise<QueueStatus> {
   const userId = await requireUserId();
