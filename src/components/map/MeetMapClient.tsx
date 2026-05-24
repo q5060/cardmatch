@@ -83,6 +83,12 @@ type Props = {
     centerLng: number;
     radiusKm: number;
   } | null;
+  /** Show a static circle on the map for random matching (doesn't move with map) */
+  randomMatchCircle?: {
+    centerLat: number;
+    centerLng: number;
+    radiusKm: number;
+  } | null;
   /** Called when map center changes (drag/pan/zoom) */
   onMapCenterChange?: (lat: number, lng: number) => void;
 };
@@ -243,6 +249,7 @@ export function MeetMapClient({
   previewPin,
   onRefresh,
   radiusCircle = null,
+  randomMatchCircle = null,
   onMapCenterChange,
 }: Props) {
   useEffect(() => {
@@ -271,6 +278,20 @@ export function MeetMapClient({
             fill: true,
             fillColor: "hsl(var(--primary))",
             fillOpacity: 0.08,
+          }}
+        />
+      ) : null}
+      {randomMatchCircle ? (
+        <Circle
+          center={[randomMatchCircle.centerLat, randomMatchCircle.centerLng]}
+          radius={randomMatchCircle.radiusKm * 1000} // Convert km to meters
+          pathOptions={{
+            color: "hsl(142, 76%, 36%)",
+            weight: 2.5,
+            opacity: 0.6,
+            fill: true,
+            fillColor: "hsl(142, 76%, 36%)",
+            fillOpacity: 0.15,
           }}
         />
       ) : null}

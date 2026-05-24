@@ -101,6 +101,7 @@ export function BattleClient({
   const [incomingInviteAlert, setIncomingInviteAlert] = useState(false);
   const [radiusKm, setRadiusKm] = useState<number>(5);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
+  const [randomMatchCircle, setRandomMatchCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
   const seenInviteMatchIdRef = useRef<number | null>(null);
   const autoCleanedRef = useRef<number | null>(null);
   const isFlyingRef = useRef(false);
@@ -271,6 +272,13 @@ export function BattleClient({
       await clearBattleAnnouncement();
     });
   }, [activeMatch?.id, activeMatch?.status, myAnnouncement?.spotId]);
+
+  /** Clear the random-match circle as soon as a match is established (any path: instant match, SSE push, or polling) */
+  useEffect(() => {
+    if (activeMatch) {
+      setRandomMatchCircle(null);
+    }
+  }, [activeMatch?.id]);
 
   function handleAnnouncementPublished(published: PublishDraft & { label: string }) {
     void refresh();
@@ -1186,6 +1194,13 @@ export function BattleClient({
               defaultShopId={defaultShopId ?? null}
               initialQueueStatus={initialQueueStatus ?? null}
               radiusKm={radiusKm}
+              mapCenter={mapCenter}
+              onQueueJoin={(center, radius) => {
+                setRandomMatchCircle({ centerLat: center.lat, centerLng: center.lng, radiusKm: radius });
+              }}
+              onQueueLeave={() => {
+                setRandomMatchCircle(null);
+              }}
             />
           ) : null
         }
@@ -1240,6 +1255,7 @@ export function BattleClient({
             flyTo={flyTo}
             previewPin={previewPin}
             radiusCircle={{ centerLat: mapCenter.lat, centerLng: mapCenter.lng, radiusKm }}
+            randomMatchCircle={randomMatchCircle}
             onMapClick={(lat, lng) => {
               setSelectedShop(null);
               setSheetAnnouncement(null);
