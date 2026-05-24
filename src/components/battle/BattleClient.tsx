@@ -103,6 +103,7 @@ export function BattleClient({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(5);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
+  const [randomMatchCircle, setRandomMatchCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
   const seenInviteMatchIdRef = useRef<number | null>(null);
   const autoCleanedRef = useRef<number | null>(null);
   const isFlyingRef = useRef(false);
@@ -254,12 +255,19 @@ export function BattleClient({
     if (!activeMatch || activeMatch.status !== MATCH_STATUS.ACCEPTED || !myAnnouncement) return;
     // Only clear once per match
     if (autoCleanedRef.current === activeMatch.id) return;
-    
+
     autoCleanedRef.current = activeMatch.id;
     run(async () => {
       await clearBattleAnnouncement();
     });
   }, [activeMatch?.id, activeMatch?.status, myAnnouncement?.spotId]);
+
+  /** Clear the random-match circle as soon as a match is established (any path: instant match, SSE push, or polling) */
+  useEffect(() => {
+    if (activeMatch) {
+      setRandomMatchCircle(null);
+    }
+  }, [activeMatch?.id]);
 
   function handleAnnouncementPublished(published: PublishDraft & { label: string }) {
     void refresh();
@@ -372,7 +380,7 @@ export function BattleClient({
   const handleMapCenterChange = useCallback((lat: number, lng: number) => {
     // Ignore map center changes while flying to prevent infinite update loops
     if (isFlyingRef.current) return;
-    
+
     setMapCenter(prev => {
       if (prev.lat === lat && prev.lng === lng) return prev;
       return { lat, lng };
@@ -475,18 +483,17 @@ export function BattleClient({
         {st === MATCH_STATUS.INVITE_PENDING ? (
           <div
             id="pending-invite"
-            className={`space-y-3 p-5 ${
-              activeMatch.invitedById !== userId
+            className={`space-y-3 p-5 ${activeMatch.invitedById !== userId
                 ? "rounded-xl border-2 border-primary bg-primary/5 shadow-lg ring-2 ring-primary/20"
                 : "card card-hover"
-            }`}
+              }`}
           >
             {activeMatch.invitedById === userId ? (
               <p className="text-foreground">已送出邀請，等待對方回應。</p>
             ) : (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                  約戰公告 · 新邀請
+                  約戰邀請
                 </p>
                 <p className="text-lg font-semibold text-foreground">
                   {otherPlayerId && otherPlayer ? (
@@ -564,10 +571,12 @@ export function BattleClient({
               height={280}
               showLegend={false}
               onRefresh={refresh}
+              meetPin={{ lat: activeMatch.meetLat, lng: activeMatch.meetLng, label: activeMatch.meetLabel }}
             />
             <MatchChat matchId={activeMatch.id.toString()} currentUserId={userId} />
           </div>
         )}
+
 
         {st === MATCH_STATUS.ACCEPTED && (
           <div className="card card-hover space-y-3 p-5">
@@ -1065,7 +1074,7 @@ export function BattleClient({
 
   // Determine if we should show detail view on the left side
   const showDetailView = !!(selectedShop || sheetAnnouncement || publishDraft);
-  
+
   // Detail view content for left sidebar (replaces shopExplore when viewing details)
   const detailView = selectedShop ? (
     <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
@@ -1208,6 +1217,13 @@ export function BattleClient({
               defaultShopId={defaultShopId ?? null}
               initialQueueStatus={initialQueueStatus ?? null}
               radiusKm={radiusKm}
+              mapCenter={mapCenter}
+              onQueueJoin={(center, radius) => {
+                setRandomMatchCircle({ centerLat: center.lat, centerLng: center.lng, radiusKm: radius });
+              }}
+              onQueueLeave={() => {
+                setRandomMatchCircle(null);
+              }}
             />
           ) : null
         }
@@ -1262,6 +1278,7 @@ export function BattleClient({
             flyTo={flyTo}
             previewPin={previewPin}
             radiusCircle={{ centerLat: mapCenter.lat, centerLng: mapCenter.lng, radiusKm }}
+            randomMatchCircle={randomMatchCircle}
             onMapClick={(lat, lng) => {
               setSelectedShop(null);
               setSheetAnnouncement(null);

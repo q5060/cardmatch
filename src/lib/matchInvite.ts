@@ -68,7 +68,8 @@ async function assertCanCreateInvite(
   return { playerAId, playerBId };
 }
 
-/** Create a pending match and notify the invitee. Use inside or outside a transaction. */
+/** Create a match. For random matches, status is ACCEPTED immediately (no invite step).
+ *  For spot invites, status is INVITE_PENDING and only the invitee is notified. */
 export async function createInviteMatch(params: CreateInviteParams, db: Db = prisma) {
   const { inviterId, targetUserId, meet, source } = params;
   const { playerAId, playerBId } = await assertCanCreateInvite(db, inviterId, targetUserId);
@@ -80,12 +81,15 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
   const inviterName = inviter?.displayName ?? "玩家";
   const labelShort = meet.label.slice(0, 120);
 
+  const isRandom = source === "random";
+
   const match = await db.match.create({
     data: {
       playerAId,
       playerBId,
       invitedById: inviterId,
-      status: MATCH_STATUS.INVITE_PENDING,
+      // Random matches skip the invite step — go directly to ACCEPTED
+      status: isRandom ? MATCH_STATUS.ACCEPTED : MATCH_STATUS.INVITE_PENDING,
       meetLat: meet.lat,
       meetLng: meet.lng,
       meetLabel: labelShort,
@@ -93,7 +97,39 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
     },
   });
 
-  if (source === "spot") {
+  if (isRandom) {
+    // Notify BOTH players that they were matched
+    const notifData = JSON.stringify({
+      type: "RANDOM_MATCH",
+      title: "隨機配對成功！",
+      body: `配對地點：${labelShort}`,
+      meetLabel: labelShort,
+    });
+    await db.notification.createMany({
+      data: [
+        {
+          userId: playerAId,
+          type: "RANDOM_MATCH",
+          referenceId: match.id.toString(),
+          senderId: playerBId,
+          data: notifData,
+          read: false,
+        },
+        {
+          userId: playerBId,
+          type: "RANDOM_MATCH",
+          referenceId: match.id.toString(),
+          senderId: playerAId,
+          data: notifData,
+          read: false,
+        },
+      ],
+    });
+    await publishMatchSnapshot(match.id);
+    await publishNotification(playerAId);
+    await publishNotification(playerBId);
+  } else {
+    // Spot invite — only notify the invitee
     const spotLabel = params.spotLabelForNotification ?? meet.label;
     await db.notification.create({
       data: {
@@ -111,28 +147,10 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
         read: false,
       },
     });
-  } else {
-    await db.notification.create({
-      data: {
-        userId: targetUserId,
-        type: "RANDOM_MATCH",
-        referenceId: match.id.toString(),
-        senderId: inviterId,
-        data: JSON.stringify({
-          kind: "random_match",
-          title: "隨機配對找到對手",
-          body: `地點：${meet.label}`,
-          meetLabel: meet.label,
-          inviterName,
-        }),
-        read: false,
-      },
-    });
+    await publishMatchSnapshot(match.id);
+    await publishNotification(targetUserId);
   }
 
-  await publishMatchSnapshot(match.id);
-  await publishNotification(targetUserId);
   revalidatePath("/battle");
-
   return match;
 }

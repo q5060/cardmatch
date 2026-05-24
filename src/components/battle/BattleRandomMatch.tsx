@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Shuffle } from "lucide-react";
 import { joinRandomQueue, leaveRandomQueue } from "@/actions/matchQueue";
@@ -12,9 +12,12 @@ type Props = {
   defaultShopId: string | null;
   initialQueueStatus: QueueStatus | null;
   radiusKm?: number;
+  mapCenter?: { lat: number; lng: number };
+  onQueueJoin?: (center: { lat: number; lng: number }, radiusKm: number) => void;
+  onQueueLeave?: () => void;
 };
 
-export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, radiusKm = 5 }: Props) {
+export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, radiusKm = 5, mapCenter, onQueueJoin, onQueueLeave }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(initialQueueStatus);
@@ -22,6 +25,25 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
 
   const inQueue = queueStatus?.inQueue === true;
 
+  // On mount, if we're already in queue and have saved location, restore the circle.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    if (
+      initialQueueStatus?.inQueue &&
+      initialQueueStatus.lat != null &&
+      initialQueueStatus.lng != null &&
+      initialQueueStatus.radiusKm != null
+    ) {
+      onQueueJoin?.(
+        { lat: initialQueueStatus.lat, lng: initialQueueStatus.lng },
+        initialQueueStatus.radiusKm,
+      );
+    }
+  }, []); // intentionally run once on mount only
+
+  // Poll queue status while in queue.
   useEffect(() => {
     if (!inQueue) return;
     const id = setInterval(async () => {
@@ -31,7 +53,10 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
         const raw: unknown = await res.json();
         if (raw === null || typeof raw !== "object" || !("inQueue" in raw)) return;
         if (raw.inQueue === false) {
+          // Queue entry is gone → matched by another player or TTL expired.
           setQueueStatus(null);
+          onQueueLeave?.();
+          router.refresh();
           return;
         }
         if (raw.inQueue === true) {
@@ -42,15 +67,25 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
       }
     }, 4000);
     return () => clearInterval(id);
-  }, [inQueue]);
+  }, [inQueue, onQueueLeave, router]);
 
   function runJoin() {
+    if (!mapCenter) {
+      setErr("無法取得地圖位置，請稍後再試");
+      return;
+    }
     setErr(null);
     startTransition(async () => {
       try {
-        const result = await joinRandomQueue({ shopId: null });
+        const result = await joinRandomQueue({
+          shopId: null,
+          lat: mapCenter.lat,
+          lng: mapCenter.lng,
+          radiusKm,
+        });
         if (result.status === "matched") {
           setQueueStatus(null);
+          onQueueLeave?.();
           router.refresh();
           return;
         }
@@ -60,7 +95,11 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
           shopName: null,
           scope: "any",
           joinedAt: new Date().toISOString(),
+          lat: mapCenter.lat,
+          lng: mapCenter.lng,
+          radiusKm,
         });
+        onQueueJoin?.(mapCenter, radiusKm);
         router.refresh();
       } catch (e) {
         setErr(e instanceof Error ? e.message : "排隊失敗");
@@ -74,6 +113,7 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
       try {
         await leaveRandomQueue();
         setQueueStatus(null);
+        onQueueLeave?.();
         router.refresh();
       } catch (e) {
         setErr(e instanceof Error ? e.message : "取消失敗");
@@ -112,7 +152,7 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
     <div className="card rounded-2xl p-4">
       <h2 className="text-base font-semibold text-foreground">隨機配對</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        在篩選範圍內隨機配對對手
+        在目前的篩選範圍內隨機配對對手
       </p>
 
       <button

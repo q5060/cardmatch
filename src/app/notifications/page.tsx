@@ -90,7 +90,7 @@ export default async function NotificationsPage() {
                         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
                           {notification.type === "RANDOM_MATCH"
                             ? "隨機配對"
-                            : "約戰公告 · 新邀請"}
+                            : "約戰邀請"}
                         </p>
                       ) : null}
                       <p className="font-medium text-foreground">{title}</p>

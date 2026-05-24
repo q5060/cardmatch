@@ -17,6 +17,7 @@ import {
   campfireIcon,
   ownCampfireIcon,
   previewPinIcon,
+  meetPinIcon,
   legendShopSvg,
   legendPlayerSvg,
   shopIconWithCount,
@@ -82,6 +83,18 @@ type Props = {
     centerLat: number;
     centerLng: number;
     radiusKm: number;
+  } | null;
+  /** Show a static circle on the map for random matching (doesn't move with map) */
+  randomMatchCircle?: {
+    centerLat: number;
+    centerLng: number;
+    radiusKm: number;
+  } | null;
+  /** Red pin at the agreed meeting point (active match maps) */
+  meetPin?: {
+    lat: number;
+    lng: number;
+    label: string;
   } | null;
   /** Called when map center changes (drag/pan/zoom) */
   onMapCenterChange?: (lat: number, lng: number) => void;
@@ -243,6 +256,8 @@ export function MeetMapClient({
   previewPin,
   onRefresh,
   radiusCircle = null,
+  randomMatchCircle = null,
+  meetPin = null,
   onMapCenterChange,
 }: Props) {
   useEffect(() => {
@@ -274,6 +289,20 @@ export function MeetMapClient({
           }}
         />
       ) : null}
+      {randomMatchCircle ? (
+        <Circle
+          center={[randomMatchCircle.centerLat, randomMatchCircle.centerLng]}
+          radius={randomMatchCircle.radiusKm * 1000} // Convert km to meters
+          pathOptions={{
+            color: "hsl(142, 76%, 36%)",
+            weight: 2.5,
+            opacity: 0.6,
+            fill: true,
+            fillColor: "hsl(142, 76%, 36%)",
+            fillOpacity: 0.15,
+          }}
+        />
+      ) : null}
       {previewPin ? (
         <Marker position={[previewPin.lat, previewPin.lng]} icon={previewPinIcon}>
           <Popup>
@@ -284,6 +313,16 @@ export function MeetMapClient({
               <p className="text-xs text-muted-foreground">
                 {previewPin.lat.toFixed(5)}, {previewPin.lng.toFixed(5)}
               </p>
+            </div>
+          </Popup>
+        </Marker>
+      ) : null}
+      {meetPin ? (
+        <Marker position={[meetPin.lat, meetPin.lng]} icon={meetPinIcon}>
+          <Popup>
+            <div className="space-y-1 text-sm">
+              <p className="font-semibold text-foreground">📍 配對地點</p>
+              <p className="text-xs text-muted-foreground">{meetPin.label}</p>
             </div>
           </Popup>
         </Marker>

@@ -118,60 +118,58 @@ export function NotificationDropdown({
               const isSpotInvite =
                 notification.type === "SPOT_INVITE" || notification.type === "RANDOM_MATCH";
               return (
-              <Link
-                key={notification.id}
-                href={getNotificationLink(notification)}
-                onClick={async (e) => {
-                  onClose();
-                  // Mark as read
-                  try {
-                    await fetch("/api/notifications", {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ notificationId: notification.id }),
-                    });
-                    const next = notifications.filter((n) => n.id !== notification.id);
-                    setNotifications(next);
-                    onUnreadCountChange?.(next.length);
-                  } catch (error) {
-                    console.error("Failed to mark notification as read:", error);
-                  }
-                }}
-                className={`block px-4 py-3 transition-colors ${
-                  isSpotInvite
-                    ? "bg-primary/10 hover:bg-primary/15 border-l-4 border-l-primary"
-                    : "hover:bg-accent/50"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 pt-1">
-                    <div
-                      className={`mt-1.5 h-2 w-2 rounded-full ${
-                        isSpotInvite ? "animate-pulse bg-primary" : "bg-primary"
-                      }`}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {isSpotInvite ? (
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-primary mb-0.5">
-                        約戰公告 · 新邀請
+                <Link
+                  key={notification.id}
+                  href={getNotificationLink(notification)}
+                  onClick={async (e) => {
+                    onClose();
+                    // Mark as read
+                    try {
+                      await fetch("/api/notifications", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ notificationId: notification.id }),
+                      });
+                      const next = notifications.filter((n) => n.id !== notification.id);
+                      setNotifications(next);
+                      onUnreadCountChange?.(next.length);
+                    } catch (error) {
+                      console.error("Failed to mark notification as read:", error);
+                    }
+                  }}
+                  className={`block px-4 py-3 transition-colors ${isSpotInvite
+                      ? "bg-primary/10 hover:bg-primary/15 border-l-4 border-l-primary"
+                      : "hover:bg-accent/50"
+                    }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 pt-1">
+                      <div
+                        className={`mt-1.5 h-2 w-2 rounded-full ${isSpotInvite ? "animate-pulse bg-primary" : "bg-primary"
+                          }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {isSpotInvite ? (
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-primary mb-0.5">
+                          {notification.type === "RANDOM_MATCH" ? "配對成功" : "約戰邀請"}
+                        </p>
+                      ) : null}
+                      <p className="text-sm font-medium text-foreground">{title}</p>
+                      {body ? (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                          {body}
+                        </p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(notification.createdAt).toLocaleString("zh-Hant", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
                       </p>
-                    ) : null}
-                    <p className="text-sm font-medium text-foreground">{title}</p>
-                    {body ? (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                        {body}
-                      </p>
-                    ) : null}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(notification.createdAt).toLocaleString("zh-Hant", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </p>
+                    </div>
                   </div>
-                </div>
-              </Link>
+                </Link>
               );
             })}
           </div>
