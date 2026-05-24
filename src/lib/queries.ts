@@ -4,11 +4,20 @@ import {
   MATCH_STATUS,
 } from "./constants";
 import { getBlockedUserIds } from "./block";
+import { isShopOpenNow, parseShopHours } from "./shopHours";
 
 async function hiddenUserIdsForViewer(viewerId: number): Promise<number[]> {
   const blocked = await getBlockedUserIds(viewerId);
   return [viewerId, ...blocked];
 }
+
+export type ShopEventDTO = {
+  id: string;
+  title: string;
+  description: string;
+  startsAt: string;
+  endsAt: string | null;
+};
 
 export async function getShops(viewerId: number) {
   const blocked = await getBlockedUserIds(viewerId);
@@ -32,9 +41,36 @@ export async function getShops(viewerId: number) {
       .map((row) => [row.shopId!, row._count._all]),
   );
 
-  return shops.map((shop) => ({
-    ...shop,
-    lobbyCount: countByShopId.get(shop.id) ?? 0,
+  return shops.map((shop) => {
+    const parsedHours = parseShopHours(shop.hoursJson);
+    return {
+      ...shop,
+      lobbyCount: countByShopId.get(shop.id) ?? 0,
+      openNow: parsedHours ? isShopOpenNow(parsedHours) : false,
+    };
+  });
+}
+
+export async function getShopRecentEvents(
+  shopId: string,
+  limit = 5,
+): Promise<ShopEventDTO[]> {
+  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+  const events = await prisma.shopEvent.findMany({
+    where: {
+      shopId,
+      startsAt: { gte: cutoff },
+    },
+    orderBy: { startsAt: "asc" },
+    take: limit,
+  });
+
+  return events.map((e) => ({
+    id: e.id,
+    title: e.title,
+    description: e.description,
+    startsAt: e.startsAt.toISOString(),
+    endsAt: e.endsAt?.toISOString() ?? null,
   }));
 }
 

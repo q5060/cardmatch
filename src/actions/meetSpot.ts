@@ -11,8 +11,10 @@ import {
 import {
   countActiveMatchesForUser,
   getAnnouncementsAtShop,
+  getShopRecentEvents,
   getShops,
   type MapAnnouncementDTO,
+  type ShopEventDTO,
 } from "@/lib/queries";
 
 async function requireUserId() {
@@ -120,10 +122,17 @@ export async function clearBattleAnnouncement() {
   revalidatePath("/battle");
 }
 
-export async function fetchShopLobby(shopId: string): Promise<MapAnnouncementDTO[]> {
+export async function fetchShopLobby(shopId: string): Promise<{
+  players: MapAnnouncementDTO[];
+  events: ShopEventDTO[];
+}> {
   const userId = await requireUserId();
   if (!shopId) throw new Error("無效的卡店");
-  return getAnnouncementsAtShop(shopId, userId);
+  const [players, events] = await Promise.all([
+    getAnnouncementsAtShop(shopId, userId),
+    getShopRecentEvents(shopId),
+  ]);
+  return { players, events };
 }
 
 export async function refreshShops() {

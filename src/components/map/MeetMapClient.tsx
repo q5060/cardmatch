@@ -42,6 +42,9 @@ export type MapShopPin = {
   lng: number;
   addressNote?: string;
   lobbyCount?: number;
+  hasPtcgBattleArea?: boolean;
+  hoursJson?: string;
+  openNow?: boolean;
 };
 
 export type MapAnnouncementPin = {

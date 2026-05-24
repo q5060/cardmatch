@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import { UserRound } from "lucide-react";
 import type { MapShopPin } from "@/components/map/MeetMap";
-import type { MapAnnouncementDTO } from "@/lib/queries";
+import type { MapAnnouncementDTO, ShopEventDTO } from "@/lib/queries";
 import { fetchShopLobby, clearBattleAnnouncement } from "@/actions/meetSpot";
 import { formatExpiresAt } from "@/lib/format";
 import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
+import { ShopInfoPanel } from "@/components/battle/ShopInfoPanel";
 
 type Props = {
   shop: MapShopPin;
@@ -27,6 +28,7 @@ export function ShopLobbyContent({
   onCleared,
 }: Props) {
   const [players, setPlayers] = useState<MapAnnouncementDTO[]>([]);
+  const [events, setEvents] = useState<ShopEventDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -35,11 +37,13 @@ export function ShopLobbyContent({
     setLoading(true);
     setErr(null);
     try {
-      const list = await fetchShopLobby(shop.id);
-      setPlayers(list);
+      const data = await fetchShopLobby(shop.id);
+      setPlayers(data.players);
+      setEvents(data.events);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "無法載入店家大廳");
       setPlayers([]);
+      setEvents([]);
     } finally {
       setLoading(false);
     }
@@ -51,6 +55,7 @@ export function ShopLobbyContent({
 
   const myEntry = players.find((p) => p.userId === currentUserId);
   const isBusy = pending || parentPending;
+  const playerCount = loading ? (shop.lobbyCount ?? 0) : players.length;
 
   return (
     <div className="flex flex-col h-full">
@@ -63,6 +68,13 @@ export function ShopLobbyContent({
           showLabel={true}
         />
       </div>
+
+      <ShopInfoPanel
+        shop={shop}
+        playerCount={playerCount}
+        events={events}
+        eventsLoading={loading}
+      />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-5">

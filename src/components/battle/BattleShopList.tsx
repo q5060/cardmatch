@@ -30,11 +30,35 @@ export function BattleShopList({ shops, onSelectShop }: Props) {
               {shop.addressNote ? (
                 <span className="mt-0.5 block text-xs text-muted-foreground">{shop.addressNote}</span>
               ) : null}
-              {shop.lobbyCount != null && shop.lobbyCount > 0 ? (
-                <span className="mt-1 block text-xs font-medium text-primary">
-                  {shop.lobbyCount} 人在店
-                </span>
-              ) : null}
+              <span className="mt-1 flex flex-wrap gap-1.5">
+                {shop.openNow != null ? (
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      shop.openNow
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-neutral-100 text-neutral-600"
+                    }`}
+                  >
+                    {shop.openNow ? "營業中" : "休息中"}
+                  </span>
+                ) : null}
+                {shop.hasPtcgBattleArea != null ? (
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                      shop.hasPtcgBattleArea
+                        ? "bg-primary/10 text-primary"
+                        : "bg-neutral-100 text-neutral-600"
+                    }`}
+                  >
+                    {shop.hasPtcgBattleArea ? "PTCG 對戰區" : "無對戰區"}
+                  </span>
+                ) : null}
+                {shop.lobbyCount != null && shop.lobbyCount > 0 ? (
+                  <span className="inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                    {shop.lobbyCount} 人在店
+                  </span>
+                ) : null}
+              </span>
             </span>
           </button>
         </li>

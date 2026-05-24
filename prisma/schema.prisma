@@ -96,14 +96,30 @@ model MeetSpot {
 }
 
 model Shop {
-  id          String     @id @default(cuid())
-  name        String
-  lat         Float
-  lng         Float
-  addressNote String     @default("")
-  matches     Match[]
-  meetSpots   MeetSpot[]
+  id                String     @id @default(cuid())
+  name              String
+  lat               Float
+  lng               Float
+  addressNote       String     @default("")
+  hasPtcgBattleArea Boolean    @default(false)
+  hoursJson         String     @default("{}")
+  matches           Match[]
+  meetSpots         MeetSpot[]
   matchQueueEntries MatchQueueEntry[]
+  events            ShopEvent[]
+}
+
+model ShopEvent {
+  id          String    @id @default(cuid())
+  shopId      String
+  shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title       String
+  description String    @default("")
+  startsAt    DateTime
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([shopId, startsAt])
 }
 
 model Match {
