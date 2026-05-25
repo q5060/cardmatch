@@ -11,6 +11,83 @@ async function hiddenUserIdsForViewer(viewerId: number): Promise<number[]> {
   return [viewerId, ...blocked];
 }
 
+/**
+ * Check if two users are friends (mutual accepted friendship)
+ */
+async function areFriends(userId1: number, userId2: number): Promise<boolean> {
+  const friendship = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { requesterId: userId1, addresseeId: userId2 },
+        { requesterId: userId2, addresseeId: userId1 },
+      ],
+      status: "ACCEPTED",
+    },
+  });
+  return !!friendship;
+}
+
+/**
+ * Check if user data should be visible based on privacy settings
+ * Returns true if the viewer should see the data
+ */
+async function shouldShowPrivateData(
+  targetUserId: number,
+  viewerId: number | null,
+  visibilitySetting: string,
+): Promise<boolean> {
+  // If viewing own data, always show
+  if (viewerId !== null && viewerId === targetUserId) return true;
+
+  // If no viewer (public access), only show if PUBLIC
+  if (!viewerId) return visibilitySetting === "PUBLIC";
+
+  // If PRIVATE, never show to others
+  if (visibilitySetting === "PRIVATE") return false;
+
+  // If PUBLIC, always show
+  if (visibilitySetting === "PUBLIC") return true;
+
+  // If FRIENDS, check friendship
+  if (visibilitySetting === "FRIENDS") {
+    return await areFriends(targetUserId, viewerId);
+  }
+
+  return false;
+}
+
+/**
+ * Get reason why data is hidden (for UI messages)
+ * Returns null if data is visible or if truly empty
+ */
+export async function getPrivacyHiddenReason(
+  targetUserId: number,
+  viewerId: number | null,
+  visibilitySetting: string,
+): Promise<string | null> {
+  // If viewing own data, never hidden
+  if (viewerId !== null && viewerId === targetUserId) return null;
+
+  // If no viewer, check
+  if (!viewerId) {
+    return visibilitySetting === "PUBLIC" ? null : "對戰紀錄未公開";
+  }
+
+  // If PRIVATE, show reason
+  if (visibilitySetting === "PRIVATE") return "對戰紀錄未公開";
+
+  // If PUBLIC, not hidden
+  if (visibilitySetting === "PUBLIC") return null;
+
+  // If FRIENDS, check if friends
+  if (visibilitySetting === "FRIENDS") {
+    const isFriend = await areFriends(targetUserId, viewerId);
+    return isFriend ? null : "對戰紀錄未公開";
+  }
+
+  return null;
+}
+
 export type ShopEventDTO = {
   id: string;
   title: string;
@@ -279,7 +356,45 @@ export type ProfileBattleStats = {
   activityByDay: Record<string, number>;
 };
 
-export async function getProfileBattleStats(userId: number): Promise<ProfileBattleStats> {
+export async function getProfileBattleStats(
+  userId: number,
+  viewerId?: number,
+): Promise<ProfileBattleStats> {
+  // First, get the user's privacy settings
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      battleRecordVisibility: true,
+      winrateVisibility: true,
+    },
+  });
+
+  if (!user) {
+    return {
+      completedTotal: 0,
+      recordedTotal: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      completedWithoutResult: 0,
+      activityByDay: {},
+    };
+  }
+
+  // Check if viewer can see battle records
+  const canSeeBattleRecords = await shouldShowPrivateData(
+    userId,
+    viewerId ?? null,
+    user.battleRecordVisibility,
+  );
+
+  // Check if viewer can see win rate
+  const canSeeWinrate = await shouldShowPrivateData(
+    userId,
+    viewerId ?? null,
+    user.winrateVisibility,
+  );
+
   const matches = await prisma.match.findMany({
     where: {
       OR: [{ playerAId: userId }, { playerBId: userId }],
@@ -297,10 +412,16 @@ export async function getProfileBattleStats(userId: number): Promise<ProfileBatt
   let recordedTotal = 0;
   const activityByDay: Record<string, number> = {};
 
-  for (const m of matches) {
-    const day = m.updatedAt.toISOString().slice(0, 10);
-    activityByDay[day] = (activityByDay[day] ?? 0) + 1;
+  // If viewer can see battle records, calculate activity heatmap
+  if (canSeeBattleRecords) {
+    for (const m of matches) {
+      const day = m.updatedAt.toISOString().slice(0, 10);
+      activityByDay[day] = (activityByDay[day] ?? 0) + 1;
+    }
+  }
 
+  // Calculate win/loss/draw stats
+  for (const m of matches) {
     const br = m.battleResults[0];
     if (!br || br.status !== "AGREED") continue;
     recordedTotal++;
@@ -311,6 +432,14 @@ export async function getProfileBattleStats(userId: number): Promise<ProfileBatt
     } else {
       losses++;
     }
+  }
+
+  // If viewer can't see win rate, hide it
+  if (!canSeeWinrate) {
+    wins = 0;
+    losses = 0;
+    draws = 0;
+    recordedTotal = 0;
   }
 
   return {
@@ -336,7 +465,32 @@ export type ProfileMatchFeedRow = {
 export async function getProfileMatchFeed(
   userId: number,
   take = 15,
+  viewerId?: number,
 ): Promise<ProfileMatchFeedRow[]> {
+  // First, get the user's privacy settings
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      battleRecordVisibility: true,
+    },
+  });
+
+  if (!user) {
+    return [];
+  }
+
+  // Check if viewer can see battle records
+  const canSeeBattleRecords = await shouldShowPrivateData(
+    userId,
+    viewerId ?? null,
+    user.battleRecordVisibility,
+  );
+
+  // If viewer can't see battle records, return empty feed
+  if (!canSeeBattleRecords) {
+    return [];
+  }
+
   const rows = await getMatchHistory(userId, take);
   return rows.map((m) => {
     const otherName =

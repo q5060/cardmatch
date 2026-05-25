@@ -57,8 +57,8 @@ export default async function ProfilePage() {
         decks: { orderBy: { updatedAt: "desc" } },
       },
     }),
-    getProfileBattleStats(user.id),
-    getProfileMatchFeed(user.id, PROFILE_RECENT_MATCHES),
+    getProfileBattleStats(user.id, user.id),
+    getProfileMatchFeed(user.id, PROFILE_RECENT_MATCHES, user.id),
   ]);
 
   if (!full) redirect("/login");

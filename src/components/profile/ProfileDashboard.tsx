@@ -119,6 +119,10 @@ export type ProfileDashboardProps = {
     createdAt: string;
   };
   battleStats: ProfileBattleStats;
+  battleRecordVisibility?: "PUBLIC" | "FRIENDS" | "PRIVATE";
+  winrateVisibility?: "PUBLIC" | "FRIENDS" | "PRIVATE";
+  battleRecordsHiddenReason?: string | null;
+  winrateHiddenReason?: string | null;
   deckCount: number;
   publicDeckCount: number;
   recentFeed: ProfileMatchFeedRow[];
@@ -139,6 +143,10 @@ export function ProfileDashboard({
   friendshipStatus,
   user,
   battleStats,
+  battleRecordVisibility,
+  winrateVisibility,
+  battleRecordsHiddenReason,
+  winrateHiddenReason,
   deckCount,
   publicDeckCount,
   recentFeed,
@@ -211,15 +219,17 @@ export function ProfileDashboard({
       },
       {
         icon: Trophy,
-        value:
+        value: winrateHiddenReason ? "—" : (
           battleStats.recordedTotal > 0
             ? `${battleStats.wins}-${battleStats.losses}-${battleStats.draws}`
-            : "—",
-        label: battleStats.recordedTotal > 0 ? "勝-敗-平" : "尚無戰果統計",
-        hint:
-          battleStats.completedWithoutResult > 0
-            ? `${battleStats.completedWithoutResult} 場未紀錄戰果`
-            : undefined,
+            : "—"
+        ),
+        label: winrateHiddenReason 
+          ? "戰果統計未公開"
+          : (battleStats.recordedTotal > 0 ? "勝-敗-平" : "尚無戰果統計"),
+        hint: !winrateHiddenReason && battleStats.completedWithoutResult > 0
+          ? `${battleStats.completedWithoutResult} 場未紀錄戰果`
+          : undefined,
       },
       {
         icon: Layers,
@@ -230,7 +240,7 @@ export function ProfileDashboard({
     ];
 
     return base;
-  }, [variant, battleStats, deckCount, publicDeckCount]);
+  }, [variant, battleStats, deckCount, publicDeckCount, winrateHiddenReason]);
 
   // const headerBlock =
   //   variant === "other" ? (
@@ -609,7 +619,7 @@ export function ProfileDashboard({
               <div className="card card-hover p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-lg font-semibold text-foreground">近期對戰</h2>
-                  {battleStats.completedTotal > PROFILE_RECENT_MATCHES ? (
+                  {battleStats.completedTotal > PROFILE_RECENT_MATCHES && !battleRecordsHiddenReason ? (
                     <Link
                       href={allMatchesHref}
                       className="text-sm font-medium text-primary hover:underline"
@@ -618,12 +628,15 @@ export function ProfileDashboard({
                     </Link>
                   ) : null}
                 </div>
-                <MatchFeedList feed={recentFeed} />
+                <MatchFeedList 
+                  feed={recentFeed} 
+                  hiddenReason={battleRecordsHiddenReason}
+                />
               </div>
             </div>
 
             <aside className="space-y-6 lg:sticky lg:top-24">
-              <ActivityHeatmap activityByDay={battleStats.activityByDay} />
+              {!battleRecordsHiddenReason && <ActivityHeatmap activityByDay={battleStats.activityByDay} />}
               {/* <div className="card card-hover p-4 text-xs leading-relaxed text-muted-foreground">
                 <p>
                   統計中的勝敗平僅包含<strong className="text-foreground">已送出戰果</strong>

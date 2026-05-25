@@ -448,7 +448,7 @@ function SettingsContent() {
             <div className="card space-y-6 p-6">
               <h2 className="text-lg font-semibold text-foreground">隱私設定</h2>
               <label className="block text-sm font-medium text-foreground">
-                <span className="text-muted-foreground">戰鬥紀錄可見性</span>
+                <span className="text-muted-foreground">對戰紀錄可見性</span>
                 <select
                   value={battleRecordVisibility}
                   onChange={(e) =>
@@ -462,7 +462,7 @@ function SettingsContent() {
                 </select>
               </label>
               <label className="block text-sm font-medium text-foreground">
-                <span className="text-muted-foreground">勝率可見性</span>
+                <span className="text-muted-foreground">戰果統計可見性</span>
                 <select
                   value={winrateVisibility}
                   onChange={(e) =>

@@ -48,7 +48,7 @@ export default async function UserMatchesPage({
   });
   if (!profile) notFound();
 
-  const feed = await getProfileMatchFeed(userId, PROFILE_ALL_MATCHES);
+  const feed = await getProfileMatchFeed(userId, PROFILE_ALL_MATCHES, viewer.id);
 
   return (
     <ProfileMatchesPage

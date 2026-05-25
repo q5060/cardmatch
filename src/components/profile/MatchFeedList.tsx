@@ -4,11 +4,13 @@ import type { ProfileMatchFeedRow } from "@/lib/queries";
 type Props = {
   feed: ProfileMatchFeedRow[];
   emptyMessage?: string;
+  hiddenReason?: string | null;
 };
 
-export function MatchFeedList({ feed, emptyMessage = "尚無紀錄。" }: Props) {
+export function MatchFeedList({ feed, emptyMessage = "尚無紀錄。", hiddenReason }: Props) {
   if (feed.length === 0) {
-    return <p className="mt-6 text-sm text-muted-foreground">{emptyMessage}</p>;
+    const message = hiddenReason || emptyMessage;
+    return <p className="mt-6 text-sm text-muted-foreground">{message}</p>;
   }
 
   return (
