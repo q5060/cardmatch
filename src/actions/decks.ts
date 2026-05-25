@@ -4,8 +4,9 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { DECK_VISIBILITY } from "@/lib/constants";
+import { Deck } from "@prisma/client";
 
-export async function createDeck(formData: FormData) {
+export async function createDeck(formData: FormData): Promise<Deck> {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
 
@@ -16,7 +17,7 @@ export async function createDeck(formData: FormData) {
 
   if (!title) throw new Error("INVALID_TITLE");
 
-  await prisma.deck.create({
+  const newDeck = await prisma.deck.create({
     data: {
       userId: session.userId,
       title: title.slice(0, 120),
@@ -30,6 +31,7 @@ export async function createDeck(formData: FormData) {
   });
 
   revalidatePath("/profile");
+  return newDeck;
 }
 
 export async function deleteDeck(deckId: string) {
@@ -71,7 +73,7 @@ export async function updateDeck(deckId: string, formData: FormData) {
 
   if (!title) throw new Error("INVALID_TITLE");
 
-  await prisma.deck.updateMany({
+  const updatedDeck = await prisma.deck.update({
     where: { id: deckId, userId: session.userId },
     data: {
       title: title.slice(0, 120),
@@ -85,4 +87,6 @@ export async function updateDeck(deckId: string, formData: FormData) {
   });
 
   revalidatePath("/profile");
+  revalidatePath(`/decks/${deckId}/edit`); // 更新編輯頁面緩存
+  return updatedDeck;
 }

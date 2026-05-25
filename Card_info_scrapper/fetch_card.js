@@ -112,10 +112,6 @@ async function scrapePokemonCards() {
             console.log(`\n✅ 找不到有效的下一頁按鈕，標準環境總共收集了 ${cardDetailUrls.length} 個連結。`);
         }
     }
-    // 備份第一階段的網址結果
-    fs.writeFileSync('card_urls.json', JSON.stringify(cardDetailUrls, null, 2), 'utf-8');
-    console.log('已將所有詳細頁連結備份至 card_urls.json\n');
-    
 
     // =========================================================
     // 第二階段：逐一進入連結，深度抓取卡牌詳細數值

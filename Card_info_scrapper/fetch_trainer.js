@@ -7,7 +7,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function scrapeTrainerCards() {
     console.log('啟動瀏覽器 (訓練家卡模式)...');
-    const browser = await puppeteer.launch({ headless: false }); 
+    const browser = await puppeteer.launch({ headless: true }); 
     const page = await browser.newPage();
 
     // =========================================================
@@ -87,8 +87,6 @@ async function scrapeTrainerCards() {
             hasNextPage = false;
         }
     }
-
-    fs.writeFileSync('trainer_urls.json', JSON.stringify(cardDetailUrls, null, 2), 'utf-8');
     
     // =========================================================
     // 第二階段：進入詳細頁面深度抓取
