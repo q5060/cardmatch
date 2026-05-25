@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
+const SHEET_EXIT_MS = 280;
+
 type Props = {
   isOpen: boolean;
   onClose: () => void;
@@ -21,12 +23,15 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(isOpen);
+  const [exiting, setExiting] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 640);
     };
+    checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
@@ -36,8 +41,25 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
     setIsMobile(window.innerWidth < 640);
   }, []);
 
+  useLayoutEffect(() => {
+    if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sheet enter choreography
+      setVisible(true);
+      setExiting(false);
+      return;
+    }
+    if (!visible) return;
+    setExiting(true);
+    const timer = window.setTimeout(() => {
+      setVisible(false);
+      setExiting(false);
+    }, SHEET_EXIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [isOpen, visible]);
+
   useEffect(() => {
     if (!isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset sheet UI when closed
       setExpandedMobile(false);
       setIsDragging(false);
     }
@@ -46,13 +68,13 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
   useEffect(() => {
     if (isOpen && isMobile) {
       document.body.style.overflow = "hidden";
-    } else {
+    } else if (!visible) {
       document.body.style.overflow = "";
     }
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, isMobile]);
+  }, [isOpen, isMobile, visible]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setDragStart(e.clientY);
@@ -100,10 +122,14 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
     }
   };
 
-  if (!isOpen) return null;
+  if (!visible) return null;
+
+  const desktopPanelClass = exiting ? "" : "motion-fade-in";
 
   const desktopPanel = (
-    <div className="hidden h-full max-h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl sm:flex">
+    <div
+      className={`hidden h-full max-h-full min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl sm:flex ${desktopPanelClass}`}
+    >
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
         {title ? (
           <h2 id={!isMobile ? titleId : undefined} className="min-w-0 flex-1 text-lg font-semibold text-foreground line-clamp-2">
@@ -120,12 +146,20 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
     </div>
   );
 
+  const backdropClass = exiting
+    ? "motion-sheet-backdrop-out bg-black/40 pointer-events-auto"
+    : expandedMobile
+      ? "motion-sheet-backdrop-in bg-black/40 pointer-events-auto"
+      : "pointer-events-none";
+
+  const panelClass = exiting
+    ? "motion-sheet-panel-out"
+    : "motion-sheet-panel-in";
+
   const mobileUi = (
     <>
       <div
-        className={`fixed inset-0 z-[999] transition-opacity duration-300 sm:hidden ${
-          expandedMobile ? "pointer-events-auto bg-black/40" : "pointer-events-none"
-        }`}
+        className={`fixed inset-0 z-[999] sm:hidden ${backdropClass}`}
         onClick={() => {
           if (expandedMobile) setExpandedMobile(false);
         }}
@@ -137,12 +171,12 @@ export function ResponsiveSheet({ isOpen, onClose, title, children }: Props) {
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? titleId : undefined}
-          className={`pointer-events-auto absolute bottom-0 left-0 right-0 flex flex-col rounded-t-[1.25rem] border border-border bg-card shadow-lg transition-all duration-300 ease-out ${
+          className={`pointer-events-auto absolute bottom-0 left-0 right-0 flex flex-col rounded-t-[1.25rem] border border-border bg-card shadow-lg ${
             expandedMobile
               ? "top-0 rounded-t-2xl"
               : isDragging
                 ? ""
-                : "h-[30vh]"
+                : `h-[30vh] ${panelClass}`
           }`}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}

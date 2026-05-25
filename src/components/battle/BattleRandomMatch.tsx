@@ -125,7 +125,7 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
     return (
       <div className="card rounded-2xl p-4" role="status" aria-live="polite">
         <h2 className="text-base font-semibold text-foreground">隨機配對</h2>
-        <div className="mt-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] p-3">
+        <div className="motion-queue-pulse mt-4 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.06] p-3">
           <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-foreground">搜尋對手中…</p>

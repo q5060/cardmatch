@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { NavBar } from "./NavBar";
+import { PageTransition } from "./PageTransition";
 import { RealtimeShell } from "./RealtimeShell";
 import prisma from "@/lib/prisma";
 import { ExternalLink, MessageCircle, Share2 } from "lucide-react";
@@ -28,7 +29,9 @@ export async function AppShell({
     <RealtimeShell enabled={!!user}>
     <div className="flex min-h-screen flex-col">
       <NavBar user={user} pendingInvites={pendingInvites} />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">
+        <PageTransition>{children}</PageTransition>
+      </main>
       <footer className="border-t border-black/[0.06] bg-card py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

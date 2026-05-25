@@ -71,25 +71,21 @@ export function FriendsClientV2({
   return (
     <div className="space-y-8">
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="tabs">
         <button
+          type="button"
           onClick={() => setTab("friends")}
-          className={`px-4 py-3 border-b-2 font-medium text-sm transition-colors ${
-            tab === "friends"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+          data-active={tab === "friends"}
+          className="tab-trigger relative"
         >
           好友 ({accepted.length})
         </button>
         {(pendingIn.length > 0 || pendingOut.length > 0) && (
           <button
+            type="button"
             onClick={() => setTab("pending")}
-            className={`px-4 py-3 border-b-2 font-medium text-sm transition-colors relative ${
-              tab === "pending"
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
+            data-active={tab === "pending"}
+            className="tab-trigger relative"
           >
             待審中 ({pendingIn.length + pendingOut.length})
             {(pendingIn.length > 0 || pendingOut.length > 0) && (
@@ -101,7 +97,7 @@ export function FriendsClientV2({
 
       {/* Friends Tab */}
       {tab === "friends" && (
-        <section>
+        <section key="friends" className="motion-fade-in">
           <FriendsListView
             friends={accepted.map((f) => {
               const o = other(f);
@@ -119,7 +115,7 @@ export function FriendsClientV2({
 
       {/* Pending Tab */}
       {tab === "pending" && (
-        <section className="space-y-4">
+        <section key="pending" className="motion-fade-in space-y-4">
           {pendingIn.length > 0 && (
             <div className="card card-hover space-y-3 p-6">
               <h3 className="font-semibold text-foreground">收到的邀請 ({pendingIn.length})</h3>

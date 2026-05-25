@@ -452,6 +452,7 @@ export function BattleClient({
           />
         ) : null}
 
+        <div key={st} className="motion-fade-in-up space-y-6">
         <div className="card card-hover p-5">
           <h2 className="text-lg font-semibold text-foreground">進行中的約戰</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -996,6 +997,7 @@ export function BattleClient({
             )}
           </div>
         )}
+        </div>
       </div>
     );
   }
@@ -1181,7 +1183,7 @@ export function BattleClient({
 
       {successMessage ? (
         <div
-          className="alert-success flex items-start justify-between gap-3"
+          className="alert-success motion-toast-in flex items-start justify-between gap-3"
           role="status"
         >
           <p>{successMessage}</p>

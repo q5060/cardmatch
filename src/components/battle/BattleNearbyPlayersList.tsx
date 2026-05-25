@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { UserRound } from "lucide-react";
 import type { MapAnnouncementDTO } from "@/lib/queries";
+import { staggerClass } from "@/lib/motion";
 
 type Props = {
   announcements: MapAnnouncementDTO[];
@@ -16,8 +17,8 @@ export function BattleNearbyPlayersList({ announcements, onSelect }: Props) {
       role="list"
       style={{ minHeight: "calc(3 * 110px + 16px)" }} // 3 items * ~110px each + gaps
     >
-      {announcements.map((ann) => (
-        <li key={ann.spotId}>
+      {announcements.map((ann, index) => (
+        <li key={ann.spotId} className={staggerClass(index)}>
           <button
             type="button"
             onClick={() => onSelect(ann)}

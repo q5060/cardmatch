@@ -139,7 +139,9 @@ export function BattleCeremonyOverlay({ ceremony, onDismiss, inviteActions }: Pr
         <div
           className={`flex flex-col items-center text-center text-white ${motionClass}`}
         >
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/40">
+          <div
+            className={`flex h-20 w-20 items-center justify-center rounded-full bg-primary shadow-lg shadow-primary/40 ${ceremony.reducedMotion ? "" : "motion-sword-tilt"}`}
+          >
             <Swords className="h-10 w-10 text-white" strokeWidth={1.5} aria-hidden />
           </div>
           <p className="mt-6 text-3xl font-bold tracking-tight sm:text-4xl">對戰開始！</p>

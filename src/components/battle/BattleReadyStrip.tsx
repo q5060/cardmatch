@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Check, UserRound } from "lucide-react";
 import type { ActiveMatchDTO } from "@/lib/matchDto";
+import { motionClass, prefersReducedMotion } from "@/lib/motion";
 
 type PlayerInfo = {
   label: string;
@@ -38,7 +39,7 @@ function ReadyAvatar({ player, reducedMotion }: { player: PlayerInfo; reducedMot
         )}
         {player.ready ? (
           <span
-            className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white"
+            className={`absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-white ${motionClass(!reducedMotion, "motion-check-pop")}`}
             aria-hidden
           >
             <Check className="h-3 w-3" strokeWidth={3} />
@@ -70,11 +71,6 @@ type Props = {
   readyButtonClassName?: string;
   children: React.ReactNode;
 };
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 export function BattleReadyStrip({
   activeMatch,
@@ -110,7 +106,9 @@ export function BattleReadyStrip({
       <p className="text-sm text-muted-foreground">雙方準備完成後將自動開始對戰</p>
       <div className="flex items-start justify-center gap-4 sm:gap-8">
         <ReadyAvatar player={selfPlayer} reducedMotion={reducedMotion} />
-        <div className="flex shrink-0 items-center self-center pt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <div
+          className={`flex shrink-0 items-center self-center pt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${motionClass(myReady && theirReady && !reducedMotion, "motion-vs-flash")}`}
+        >
           VS
         </div>
         <ReadyAvatar player={opponentPlayer} reducedMotion={reducedMotion} />

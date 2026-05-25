@@ -2,6 +2,7 @@
 
 import { Store } from "lucide-react";
 import type { MapShopPin } from "@/components/map/MeetMap";
+import { staggerClass } from "@/lib/motion";
 
 type Props = {
   shops: MapShopPin[];
@@ -13,13 +14,13 @@ export function BattleShopStrip({ shops, onSelectShop }: Props) {
 
   return (
     <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-      {shops.map((shop) => (
+      {shops.map((shop, index) => (
         <button
           key={shop.id}
           type="button"
           onClick={() => onSelectShop(shop)}
           aria-label={shop.name}
-          className="card card-hover flex w-[11.5rem] shrink-0 flex-col gap-1.5 rounded-xl p-3 text-left transition hover:border-primary/40"
+          className={`card card-hover flex w-[11.5rem] shrink-0 flex-col gap-1.5 rounded-xl p-3 text-left transition hover:border-primary/40 ${staggerClass(index)}`}
         >
           <span className="flex items-center gap-1.5 font-medium text-foreground">
             <Store className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />

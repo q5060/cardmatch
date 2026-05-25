@@ -2,6 +2,7 @@
 
 import { Store } from "lucide-react";
 import type { MapShopPin } from "@/components/map/MeetMap";
+import { staggerClass } from "@/lib/motion";
 
 type Props = {
   shops: MapShopPin[];
@@ -15,8 +16,8 @@ export function BattleShopList({ shops, onSelectShop }: Props) {
       role="list"
       style={{ minHeight: "calc(3 * 110px + 16px)" }} // 3 items * ~110px each + gaps
     >
-      {shops.map((shop) => (
-        <li key={shop.id}>
+      {shops.map((shop, index) => (
+        <li key={shop.id} className={staggerClass(index)}>
           <button
             type="button"
             onClick={() => onSelectShop(shop)}

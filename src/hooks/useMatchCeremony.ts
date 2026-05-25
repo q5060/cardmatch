@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { ActiveMatchDTO } from "@/lib/matchDto";
 import { MATCH_STATUS } from "@/lib/constants";
+import { prefersReducedMotion } from "@/lib/motion";
 
 export type CeremonyKind = "incoming_invite" | "invite_accepted" | "battle_start";
 
@@ -28,11 +29,6 @@ function ceremonyKey(matchId: number, kind: CeremonyKind) {
 
 function getOpponent(match: ActiveMatchDTO, userId: number) {
   return match.playerAId === userId ? match.playerB : match.playerA;
-}
-
-function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 type PrevSnapshot = { matchId: number; status: string } | null;

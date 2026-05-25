@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
+import {
+  shouldAnimateChatMessage,
+  useChatLastMessageRef,
+  useSyncChatLastMessageId,
+} from "@/hooks/useChatMessageAnimation";
 import type { ChatMessageDTO, RealtimeEvent } from "@/lib/realtime/types";
 import {
   useRealtimeConnected,
@@ -37,6 +42,8 @@ export function FriendChat({
   const [sendErr, setSendErr] = useState<string | null>(null);
   const lastAfterRef = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevLastMessageIdRef = useChatLastMessageRef();
+  useSyncChatLastMessageId(messages, prevLastMessageIdRef);
 
   const pull = useCallback(async (initial = false) => {
     const url = new URL(
@@ -164,32 +171,14 @@ export function FriendChat({
         {messages.length === 0 ? (
           <p className="text-muted-foreground">尚無訊息，先打聲招呼吧。</p>
         ) : (
-          messages.map((m) => {
-            const mine = isOwnMessage(m, currentUserId);
-            return (
-              <div key={m.id} className="flex w-full min-w-0 justify-start">
-                <div
-                  className={`max-w-[85%] shrink-0 rounded-xl px-3 py-2 shadow-sm ${
-                    mine
-                      ? "ml-auto bg-primary text-white"
-                      : "bg-[var(--bubble-other)] text-foreground ring-1 ring-black/[0.04]"
-                  }`}
-                >
-                  {!mine ? (
-                    <div className="mb-1 text-xs opacity-70">
-                      <Link
-                        href={`/profile/${m.sender.id}`}
-                        className="underline-offset-2 hover:underline"
-                      >
-                        {m.sender.displayName}
-                      </Link>
-                    </div>
-                  ) : null}
-                  <div className="whitespace-pre-wrap">{m.body}</div>
-                </div>
-              </div>
-            );
-          })
+          messages.map((m, index) => (
+            <ChatMessageRow
+              key={m.id}
+              message={m}
+              mine={isOwnMessage(m, currentUserId)}
+              animateEnter={shouldAnimateChatMessage(messages, index, prevLastMessageIdRef)}
+            />
+          ))
         )}
         <div ref={bottomRef} />
       </div>

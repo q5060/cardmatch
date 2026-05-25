@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { prefersReducedMotion } from "@/lib/motion";
 import {
   MapContainer,
   TileLayer,
@@ -240,6 +241,44 @@ function MapRefreshControl({ onRefresh }: { onRefresh?: () => void }) {
   return null;
 }
 
+const RANDOM_MATCH_CIRCLE_BASE = {
+  color: "hsl(142, 76%, 36%)",
+  weight: 2.5,
+  fill: true,
+  fillColor: "hsl(142, 76%, 36%)",
+} as const;
+
+function RandomMatchCircle({
+  circle,
+}: {
+  circle: { centerLat: number; centerLng: number; radiusKm: number };
+}) {
+  const [pulseHigh, setPulseHigh] = useState(false);
+
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    const id = window.setInterval(() => {
+      setPulseHigh((v) => !v);
+    }, 1200);
+    return () => window.clearInterval(id);
+  }, [circle.centerLat, circle.centerLng, circle.radiusKm]);
+
+  const opacity = prefersReducedMotion() ? 0.6 : pulseHigh ? 0.75 : 0.45;
+  const fillOpacity = prefersReducedMotion() ? 0.15 : pulseHigh ? 0.22 : 0.12;
+
+  return (
+    <Circle
+      center={[circle.centerLat, circle.centerLng]}
+      radius={circle.radiusKm * 1000}
+      pathOptions={{
+        ...RANDOM_MATCH_CIRCLE_BASE,
+        opacity,
+        fillOpacity,
+      }}
+    />
+  );
+}
+
 export function MeetMapClient({
   shops,
   announcements,
@@ -289,20 +328,7 @@ export function MeetMapClient({
           }}
         />
       ) : null}
-      {randomMatchCircle ? (
-        <Circle
-          center={[randomMatchCircle.centerLat, randomMatchCircle.centerLng]}
-          radius={randomMatchCircle.radiusKm * 1000} // Convert km to meters
-          pathOptions={{
-            color: "hsl(142, 76%, 36%)",
-            weight: 2.5,
-            opacity: 0.6,
-            fill: true,
-            fillColor: "hsl(142, 76%, 36%)",
-            fillOpacity: 0.15,
-          }}
-        />
-      ) : null}
+      {randomMatchCircle ? <RandomMatchCircle circle={randomMatchCircle} /> : null}
       {previewPin ? (
         <Marker position={[previewPin.lat, previewPin.lng]} icon={previewPinIcon}>
           <Popup>

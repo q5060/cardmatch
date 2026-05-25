@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { prefersReducedMotion } from "@/lib/motion";
 import {
   Bell,
   Home,
@@ -38,6 +39,13 @@ function isNavLinkActive(href: string, pathname: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function subscribeReducedMotion(cb: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+
 type Props = {
   user?: { id: number; displayName: string; avatarUrl: string | null } | null;
   pendingInvites?: number;
@@ -50,6 +58,38 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const desktopNavRef = useRef<HTMLElement>(null);
+  const linkRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
+  const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
+  const reducedMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    prefersReducedMotion,
+    () => false,
+  );
+
+  const visibleLinks = useMemo(
+    () => links.filter(({ auth }) => !auth || user),
+    [user],
+  );
+
+  useLayoutEffect(() => {
+    const active = visibleLinks.find(({ href }) => isNavLinkActive(href, pathname));
+    if (!active || !desktopNavRef.current) {
+      setPill(null);
+      return;
+    }
+    const el = linkRefs.current.get(active.href);
+    if (!el) {
+      setPill(null);
+      return;
+    }
+    const navRect = desktopNavRef.current.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    setPill({
+      left: elRect.left - navRect.left,
+      width: elRect.width,
+    });
+  }, [pathname, visibleLinks]);
 
   useEffect(() => {
     setUnreadCount(pendingInvites);
@@ -92,17 +132,32 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
           />
         </Link>
 
-        <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
-          {links.map(({ href, label, auth, Icon }) => {
-            if (auth && !user) return null;
+        <nav
+          ref={desktopNavRef}
+          className="relative hidden flex-1 items-center justify-center gap-1 md:flex"
+        >
+          {pill ? (
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute top-1/2 h-9 -translate-y-1/2 rounded-full bg-primary/12 ${
+                reducedMotion ? "" : "transition-[left,width] duration-250 ease-out"
+              }`}
+              style={{ left: pill.left, width: pill.width }}
+            />
+          ) : null}
+          {visibleLinks.map(({ href, label, Icon }) => {
             const active = isNavLinkActive(href, pathname);
             return (
               <Link
                 key={href}
+                ref={(el) => {
+                  if (el) linkRefs.current.set(href, el);
+                  else linkRefs.current.delete(href);
+                }}
                 href={href}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] ${
+                className={`relative z-[1] flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] ${
                   active
-                    ? "bg-primary/12 text-primary"
+                    ? "text-primary"
                     : "text-muted-foreground hover:bg-black/[0.04] hover:text-foreground"
                 }`}
               >
@@ -156,7 +211,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 </button>
 
                 {showUserMenu && (
-                  <div className="menu-panel absolute right-0 top-full z-50 mt-2 w-48">
+                  <div className="menu-panel motion-menu-in absolute right-0 top-full z-50 mt-2 w-48">
                     <Link
                       href="/profile"
                       className="menu-panel-item rounded-t-[1.25rem] border-b border-border"
@@ -200,7 +255,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 </button>
 
                 {showMobileMenu && (
-                  <div className="menu-panel absolute right-0 top-full z-50 mt-2 w-56">
+                  <div className="menu-panel motion-menu-in absolute right-0 top-full z-50 mt-2 w-56">
                     {/* Nav Items */}
                     {links.map(({ href, label, auth, Icon }) => {
                       if (auth && !user) return null;

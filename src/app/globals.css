@@ -309,13 +309,251 @@ body {
     animation: ceremony-toast-out 0.28s ease-in forwards;
   }
 
+  @keyframes motion-fade-in-keyframes {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes motion-fade-in-up-keyframes {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes motion-sheet-backdrop-in-keyframes {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes motion-sheet-backdrop-out-keyframes {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes motion-sheet-panel-in-keyframes {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes motion-sheet-panel-out-keyframes {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes motion-bubble-in-keyframes {
+    from {
+      opacity: 0;
+      transform: translateY(0.35rem) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes motion-check-pop-keyframes {
+    from {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes motion-vs-flash-keyframes {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.85;
+      transform: scale(1.08);
+    }
+  }
+
+  @keyframes motion-menu-in-keyframes {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(-0.25rem);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes motion-sword-tilt-keyframes {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    35% {
+      transform: rotate(-8deg);
+    }
+    65% {
+      transform: rotate(8deg);
+    }
+  }
+
+  @keyframes motion-queue-pulse-keyframes {
+    0%,
+    100% {
+      border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+      background-color: color-mix(in srgb, var(--primary) 6%, transparent);
+    }
+    50% {
+      border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+      background-color: color-mix(in srgb, var(--primary) 10%, transparent);
+    }
+  }
+
+  @keyframes motion-stagger-in-keyframes {
+    from {
+      opacity: 0;
+      transform: translateY(0.35rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .motion-fade-in {
+    animation: motion-fade-in-keyframes 0.28s ease-out forwards;
+  }
+
+  .motion-fade-in-up {
+    animation: motion-fade-in-up-keyframes 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .motion-sheet-backdrop-in {
+    animation: motion-sheet-backdrop-in-keyframes 0.28s ease-out forwards;
+  }
+
+  .motion-sheet-backdrop-out {
+    animation: motion-sheet-backdrop-out-keyframes 0.28s ease-in forwards;
+  }
+
+  .motion-sheet-panel-in {
+    animation: motion-sheet-panel-in-keyframes 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .motion-sheet-panel-out {
+    animation: motion-sheet-panel-out-keyframes 0.28s ease-in forwards;
+  }
+
+  .motion-toast-in {
+    animation: ceremony-toast-in 0.3s ease-out forwards;
+  }
+
+  .motion-bubble-in {
+    animation: motion-bubble-in-keyframes 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .motion-check-pop {
+    animation: motion-check-pop-keyframes 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .motion-vs-flash {
+    animation: motion-vs-flash-keyframes 0.5s ease-in-out forwards;
+  }
+
+  .motion-menu-in {
+    animation: motion-menu-in-keyframes 0.22s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .motion-sword-tilt {
+    animation: motion-sword-tilt-keyframes 0.4s ease-in-out forwards;
+  }
+
+  .motion-queue-pulse {
+    animation: motion-queue-pulse-keyframes 1.4s ease-in-out infinite;
+  }
+
+  .motion-stagger-1 {
+    animation: motion-stagger-in-keyframes 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.03s forwards;
+    opacity: 0;
+  }
+
+  .motion-stagger-2 {
+    animation: motion-stagger-in-keyframes 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.06s forwards;
+    opacity: 0;
+  }
+
+  .motion-stagger-3 {
+    animation: motion-stagger-in-keyframes 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.09s forwards;
+    opacity: 0;
+  }
+
+  .motion-stagger-4 {
+    animation: motion-stagger-in-keyframes 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.12s forwards;
+    opacity: 0;
+  }
+
+  .motion-stagger-5 {
+    animation: motion-stagger-in-keyframes 0.3s cubic-bezier(0.22, 1, 0.36, 1) 0.15s forwards;
+    opacity: 0;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .ceremony-overlay-enter,
     .ceremony-overlay-exit,
     .ceremony-content-pop,
     .ceremony-toast-enter,
-    .ceremony-toast-exit {
+    .ceremony-toast-exit,
+    .motion-fade-in,
+    .motion-fade-in-up,
+    .motion-sheet-backdrop-in,
+    .motion-sheet-backdrop-out,
+    .motion-sheet-panel-in,
+    .motion-sheet-panel-out,
+    .motion-toast-in,
+    .motion-bubble-in,
+    .motion-check-pop,
+    .motion-vs-flash,
+    .motion-menu-in,
+    .motion-sword-tilt,
+    .motion-queue-pulse,
+    .motion-stagger-1,
+    .motion-stagger-2,
+    .motion-stagger-3,
+    .motion-stagger-4,
+    .motion-stagger-5 {
       animation: none;
+      opacity: 1;
+      transform: none;
     }
   }
 
