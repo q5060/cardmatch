@@ -510,14 +510,14 @@ export function BattleClient({
                   <span className="font-normal text-foreground"> 邀請你約戰</span>
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {otherPlayerId ? (
+                  {/* {otherPlayerId ? (
                     <Link
                       href={`/profile/${otherPlayerId}`}
                       className="btn btn-outline btn-sm"
                     >
                       查看個人檔案
                     </Link>
-                  ) : null}
+                  ) : null} */}
                   <button
                     type="button"
                     disabled={pending}
