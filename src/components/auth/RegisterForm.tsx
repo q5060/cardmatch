@@ -71,6 +71,7 @@ export function RegisterForm() {
         <input
           type="text"
           autoComplete="nickname"
+          data-testid="register-display-name"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           className="input-field mt-2"
@@ -83,6 +84,7 @@ export function RegisterForm() {
         <input
           type="email"
           autoComplete="email"
+          data-testid="register-email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="input-field mt-2"
@@ -94,6 +96,7 @@ export function RegisterForm() {
         <input
           type="password"
           autoComplete="new-password"
+          data-testid="register-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="input-field mt-2"
@@ -101,7 +104,12 @@ export function RegisterForm() {
           minLength={8}
         />
       </label>
-      <button type="submit" disabled={loading} className="btn btn-primary btn-block">
+      <button
+        type="submit"
+        data-testid="register-submit"
+        disabled={loading}
+        className="btn btn-primary btn-block"
+      >
         {loading ? "建立中…" : "建立帳號"}
       </button>
       <p className="text-center text-sm text-muted-foreground">

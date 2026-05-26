@@ -34,6 +34,7 @@ export function ShopLobbyContent({
   const [pending, startTransition] = useTransition();
 
   const loadLobby = useCallback(async () => {
+    await Promise.resolve();
     setLoading(true);
     setErr(null);
     try {
@@ -47,10 +48,17 @@ export function ShopLobbyContent({
     } finally {
       setLoading(false);
     }
-  }, [shop]);
+  }, [shop.id]);
 
   useEffect(() => {
-    void loadLobby();
+    let cancelled = false;
+    void (async () => {
+      await loadLobby();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [loadLobby]);
 
   const myEntry = players.find((p) => p.userId === currentUserId);

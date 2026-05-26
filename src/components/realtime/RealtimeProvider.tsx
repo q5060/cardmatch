@@ -29,6 +29,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const esRef = useRef<EventSource | null>(null);
   const backoffRef = useRef(1000);
   const reconnectTimerRef = useRef<number | null>(null);
+  const connectRef = useRef<(() => void) | null>(null);
 
   const subscribe = useCallback((handler: Handler) => {
     handlersRef.current.add(handler);
@@ -73,9 +74,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       esRef.current = null;
       const delay = backoffRef.current;
       backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
-      reconnectTimerRef.current = window.setTimeout(() => connect(), delay);
+      reconnectTimerRef.current = window.setTimeout(() => {
+        connectRef.current?.();
+      }, delay);
     };
   }, [dispatch]);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     connect();

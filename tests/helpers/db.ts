@@ -1,0 +1,88 @@
+import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "@/lib/password";
+
+const globalForTestPrisma = globalThis as unknown as {
+  testPrisma?: PrismaClient;
+};
+
+export const testPrisma =
+  globalForTestPrisma.testPrisma ??
+  new PrismaClient({
+    datasources: {
+      db: { url: process.env.DATABASE_URL },
+    },
+  });
+
+globalForTestPrisma.testPrisma = testPrisma;
+
+export async function resetTables() {
+  await testPrisma.$transaction([
+    testPrisma.friendMessage.deleteMany(),
+    testPrisma.message.deleteMany(),
+    testPrisma.battleResult.deleteMany(),
+    testPrisma.notification.deleteMany(),
+    testPrisma.matchQueueEntry.deleteMany(),
+    testPrisma.match.deleteMany(),
+    testPrisma.meetSpot.deleteMany(),
+    testPrisma.friendship.deleteMany(),
+    testPrisma.deck.deleteMany(),
+    testPrisma.userBlock.deleteMany(),
+    testPrisma.userReport.deleteMany(),
+    testPrisma.shopEvent.deleteMany(),
+    testPrisma.shop.deleteMany(),
+    testPrisma.user.deleteMany(),
+  ]);
+}
+
+export async function createUser(input: {
+  email: string;
+  password: string;
+  displayName: string;
+}) {
+  return testPrisma.user.create({
+    data: {
+      email: input.email.toLowerCase(),
+      passwordHash: await hashPassword(input.password),
+      displayName: input.displayName,
+    },
+  });
+}
+
+export async function createLookingMeetSpot(
+  userId: number,
+  overrides?: {
+    lat?: number;
+    lng?: number;
+    label?: string;
+    playNote?: string;
+    shopId?: string | null;
+  },
+) {
+  const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
+  return testPrisma.meetSpot.create({
+    data: {
+      userId,
+      lat: overrides?.lat ?? 25.033,
+      lng: overrides?.lng ?? 121.565,
+      label: overrides?.label ?? "測試約戰地點",
+      playNote: overrides?.playNote ?? "週末練習",
+      active: true,
+      looking: true,
+      shopId: overrides?.shopId ?? null,
+      expiresAt,
+    },
+  });
+}
+
+export async function createShop() {
+  return testPrisma.shop.create({
+    data: {
+      name: "測試卡店",
+      lat: 25.033,
+      lng: 121.565,
+      addressNote: "測試地址",
+      hasPtcgBattleArea: true,
+      hoursJson: "{}",
+    },
+  });
+}

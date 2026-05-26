@@ -6,6 +6,10 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { MATCH_STATUS } from "@/lib/constants";
 import { assertNotBlocked } from "@/lib/block";
+import {
+  acceptInviteForUser,
+  setReadyForUser,
+} from "@/lib/matchLifecycle";
 import { publishMatchSnapshot, publishNotification } from "@/lib/realtime/publish";
 
 async function requireUserId() {
@@ -56,15 +60,7 @@ export async function sendInviteFromSpot(spotId: string) {
 export async function acceptInvite(matchId: string) {
   const userId = await requireUserId();
   const id = parseInt(matchId);
-  const match = await prisma.match.findUnique({ where: { id } });
-  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
-  if (match.status !== MATCH_STATUS.INVITE_PENDING) throw new Error("邀請狀態已變更");
-  if (match.invitedById === userId) throw new Error("不能接受自己發出的邀請");
-
-  await prisma.match.update({
-    where: { id },
-    data: { status: MATCH_STATUS.ACCEPTED, playerAReady: false, playerBReady: false },
-  });
+  const match = await acceptInviteForUser(id, userId);
 
   // Send notification to inviter
   const inviterId = match.invitedById;
@@ -105,28 +101,11 @@ export async function setReady(matchId: string, ready: boolean) {
   const id = parseInt(matchId);
   const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
-  if (match.status !== MATCH_STATUS.ACCEPTED) throw new Error("目前無法切換準備狀態");
 
-  const isA = match.playerAId === userId;
-  const data = isA ? { playerAReady: ready } : { playerBReady: ready };
+  const { started } = await setReadyForUser(id, userId, ready);
 
-  await prisma.match.update({
-    where: { id },
-    data,
-  });
-
-  const updated = await prisma.match.findUnique({ where: { id } });
-  if (
-    updated?.status === MATCH_STATUS.ACCEPTED &&
-    updated.playerAReady &&
-    updated.playerBReady
-  ) {
-    await prisma.match.update({
-      where: { id },
-      data: { status: MATCH_STATUS.IN_PROGRESS },
-    });
-
-    // Send notification to both players when battle starts
+  if (started) {
+    const isA = match.playerAId === userId;
     const otherPlayerId = isA ? match.playerBId : match.playerAId;
     await prisma.notification.create({
       data: {

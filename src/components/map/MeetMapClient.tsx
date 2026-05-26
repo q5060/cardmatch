@@ -130,7 +130,10 @@ function MapCenterTracker({
 }) {
   const map = useMap();
   const cb = useRef(onMapCenterChange);
-  cb.current = onMapCenterChange;
+
+  useEffect(() => {
+    cb.current = onMapCenterChange;
+  }, [onMapCenterChange]);
 
   useEffect(() => {
     const onMove = () => {

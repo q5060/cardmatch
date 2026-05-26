@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FriendsListView } from "./FriendsListView";
 import { acceptFriendship, rejectFriendship } from "@/actions/friends";
@@ -46,20 +46,6 @@ export function FriendsClientV2({
     });
   }
 
-  // Auto-switch to friends tab if pending list becomes empty
-  useEffect(() => {
-    const pendingIn = friendships.filter(
-      (f) => f.status === "PENDING" && f.addresseeId === userId,
-    );
-    const pendingOut = friendships.filter(
-      (f) => f.status === "PENDING" && f.requesterId === userId,
-    );
-    
-    if (tab === "pending" && pendingIn.length === 0 && pendingOut.length === 0) {
-      setTab("friends");
-    }
-  }, [friendships, userId, tab]);
-
   const pendingIn = friendships.filter(
     (f) => f.status === "PENDING" && f.addresseeId === userId,
   );
@@ -67,6 +53,8 @@ export function FriendsClientV2({
     (f) => f.status === "PENDING" && f.requesterId === userId,
   );
   const accepted = friendships.filter((f) => f.status === "ACCEPTED");
+  const hasPending = pendingIn.length > 0 || pendingOut.length > 0;
+  const activeTab = tab === "pending" && !hasPending ? "friends" : tab;
 
   return (
     <div className="space-y-8">
@@ -75,7 +63,7 @@ export function FriendsClientV2({
         <button
           type="button"
           onClick={() => setTab("friends")}
-          data-active={tab === "friends"}
+          data-active={activeTab === "friends"}
           className="tab-trigger relative"
         >
           好友 ({accepted.length})
@@ -84,7 +72,7 @@ export function FriendsClientV2({
           <button
             type="button"
             onClick={() => setTab("pending")}
-            data-active={tab === "pending"}
+            data-active={activeTab === "pending"}
             className="tab-trigger relative"
           >
             待審中 ({pendingIn.length + pendingOut.length})
@@ -96,7 +84,7 @@ export function FriendsClientV2({
       </div>
 
       {/* Friends Tab */}
-      {tab === "friends" && (
+      {activeTab === "friends" && (
         <section key="friends" className="motion-fade-in">
           <FriendsListView
             friends={accepted.map((f) => {
@@ -114,7 +102,7 @@ export function FriendsClientV2({
       )}
 
       {/* Pending Tab */}
-      {tab === "pending" && (
+      {activeTab === "pending" && (
         <section key="pending" className="motion-fade-in space-y-4">
           {pendingIn.length > 0 && (
             <div className="card card-hover space-y-3 p-6">

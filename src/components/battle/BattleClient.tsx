@@ -99,7 +99,7 @@ export function BattleClient({
   const [flyTo, setFlyTo] = useState<MapFlyToTarget | null>(null);
   const [previewPin, setPreviewPin] = useState<MapPreviewPin | null>(null);
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationAttempted, setLocationAttempted] = useState(false);
+  const locationAttemptedRef = useRef(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState<number>(5);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
@@ -215,34 +215,22 @@ export function BattleClient({
     };
   }, [isIncomingInvite]);
 
-  /** Initialize map position once on mount */
-  useEffect(() => {
-    if (gpsLocation) {
-      setMapCenter({ lat: gpsLocation.lat, lng: gpsLocation.lng });
-    } else {
-      setMapCenter({ lat: defaultLat, lng: defaultLng });
-    }
-  }, []); // Only run once on mount
-
   /** Request user's GPS location when component mounts */
   useEffect(() => {
-    if (!locationAttempted && navigator.geolocation) {
-      setLocationAttempted(true);
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          setGpsLocation({ lat, lng });
-          console.log("GPS定位成功:", lat, lng);
-          // Don't auto-fly to GPS location - let user see the default map first
-        },
-        (error) => {
-          console.log("GPS定位失敗:", error.message);
-          // Silently fail - use default location
-        }
-      );
-    }
-  }, [locationAttempted]);
+    if (locationAttemptedRef.current || !navigator.geolocation) return;
+    locationAttemptedRef.current = true;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setGpsLocation({ lat, lng });
+        setMapCenter({ lat, lng });
+      },
+      () => {
+        // Silently fail - use default location
+      },
+    );
+  }, []);
 
   useEffect(() => {
     if (!successMessage) return;
@@ -262,12 +250,7 @@ export function BattleClient({
     });
   }, [activeMatch?.id, activeMatch?.status, myAnnouncement?.spotId]);
 
-  /** Clear the random-match circle as soon as a match is established (any path: instant match, SSE push, or polling) */
-  useEffect(() => {
-    if (activeMatch) {
-      setRandomMatchCircle(null);
-    }
-  }, [activeMatch?.id]);
+  const displayedRandomMatchCircle = activeMatch ? null : randomMatchCircle;
 
   function handleAnnouncementPublished(published: PublishDraft & { label: string }) {
     void refresh();
@@ -422,6 +405,7 @@ export function BattleClient({
                 <>
                   <button
                     type="button"
+                    data-testid="accept-invite"
                     disabled={pending}
                     onClick={() =>
                       run(async () => {
@@ -520,6 +504,7 @@ export function BattleClient({
                   ) : null} */}
                   <button
                     type="button"
+                    data-testid="accept-invite"
                     disabled={pending}
                     onClick={() =>
                       run(async () => {
@@ -643,6 +628,7 @@ export function BattleClient({
               >
                 <button
                   type="button"
+                  data-testid="mark-ready"
                   disabled={pending}
                   onClick={() =>
                     run(async () => {
@@ -1280,7 +1266,7 @@ export function BattleClient({
             flyTo={flyTo}
             previewPin={previewPin}
             radiusCircle={{ centerLat: mapCenter.lat, centerLng: mapCenter.lng, radiusKm }}
-            randomMatchCircle={randomMatchCircle}
+            randomMatchCircle={displayedRandomMatchCircle}
             onMapClick={(lat, lng) => {
               setSelectedShop(null);
               setSheetAnnouncement(null);

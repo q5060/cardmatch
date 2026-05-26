@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import {
@@ -33,13 +33,8 @@ export function NotificationDropdown({
   const [loading, setLoading] = useState(false);
   const [marking, setMarking] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchNotifications();
-    }
-  }, [isOpen]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
+    await Promise.resolve();
     setLoading(true);
     try {
       const res = await fetch("/api/notifications?unreadOnly=true");
@@ -55,7 +50,15 @@ export function NotificationDropdown({
     } finally {
       setLoading(false);
     }
-  };
+  }, [onUnreadCountChange]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = window.setTimeout(() => {
+      void fetchNotifications();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [isOpen, fetchNotifications]);
 
   const markAllAsRead = async () => {
     setMarking(true);

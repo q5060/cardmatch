@@ -148,6 +148,26 @@ docker-compose exec cardmatch npm run db:seed
 
 ---
 
+## 測試
+
+複製測試環境變數範例（或自行建立 `.env.test`）：
+
+```bash
+cp .env.test.example .env.test
+```
+
+| 指令 | 說明 |
+|------|------|
+| `npm run test:unit` | Vitest 單元測試（`tests/unit`） |
+| `npm run test:integration` | Vitest 整合測試（API + Prisma，使用 `prisma/test.db`） |
+| `npm run test` | 執行所有 Vitest 測試 |
+| `npm run test:e2e` | Playwright E2E（需先 `npm run build`，並執行 `npx playwright install`） |
+| `npm run test:ci` | 本地模擬 CI：lint → unit → integration → build → e2e |
+
+GitHub Actions 會在 push / pull request 時自動執行 lint、unit、integration 與 e2e（見 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)）。
+
+---
+
 ## 常用指令
 
 | 指令 | 說明 |

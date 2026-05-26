@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Search, Users, MapPin, UserCircle } from "lucide-react";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { BackLink } from "@/components/ui/BackLink";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -50,13 +49,22 @@ function SearchContent() {
   };
 
   useEffect(() => {
-    if (query.trim()) {
-      void performSearch(query);
-    } else {
-      setResults([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- search on query change only
+    const trimmed = query.trim();
+    if (!trimmed) return;
+
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      await performSearch(trimmed);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [query]);
+
+  const displayedResults = query.trim() ? results : [];
 
   return (
     <div className="mx-auto max-w-2xl space-y-8">
@@ -89,18 +97,18 @@ function SearchContent() {
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
-      {query && !loading && results.length === 0 && !error ? (
+      {query && !loading && displayedResults.length === 0 && !error ? (
         <EmptyState
           icon={<Search className="h-10 w-10" />}
           title={`找不到符合「${query}」的結果`}
         />
       ) : null}
 
-      {results.length > 0 ? (
+      {displayedResults.length > 0 ? (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">找到 {results.length} 個結果</p>
+          <p className="text-sm text-muted-foreground">找到 {displayedResults.length} 個結果</p>
           <ul className="space-y-2">
-            {results.map((result) => (
+            {displayedResults.map((result) => (
               <li key={`${result.type}-${result.id}`}>
                 {result.type === "user" ? (
                   <Link

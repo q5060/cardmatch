@@ -2,7 +2,7 @@
 
 // Used by BattleClient ResponsiveSheet only — do not duplicate publish form logic.
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { publishBattleAnnouncement } from "@/actions/meetSpot";
 import {
   ANNOUNCEMENT_TTL_DEFAULT_HOURS,
@@ -23,19 +23,12 @@ type Props = {
   onPublished: (published: PublishDraft & { label: string }) => void;
 };
 
-export function PublishAnnouncementContent({ draft, onClose, onPublished }: Props) {
+function PublishAnnouncementForm({ draft, onClose, onPublished }: Props) {
   const [ttlHours, setTtlHours] = useState(ANNOUNCEMENT_TTL_DEFAULT_HOURS);
   const [playNote, setPlayNote] = useState("");
   const [label, setLabel] = useState(draft.label);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  useEffect(() => {
-    setLabel(draft.label);
-    setTtlHours(ANNOUNCEMENT_TTL_DEFAULT_HOURS);
-    setPlayNote("");
-    setErr(null);
-  }, [draft.lat, draft.lng, draft.label, draft.shopId]);
 
   const handlePublish = () => {
     const trimmed = label.trim();
@@ -132,5 +125,15 @@ export function PublishAnnouncementContent({ draft, onClose, onPublished }: Prop
         </button>
       </div>
     </div>
+  );
+}
+
+export function PublishAnnouncementContent(props: Props) {
+  const { draft } = props;
+  return (
+    <PublishAnnouncementForm
+      key={`${draft.lat}-${draft.lng}-${draft.label}-${draft.shopId ?? ""}`}
+      {...props}
+    />
   );
 }

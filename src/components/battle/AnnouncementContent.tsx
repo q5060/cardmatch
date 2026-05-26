@@ -74,6 +74,7 @@ export function AnnouncementContent({
         <div className="mt-auto border-t border-border pt-4">
           <button
             type="button"
+            data-testid="send-invite"
             disabled={pending}
             onClick={onInvite}
             className="btn btn-primary w-full"

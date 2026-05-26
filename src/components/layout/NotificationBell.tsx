@@ -27,14 +27,11 @@ export function NotificationBell({
   className = "",
   onCountChange,
 }: Props) {
-  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
+  const [overrideCount, setOverrideCount] = useState<number | null>(null);
+  const unreadCount = overrideCount ?? initialUnreadCount;
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const sseConnected = useRealtimeConnected();
-
-  useEffect(() => {
-    setUnreadCount(initialUnreadCount);
-  }, [initialUnreadCount]);
 
   useEffect(() => {
     onCountChange?.(unreadCount);
@@ -43,12 +40,12 @@ export function NotificationBell({
   const refreshCount = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
     const count = await fetchUnreadCount();
-    setUnreadCount(count);
+    setOverrideCount(count);
   }, []);
 
   const onNotification = useCallback((e: RealtimeEvent) => {
     if (e.type !== "notification.new") return;
-    setUnreadCount(e.unreadCount);
+    setOverrideCount(e.unreadCount);
   }, []);
 
   useRealtimeEvent((e) => e.type === "notification.new", onNotification);
@@ -99,7 +96,7 @@ export function NotificationBell({
       <NotificationDropdown
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        onUnreadCountChange={setUnreadCount}
+        onUnreadCountChange={setOverrideCount}
       />
     </div>
   );

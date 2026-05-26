@@ -46,28 +46,28 @@ export function MapLocationSearch({
   }, [shops, q]);
 
   const showDropdown = open && query.trim().length >= 1;
+  const displayPlaces = q.length < 2 ? [] : places;
+  const displayLoading = q.length >= 2 && loading;
+  const displayGeoError = q.length >= 2 ? geoError : null;
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.length < 2) return;
 
-    if (q.length < 2) {
-      setPlaces([]);
-      setLoading(false);
-      setGeoError(null);
-      return;
-    }
-
-    setLoading(true);
-    setGeoError(null);
-    debounceRef.current = setTimeout(async () => {
-      const result = await searchPlaces(query.trim());
-      setLoading(false);
-      if (!result.ok) {
-        setGeoError(result.error);
-        setPlaces([]);
-        return;
-      }
-      setPlaces(result.places);
+    debounceRef.current = setTimeout(() => {
+      void (async () => {
+        await Promise.resolve();
+        setLoading(true);
+        setGeoError(null);
+        const result = await searchPlaces(query.trim());
+        setLoading(false);
+        if (!result.ok) {
+          setGeoError(result.error);
+          setPlaces([]);
+          return;
+        }
+        setPlaces(result.places);
+      })();
     }, DEBOUNCE_MS);
 
     return () => {
@@ -169,14 +169,14 @@ export function MapLocationSearch({
               <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 地點
               </p>
-              {loading ? (
+              {displayLoading ? (
                 <p className="px-3 py-2 text-sm text-muted-foreground">搜尋中…</p>
-              ) : geoError ? (
-                <p className="px-3 py-2 text-sm text-amber-700">{geoError}</p>
-              ) : places.length === 0 ? (
+              ) : displayGeoError ? (
+                <p className="px-3 py-2 text-sm text-amber-700">{displayGeoError}</p>
+              ) : displayPlaces.length === 0 ? (
                 <p className="px-3 py-2 text-sm text-muted-foreground">找不到相符地點</p>
               ) : (
-                places.map((place, i) => (
+                displayPlaces.map((place, i) => (
                   <button
                     key={`${place.lat}-${place.lng}-${i}`}
                     type="button"

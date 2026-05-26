@@ -53,7 +53,10 @@ type Props = {
 
 export function NavBar({ user, pendingInvites = 0 }: Props) {
   const pathname = usePathname();
-  const [unreadCount, setUnreadCount] = useState(pendingInvites);
+  const [notificationUnread, setNotificationUnread] = useState<number | null>(
+    null,
+  );
+  const unreadCount = notificationUnread ?? pendingInvites;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -90,10 +93,6 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
       width: elRect.width,
     });
   }, [pathname, visibleLinks]);
-
-  useEffect(() => {
-    setUnreadCount(pendingInvites);
-  }, [pendingInvites]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -183,7 +182,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
 
               <NotificationBell
                 initialUnreadCount={pendingInvites}
-                onCountChange={setUnreadCount}
+                onCountChange={setNotificationUnread}
                 className="hidden md:block"
               />
 

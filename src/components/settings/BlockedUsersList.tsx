@@ -24,6 +24,7 @@ export function BlockedUsersList({ active, onMessage }: BlockedUsersListProps) {
   const [unblockingId, setUnblockingId] = useState<number | null>(null);
 
   const fetchBlocked = useCallback(async () => {
+    await Promise.resolve();
     setLoading(true);
     try {
       const res = await fetch("/api/blocks");
@@ -41,7 +42,11 @@ export function BlockedUsersList({ active, onMessage }: BlockedUsersListProps) {
   }, [onMessage]);
 
   useEffect(() => {
-    if (active) void fetchBlocked();
+    if (!active) return;
+    const id = window.setTimeout(() => {
+      void fetchBlocked();
+    }, 0);
+    return () => clearTimeout(id);
   }, [active, fetchBlocked]);
 
   const handleUnblock = async (userId: number) => {
