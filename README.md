@@ -201,7 +201,38 @@ GitHub Actions 會在 push / pull request 時自動執行 lint、unit、integrat
 
 | 環境變數 | 說明 |
 |----------|------|
-| `REALTIME_BUS` | 預設 `memory`（單一 Node 進程內記憶體 bus）。多 instance 部署（如 Vercel）需改為 `redis` 並設定 `REDIS_URL`（尚未內建，需自行擴充）。 |
+| `REALTIME_BUS` | 預設 `memory`（單一 Node 進程）。**Vercel 等多 instance 部署請設 `redis`**。 |
+| `REDIS_URL` | `REALTIME_BUS=redis` 時必填；建議使用 [Upstash Redis](https://upstash.com/) 的 `rediss://...` 連線字串。 |
+
+### 本機開發
+
+維持預設即可（不需 Redis）：
+
+```env
+REALTIME_BUS=memory
+```
+
+若要本機驗證 Redis bus（可選）：
+
+```bash
+docker run -p 6379:6379 redis:7
+```
+
+```env
+REALTIME_BUS=redis
+REDIS_URL=redis://127.0.0.1:6379
+```
+
+### Vercel + Upstash（建議）
+
+1. 在 [Upstash Console](https://console.upstash.com/) 建立 Redis（區域建議選東京一帶，與 `vercel.json` 的 `hnd1` 相近）。
+2. 複製 **Redis URL**（`rediss://...`）。
+3. 於 Vercel 專案 **Settings → Environment Variables** 新增：
+   - `REALTIME_BUS` = `redis`
+   - `REDIS_URL` = Upstash 提供的 URL
+4. 重新部署。
+
+任一 instance 上的 API（例如接受約戰）發布事件後，會經 Redis pub/sub 送達其他 instance 上同一使用者的 SSE 連線。
 
 ---
 
@@ -209,7 +240,7 @@ GitHub Actions 會在 push / pull request 時自動執行 lint、unit、integrat
 
 SQLite 依賴可寫入的持久化檔案系統；Serverless 託管常見作法是改用 PostgreSQL 等，並在環境中設定對應的 `DATABASE_URL`。正式環境請務必設定強隨機的 `SESSION_SECRET`，並啟用 HTTPS（production 下 session cookie 為 `secure`）。
 
-若採多 instance 託管，請一併規劃 **Redis pub/sub** 作為 realtime bus，否則 SSE 事件只會送達與寫入同一進程的連線。
+多 instance 託管時請設定 `REALTIME_BUS=redis` 與 `REDIS_URL`（見上方 Upstash 步驟），否則即時推送可能只送達同一台伺服器上的連線。
 
 ---
 

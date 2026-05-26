@@ -4,15 +4,11 @@ import {
   type ActiveMatchDTO,
   type BattleResultDTO,
 } from "@/lib/matchDto";
-import { getMemoryBus } from "./memoryBus";
+import { getBus } from "./getBus";
 import type { ChatMessageDTO, RealtimeEvent } from "./types";
 
-function bus() {
-  return getMemoryBus();
-}
-
 export function publishToUser(userId: number, event: RealtimeEvent) {
-  bus().publish(userId, event);
+  getBus().publish(userId, event);
 }
 
 export async function getUnreadCount(userId: number): Promise<number> {

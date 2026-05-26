@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/auth";
-import { getBus } from "@/lib/realtime";
+import { getBus } from "@/lib/realtime/getBus";
 import type { RealtimeEvent } from "@/lib/realtime/types";
 
 export const dynamic = "force-dynamic";
