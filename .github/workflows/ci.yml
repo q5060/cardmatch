@@ -6,13 +6,27 @@ on:
   pull_request:
 
 env:
-  DATABASE_URL: file:./test.db
+  DATABASE_URL: postgresql://cardmatch:cardmatch@localhost:5432/cardmatch
   SESSION_SECRET: test-session-secret-at-least-32-chars-long
   REALTIME_BUS: memory
 
 jobs:
   lint-and-unit:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cardmatch
+          POSTGRES_PASSWORD: cardmatch
+          POSTGRES_DB: cardmatch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cardmatch -d cardmatch"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -42,6 +56,20 @@ jobs:
   e2e:
     needs: lint-and-unit
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: cardmatch
+          POSTGRES_PASSWORD: cardmatch
+          POSTGRES_DB: cardmatch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cardmatch -d cardmatch"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -55,6 +83,9 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

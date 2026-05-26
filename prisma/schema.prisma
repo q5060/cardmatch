@@ -3,11 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// SQLite: store as string; validate in app with TS unions in lib/constants.ts
+// Enums stored as strings; validate in app with TS unions in lib/constants.ts
 
 model User {
   id              Int      @id @default(autoincrement())

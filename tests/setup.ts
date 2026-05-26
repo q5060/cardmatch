@@ -5,7 +5,8 @@ import { afterEach, vi } from "vitest";
 loadEnv({ path: path.resolve(__dirname, "../.env.test") });
 loadEnv({ path: path.resolve(__dirname, "../.env.test.example") });
 
-process.env.DATABASE_URL ??= "file:./test.db";
+process.env.DATABASE_URL ??=
+  "postgresql://cardmatch:cardmatch@localhost:5432/cardmatch_test";
 process.env.SESSION_SECRET ??=
   "test-session-secret-at-least-32-chars-long";
 process.env.REALTIME_BUS ??= "memory";

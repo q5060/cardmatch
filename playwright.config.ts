@@ -33,7 +33,9 @@ export default defineConfig({
     env: {
       ...process.env,
       PORT: port,
-      DATABASE_URL: process.env.DATABASE_URL ?? "file:./test.db",
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        "postgresql://cardmatch:cardmatch@localhost:5432/cardmatch_test",
       SESSION_SECRET:
         process.env.SESSION_SECRET ??
         "test-session-secret-at-least-32-chars-long",

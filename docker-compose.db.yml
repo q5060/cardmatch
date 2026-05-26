@@ -1,0 +1,22 @@
+# Local PostgreSQL for development and tests.
+# Start: docker compose -f docker-compose.db.yml up -d
+# Stop:  docker compose -f docker-compose.db.yml down
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cardmatch
+      POSTGRES_PASSWORD: cardmatch
+      POSTGRES_DB: cardmatch
+    ports:
+      - "5432:5432"
+    volumes:
+      - cardmatch_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardmatch -d cardmatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cardmatch_pg_data:

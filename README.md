@@ -1,6 +1,6 @@
 # Cardmatch
 
-Next.js 全端專案（App Router、API Routes、Prisma + SQLite、iron-session）。
+Next.js 全端專案（App Router、API Routes、Prisma + PostgreSQL、iron-session）。
 
 ## 需求環境
 
@@ -16,21 +16,33 @@ npm install
 
 `postinstall` 會自動執行 `prisma generate`，無須手動再跑一次（除非要除錯）。
 
-### 2. 環境變數
+### 2. 啟動 PostgreSQL
 
-在專案**根目錄**建立 `.env`（不要提交到版控）。SQLite 的檔案路徑係相對於 `prisma/schema.prisma` 所在目錄解析。
+本機需有 PostgreSQL。最簡單方式：
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+```
+
+### 3. 環境變數
+
+複製範例並編輯（不要提交 `.env` 到版控）：
+
+```bash
+cp .env.example .env
+```
 
 ```env
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://cardmatch:cardmatch@localhost:5432/cardmatch"
 SESSION_SECRET="請換成至少32個字元的隨機密鑰"
 ```
 
 | 變數 | 說明 |
 |------|------|
-| `DATABASE_URL` | Prisma 資料庫連線字串；本機開發可用 SQLite，例如 `file:./dev.db`。 |
+| `DATABASE_URL` | PostgreSQL 連線字串，例如 `postgresql://user:pass@localhost:5432/cardmatch`。 |
 | `SESSION_SECRET` | 加密 session cookie，**長度至少 32**，否則啟動會報錯。 |
 
-### 3. 建立資料表
+### 4. 建立資料表
 
 擇一即可：
 
@@ -46,7 +58,7 @@ SESSION_SECRET="請換成至少32個字元的隨機密鑰"
   npm run db:push
   ```
 
-### 4.（選用）種子資料
+### 5.（選用）種子資料
 
 寫入示意店家等資料：
 
@@ -54,7 +66,7 @@ SESSION_SECRET="請換成至少32個字元的隨機密鑰"
 npm run db:seed
 ```
 
-### 5. 開發伺服器
+### 6. 開發伺服器
 
 ```bash
 npm run dev
@@ -144,13 +156,21 @@ docker-compose exec cardmatch npm run db:seed
 
 - **Port 已被佔用**：修改 `docker-compose.yml` 或 `docker-compose.dev.yml` 中的 `ports` 設定。
 - **Windows 上 Volume 掛載慢**：建議用 WSL 2 backend。
-- **資料庫無法寫入**：確保 Docker 有權限寫入 `/app/data` 目錄。
+- **Postgres 連不上**：確認 `docker compose -f docker-compose.db.yml up -d` 已啟動，且 `DATABASE_URL` 主機為 `localhost`（本機）或 `postgres`（Docker Compose 內）。
 
 ---
 
 ## 測試
 
-複製測試環境變數範例（或自行建立 `.env.test`）：
+先啟動 Postgres，並建立測試用資料庫（只需一次）：
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+docker compose -f docker-compose.db.yml exec postgres \
+  psql -U cardmatch -c "CREATE DATABASE cardmatch_test;"
+```
+
+複製測試環境變數範例：
 
 ```bash
 cp .env.test.example .env.test
@@ -159,7 +179,7 @@ cp .env.test.example .env.test
 | 指令 | 說明 |
 |------|------|
 | `npm run test:unit` | Vitest 單元測試（`tests/unit`） |
-| `npm run test:integration` | Vitest 整合測試（API + Prisma，使用 `prisma/test.db`） |
+| `npm run test:integration` | Vitest 整合測試（API + Prisma + PostgreSQL） |
 | `npm run test` | 執行所有 Vitest 測試 |
 | `npm run test:e2e` | Playwright E2E（需先 `npm run build`，並執行 `npx playwright install`） |
 | `npm run test:ci` | 本地模擬 CI：lint → unit → integration → build → e2e |
@@ -173,7 +193,7 @@ GitHub Actions 會在 push / pull request 時自動執行 lint、unit、integrat
 | 指令 | 說明 |
 |------|------|
 | `npm run dev` | 開發模式 |
-| `npm run build` | 正式建置（含 `prisma generate`） |
+| `npm run build` | 正式建置（`prisma migrate deploy` + `generate` + `next build`） |
 | `npm run start` | 以正式模式啟動（需先 `build`） |
 | `npm run lint` | ESLint |
 | `npm run db:migrate` | Prisma migrate dev |
@@ -236,11 +256,47 @@ REDIS_URL=redis://127.0.0.1:6379
 
 ---
 
-## 部署備註
+## 部署到 Vercel
 
-SQLite 依賴可寫入的持久化檔案系統；Serverless 託管常見作法是改用 PostgreSQL 等，並在環境中設定對應的 `DATABASE_URL`。正式環境請務必設定強隨機的 `SESSION_SECRET`，並啟用 HTTPS（production 下 session cookie 為 `secure`）。
+專案已設定為 **PostgreSQL + Redis 即時 bus**，建置時會自動執行 `prisma migrate deploy`（見 `package.json` 的 `build` script）。`vercel.json` 預設區域為東京（`hnd1`）。
 
-多 instance 託管時請設定 `REALTIME_BUS=redis` 與 `REDIS_URL`（見上方 Upstash 步驟），否則即時推送可能只送達同一台伺服器上的連線。
+### 1. 建立 PostgreSQL
+
+任選其一並取得 `DATABASE_URL`（`postgresql://...` 或 `postgres://...`）：
+
+- [Vercel Postgres](https://vercel.com/storage/postgres)（Storage → Connect to Project）
+- [Neon](https://neon.tech/)
+- [Supabase](https://supabase.com/)
+
+### 2. 建立 Upstash Redis
+
+見上方「Vercel + Upstash」：區域建議東京，取得 `rediss://...` URL。
+
+### 3. Vercel 環境變數
+
+於 **Settings → Environment Variables**（Production 與 Preview 建議都設）：
+
+| 變數 | 值 |
+|------|-----|
+| `DATABASE_URL` | Postgres 連線字串（Vercel 整合會自動注入） |
+| `SESSION_SECRET` | 至少 32 字元的強隨機字串 |
+| `REALTIME_BUS` | `redis` |
+| `REDIS_URL` | Upstash 的 `rediss://...` |
+
+### 4. 匯入 GitHub 並部署
+
+1. [Vercel Dashboard](https://vercel.com/new) → Import Git Repository → 選本 repo。
+2. Framework Preset 應自動辨識為 **Next.js**；Build Command 使用預設 `npm run build` 即可。
+3. 設好環境變數後 **Deploy**。
+4.（選用）部署成功後在本機對正式庫執行種子：  
+   `DATABASE_URL="你的正式庫 URL" npm run db:seed`
+
+### 5. 驗證
+
+- 註冊／登入
+- 兩個瀏覽器（或無痕）測約戰邀請是否即時出現（驗證 Redis bus）
+
+正式環境 session cookie 為 `secure`（需 HTTPS）。卡牌圖鑑等功能尚未實作，不影響目前社交／約戰功能上線。
 
 ---
 
