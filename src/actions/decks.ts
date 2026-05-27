@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { DECK_VISIBILITY } from "@/lib/constants";
 import { Deck } from "@prisma/client";
 
-export async function createDeck(formData: FormData): Promise<Deck> {
+export async function createDeck(prevState: any, formData: FormData): Promise<Deck | null> {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
 
@@ -88,5 +88,4 @@ export async function updateDeck(deckId: string, formData: FormData) {
 
   revalidatePath("/profile");
   revalidatePath(`/decks/${deckId}/edit`); // 更新編輯頁面緩存
-  return updatedDeck;
 }

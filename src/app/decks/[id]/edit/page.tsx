@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useActionState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Settings, Search, Plus, Minus } from "lucide-react";
+
 
 // 定義 Deck 介面，包含 deckJson 
 interface Deck {
@@ -173,13 +174,17 @@ export default function DeckCompositionEditor() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const formData = new FormData();
-      formData.append("deckJson", JSON.stringify(cards));
-      
-      // 使用現有的 updateDeck action 或 API
-      const res = await fetch(`/api/decks/${id}/composition`, {
+      // 改用 JSON 物件
+      const payload = {
+        deckJson: JSON.stringify(cards)
+      };
+
+      const res = await fetch(`/api/decks/${id}`, {
         method: "PATCH",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json", // 加上 Header
+        },
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {

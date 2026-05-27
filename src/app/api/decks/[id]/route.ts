@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
 export async function GET(
   request: Request,
@@ -88,6 +88,48 @@ export async function DELETE(
     console.error("Error deleting deck:", error);
     return NextResponse.json(
       { error: "Failed to delete deck" },
+      { status: 500 }
+    );
+  }
+}
+
+
+// 2. 新增 PATCH 方法處理牌組儲存請求
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession();
+    const { id } = await params;
+    if (!session.userId) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+
+    // 解析 JSON body
+    const body = await req.json();
+    const { deckJson } = body;
+
+    if (deckJson === undefined) {
+      return NextResponse.json({ error: "Missing deckJson" }, { status: 400 });
+    }
+
+    // 更新資料庫
+    const updatedDeck = await prisma.deck.update({
+      where: {
+        id: id,
+        userId: session.userId, // 確保使用者只能更新自己的牌組
+      },
+      data: {
+        deckJson: deckJson,
+      },
+    });
+
+    return NextResponse.json({ success: true, deck: updatedDeck });
+  } catch (error) {
+    console.error("Error updating deck composition:", error);
+    return NextResponse.json(
+      { error: "Failed to update deck" },
       { status: 500 }
     );
   }
