@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
@@ -15,12 +15,15 @@ export async function GET(request: Request) {
   const stage = searchParams.get("stage");
   const search = searchParams.get("search");
 
-  // 動態構建 Prisma 查詢條件
+  // 構建 Prisma 查詢條件
   let where: Prisma.CardWhereInput = {};
 
   // 1. 處理類別與子類型的邏輯 (***待修改，爬蟲有問題***)
   if (categoryFilter === "POKEMON") {
     where.category = "POKEMON";
+    // 寶可夢專屬條件 (屬性 & 進化階段)
+    if (type) where.type = type;
+    if (stage) where.stage = stage;
   } else if (categoryFilter === "支援者") {
     where.category = "TRAINER";
     where.subType = "支援者卡"; 
@@ -37,16 +40,11 @@ export async function GET(request: Request) {
     where.category = "ENERGY";
   }
 
-  // 2. 處理寶可夢專屬篩選
-  if (type) where.type = type;
-  if (stage) where.stage = stage;
-
-  // 3. 處理關鍵字搜尋
+  // 2. 處理關鍵字搜尋
   if (search) {
     where.name = { contains: search };
   }
 
-  
   // 計算跳過的筆數
   const skip = (page - 1) * limit;
 
@@ -54,11 +52,12 @@ export async function GET(request: Request) {
     // 同時取得資料和總筆數（方便前端判斷是否還有下一頁）
     const [cards, totalCount] = await prisma.$transaction([
       prisma.card.findMany({
+        where: where,
         skip: skip,
         take: limit,
-        orderBy: { id: 'asc' }, // 建議固定排序，避免分頁重複
+        orderBy: { id: 'asc' },
       }),
-      prisma.card.count()({ where }),
+      prisma.card.count({ where })
     ]);
 
     return NextResponse.json({
@@ -68,6 +67,7 @@ export async function GET(request: Request) {
       hasMore: skip + cards.length < totalCount
     });
   } catch (error) {
+    console.error("Database Error:", error); // 增加 log 方便在後台查錯
     return NextResponse.json({ error: "無法載入卡片" }, { status: 500 });
   }
 }
