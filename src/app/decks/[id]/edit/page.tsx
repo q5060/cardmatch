@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Settings, Search, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Settings, Search, Plus, Minus } from "lucide-react";
 
 // 定義 Deck 介面，包含 deckJson 
 interface Deck {
@@ -107,6 +107,69 @@ export default function DeckCompositionEditor() {
     fetchLibrary(1, false); // false 表示替換舊資料而不是接續
   }, [filters]);
 
+  // 加入卡片到牌組
+  const addToDeck = (card: any) => {
+    // 1. 計算目前總牌數
+    const totalCount = cards.reduce((acc, curr) => acc + curr.count, 0);
+    
+    // 限制總數不能超過 60
+    if (totalCount >= 60) {
+      alert("牌組已達 60 張上限！");
+      return;
+    }
+
+    setCards((prevCards) => {
+      // 2. 檢查這張卡片是否已經在牌組裡
+      const existingCardIndex = prevCards.findIndex((c) => c.id === card.id);
+
+      if (existingCardIndex > -1) {
+        // 3. 如果已存在，檢查是否超過 4 張限制 (能量卡通常不限，這裡可依需求調整)
+        const isBasicEnergy = card.category === "ENERGY" && !card.name.includes("特殊");
+        if (!isBasicEnergy && prevCards[existingCardIndex].count >= 4) {
+          alert("同名卡片（除基本能量外）最多只能放入 4 張！");
+          return prevCards;
+        }
+
+        // 複製陣列並更新特定卡片的數量
+        const newCards = [...prevCards];
+        newCards[existingCardIndex] = {
+          ...newCards[existingCardIndex],
+          count: newCards[existingCardIndex].count + 1,
+        };
+        return newCards;
+      } else {
+        // 4. 如果是新卡片，新增一個物件，初始 count 為 1
+        // 只存入必要的資訊，避免 deckJson 過於龐大
+        return [
+          ...prevCards,
+          {
+            id: card.id,
+            name: card.name,
+            imageUrl: card.imageUrl, // 建議存入圖片 URL 方便左側清單顯示
+            count: 1,
+            category: card.category,
+          },
+        ];
+      }
+    });
+  };
+
+  const removeFromDeck = (cardId: string) => {
+    setCards((prevCards) => {
+      const existingCard = prevCards.find((c) => c.id === cardId);
+      
+      if (existingCard && existingCard.count > 1) {
+        // 數量大於 1，則減 1
+        return prevCards.map((c) =>
+          c.id === cardId ? { ...c, count: c.count - 1 } : c
+        );
+      } else {
+        // 數量為 1，直接從陣列移除
+        return prevCards.filter((c) => c.id !== cardId);
+      }
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -184,9 +247,22 @@ export default function DeckCompositionEditor() {
                         <span className="font-mono font-bold w-6 text-primary">x{card.count}</span>
                         <span className="text-sm truncate max-w-[150px]">{card.name}</span>
                       </div>
-                      <button className="text-red-400 hover:text-red-600 p-1">
-                        <Trash2 className="w-4 h-4" />
+                      <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => addToDeck(card)}
+                        className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-primary transition-colors"
+                        title="增加數量"
+                      >
+                        <Plus className="w-4 h-4" />
                       </button>
+                      <button 
+                        onClick={() => removeFromDeck(card.id)}
+                        className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-red-600 transition-colors"
+                        title="減少數量"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                    </div>
                     </div>
                   ))
                 )}
@@ -224,7 +300,14 @@ export default function DeckCompositionEditor() {
                       <option value="">選屬性</option>
                       <option value="草">草</option>
                       <option value="火">火</option>
-                      {/* ...其他屬性 */}
+                      <option value="水">水</option>
+                      <option value="雷">雷</option>
+                      <option value="超">超</option>
+                      <option value="鬥">鬥</option>
+                      <option value="惡">惡</option>
+                      <option value="鋼">鋼</option>
+                      <option value="龍">龍</option>
+                      <option value="無">無</option>
                     </select>
 
                     <select 
@@ -264,7 +347,10 @@ export default function DeckCompositionEditor() {
                   <p className="text-xs font-bold truncate">{card.name}</p>
                   <p className="text-[10px] text-muted-foreground">{card.type} / {card.regulationMark}</p>
                   {/* 待實作：卡片加入卡組的按鈕 */}
-                  <button onClick={() => addToDeck(card)} className="...">
+                  <button 
+                    onClick={() => addToDeck(card)} 
+                    className="mt-2 w-full flex items-center justify-center gap-1 bg-primary text-white py-1 rounded-md hover:bg-primary/90 transition-colors text-xs"
+                  >
                     <Plus className="w-3 h-3" /> 加入
                   </button>
                 </div>
