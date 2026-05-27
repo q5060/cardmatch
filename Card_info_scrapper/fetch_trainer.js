@@ -133,9 +133,9 @@ async function scrapeTrainerCards() {
 
                 return {
                     name,
-                    type: 'Trainer', // 大分類固定為 Trainer
+                    type: null, // 沒有屬性
                     subType, // 物品 / 支援者 / 競技場 等
-                    isAceSpec, // ✨ 寫入是否為 ACE SPEC (布林值)
+                    isAceSpec, // 是否為 ACE SPEC (布林值)
                     regulationMark,
                     imageUrl,
                     sourceUrl: window.location.href
@@ -150,6 +150,8 @@ async function scrapeTrainerCards() {
                     category: 'TRAINER',
                     stage: cardDetails.stage,
                     type: cardDetails.type,
+                    subType: cardDetails.subType,
+                    isAceSpec: cardDetails.isAceSpec,
                     hp: cardDetails.hp,
                     regulationMark: cardDetails.regulationMark,
                     imageUrl: cardDetails.imageUrl,
@@ -159,10 +161,12 @@ async function scrapeTrainerCards() {
                     category: 'TRAINER',
                     stage: cardDetails.stage,
                     type: cardDetails.type,
+                    subType: cardDetails.subType,
+                    isAceSpec: cardDetails.isAceSpec,
                     hp: cardDetails.hp,
                     regulationMark: cardDetails.regulationMark,
                     imageUrl: cardDetails.imageUrl,
-                    sourceUrl: cardDetails.sourceUrl,
+                    sourceUrl: cardDetails.sourceUrl
                 }
             });
 

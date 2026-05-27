@@ -129,9 +129,9 @@ async function scrapeEnergyCards() {
 
                 return {
                     name,
-                    type: 'Energy', 
+                    type: null, //沒有屬性
                     subType, 
-                    isAceSpec, // ✨ 寫入是否為 ACE SPEC (布林值)
+                    isAceSpec, // 是否為 ACE SPEC (布林值)
                     regulationMark, 
                     imageUrl,
                     sourceUrl: window.location.href
@@ -147,6 +147,7 @@ async function scrapeEnergyCards() {
                     stage: cardDetails.stage,
                     type: cardDetails.type,
                     hp: cardDetails.hp,
+                    isAceSpec: cardDetails.isAceSpec,
                     regulationMark: cardDetails.regulationMark,
                     imageUrl: cardDetails.imageUrl,
                 },
@@ -156,9 +157,10 @@ async function scrapeEnergyCards() {
                     stage: cardDetails.stage,
                     type: cardDetails.type,
                     hp: cardDetails.hp,
+                    isAceSpec: cardDetails.isAceSpec,
                     regulationMark: cardDetails.regulationMark,
                     imageUrl: cardDetails.imageUrl,
-                    sourceUrl: cardDetails.sourceUrl,
+                    sourceUrl: cardDetails.sourceUrl
                 }
             });
 

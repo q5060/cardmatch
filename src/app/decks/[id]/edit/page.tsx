@@ -23,6 +23,8 @@ export default function DeckCompositionEditor() {
   const [loading, setLoading] = useState(true);
   const [libLoading, setLibLoading] = useState(true); // 新增卡庫載入狀態
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);       // 追蹤目前抓到第幾頁
+  const [hasMore, setHasMore] = useState(true); // 追蹤是否還有更多資料
 
   // Hook 1：抓取特定牌組資料
   useEffect(() => {
@@ -43,21 +45,67 @@ export default function DeckCompositionEditor() {
     fetchDeck();
   }, [id]);
 
-  // Hook 2：抓取全卡片資料庫 (只在掛載時執行一次)
-  useEffect(() => {
-    const fetchLibrary = async () => {
-      try {
-        const res = await fetch('/api/cards');
-        const data = await res.json();
-        setAllCards(data);
-      } catch (err) {
-        console.error("卡庫載入失敗", err);
-      } finally {
-        setLibLoading(false);
+  // 修改後的抓取函式
+  const fetchLibrary = async (targetPage: number, append = false) => {
+    setLibLoading(true);
+    try {
+    // 組建查詢字串
+    const params = new URLSearchParams({
+      page: targetPage.toString(),
+      limit: "20",
+      category: filters.category,
+      type: filters.type,
+      stage: filters.stage,
+      search: filters.search
+    });
+    
+      const res = await fetch(`/api/cards?${params.toString()}`);
+      const data = await res.json();
+      
+      // ✨ 增加檢查：確保 data.cards 是陣列才更新狀態
+    if (data && Array.isArray(data.cards)) {
+      if (append) {
+        setAllCards(prev => [...(prev || []), ...data.cards]);
+      } else {
+        setAllCards(data.cards);
       }
-    };
-    fetchLibrary();
+      setHasMore(data.hasMore);
+    } else {
+      // 如果格式不對，設定為空陣列避免報錯
+      console.error("API 回傳格式錯誤:", data);
+      if (!append) setAllCards([]); 
+    }
+  } catch (err) {
+    console.error("載入失敗", err);
+  } finally {
+    setLibLoading(false);
+  }
+};
+  // 初次掛載
+  useEffect(() => {
+    fetchLibrary(1);
   }, []);
+
+  // 處理載入更多按鈕
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchLibrary(nextPage, true);
+  };
+
+  // 卡牌篩選條件
+  const [filters, setFilters] = useState({
+    category: "ALL",
+    type: "",
+    stage: "",
+    search: ""
+  });
+
+  // 當篩選條件改變時，重置頁數並執行重新抓取
+  useEffect(() => {
+    setPage(1); // 重置為第一頁
+    fetchLibrary(1, false); // false 表示替換舊資料而不是接續
+  }, [filters]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -148,22 +196,63 @@ export default function DeckCompositionEditor() {
 
           {/* 右側：卡片資料庫搜尋 [cite: 26, 27, 28, 29, 30, 31] */}
           <div className="lg:col-span-8 space-y-4">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
+            <div className="space-y-4 mb-6">
+              <div className="flex flex-wrap gap-2">
+                {/* 類別選單 */}
+                <select 
+                  value={filters.category}
+                  onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                  className="input-field w-40"
+                >
+                  <option value="ALL">全類別</option>
+                  <option value="POKEMON">寶可夢</option>
+                  <option value="物品">物品</option>
+                  <option value="寶可夢道具">寶可夢道具</option>
+                  <option value="支援者">支援者</option>
+                  <option value="競技場">競技場</option>
+                  <option value="ENERGY">能量</option>
+                </select>
+
+                {/* 寶可夢專屬篩選：僅在類別為 POKEMON 時顯示 */}
+                {filters.category === "POKEMON" && (
+                  <>
+                    <select 
+                      value={filters.type}
+                      onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                      className="input-field w-32"
+                    >
+                      <option value="">選屬性</option>
+                      <option value="草">草</option>
+                      <option value="火">火</option>
+                      {/* ...其他屬性 */}
+                    </select>
+
+                    <select 
+                      value={filters.stage}
+                      onChange={(e) => setFilters(prev => ({ ...prev, stage: e.target.value }))}
+                      className="input-field w-32"
+                    >
+                      <option value="">基礎進化</option>
+                      <option value="基礎">基礎寶可夢</option>
+                      <option value="1階進化">1階進化</option>
+                      <option value="2階進化">2階進化</option>
+                    </select>
+                  </>
+                )}
+              </div>
+
+              {/* 關鍵字搜尋 */}
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input 
                   type="text" 
-                  placeholder="搜尋卡片名稱、屬性或賽制標記..." 
+                  placeholder="搜尋卡片名稱..."
                   className="input-field pl-10"
+                  value={filters.search}
+                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                 />
               </div>
-              <select className="input-field w-32">
-                <option>全部</option>
-                <option>寶可夢</option>
-                <option>訓練家</option>
-                <option>能量</option>
-              </select>
-            </div>
+            </div>    
 
             {/* 卡片網格展示區域 */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -181,6 +270,17 @@ export default function DeckCompositionEditor() {
                 </div>
               ))}
             </div>
+            {hasMore && (
+              <div className="mt-8 flex justify-center">
+                <button 
+                  onClick={handleLoadMore}
+                  disabled={libLoading}
+                  className="btn btn-outline w-full max-w-xs"
+                >
+                  {libLoading ? "載入中..." : "顯示更多卡片"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
