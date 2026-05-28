@@ -48,7 +48,6 @@ export function BattleShopExploreCard({
   mapCenterLat = 25.033,
   mapCenterLng = 121.565,
   radiusKm = 5,
-  onRadiusChange: _onRadiusChange,
   activeTab,
   onActiveTabChange,
 }: Props) {

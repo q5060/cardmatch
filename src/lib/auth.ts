@@ -25,6 +25,5 @@ export async function getCurrentUser() {
   });
   if (!user) return null;
   if (user.suspendedUntil && user.suspendedUntil > new Date()) return null;
-  const { suspendedUntil: _, ...safeUser } = user;
-  return safeUser;
+  return { id: user.id, email: user.email, displayName: user.displayName, bio: user.bio, avatarUrl: user.avatarUrl, createdAt: user.createdAt };
 }

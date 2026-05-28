@@ -32,9 +32,18 @@ export async function GET() {
       return NextResponse.json({ error: "SUSPENDED" }, { status: 401 });
     }
 
-    const { suspendedUntil: _, ...userData } = user;
     const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim()).filter(Boolean);
-    return NextResponse.json({ ...userData, isAdmin: adminEmails.includes(user.email) });
+    return NextResponse.json({
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      bio: user.bio,
+      avatarUrl: user.avatarUrl,
+      battleRecordVisibility: user.battleRecordVisibility,
+      winrateVisibility: user.winrateVisibility,
+      defaultShopId: user.defaultShopId,
+      isAdmin: adminEmails.includes(user.email),
+    });
   } catch (error) {
     console.error("Error fetching user:", error);
     return NextResponse.json(

@@ -223,9 +223,11 @@ export function BattleClient({
     if (!initialShopId) return;
     const shop = shopsData.find((s) => s.id === initialShopId);
     if (!shop) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
     setSelectedShop(shop);
     setFlyTo({ lat: shop.lat, lng: shop.lng, zoom: 16, key: Date.now() });
     setMapCenter({ lat: shop.lat, lng: shop.lng });
+    /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
