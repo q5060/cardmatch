@@ -90,6 +90,10 @@ export function NotificationDropdown({
         return `/friends`;
       case "MESSAGE":
         return notification.senderId ? `/chat/${notification.senderId}` : `/friends`;
+      case "SHOP_REPORT":
+        return `/admin/shop-reports`;
+      case "SHOP_REPORT_REPLY":
+        return `/notifications`;
       default:
         return "/notifications";
     }

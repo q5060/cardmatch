@@ -4,17 +4,19 @@ import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Search, Users, MapPin, UserCircle } from "lucide-react";
+import { Search, Users, MapPin, UserCircle, Store } from "lucide-react";
 import { BackLink } from "@/components/ui/BackLink";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
 
 interface SearchResult {
   id: string;
-  displayName: string;
+  type: "user" | "spot" | "shop";
+  displayName?: string;
   avatarUrl?: string | null;
-  type: "user" | "spot";
   label?: string;
+  name?: string;
+  addressNote?: string;
 }
 
 function SearchContent() {
@@ -82,7 +84,7 @@ function SearchContent() {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜尋使用者或約戰地點..."
+            placeholder="搜尋使用者、約戰地點或店家..."
             autoFocus
             className="input-field pl-10"
           />
@@ -119,7 +121,7 @@ function SearchContent() {
                       {result.avatarUrl ? (
                         <Image
                           src={result.avatarUrl}
-                          alt={result.displayName}
+                          alt={result.displayName ?? ""}
                           width={48}
                           height={48}
                           className="h-full w-full object-cover"
@@ -138,6 +140,22 @@ function SearchContent() {
                         </h3>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">使用者</p>
+                    </div>
+                  </Link>
+                ) : result.type === "shop" ? (
+                  <Link
+                    href={`/battle?shop=${result.id}`}
+                    className="card card-hover flex items-center gap-3 p-4"
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-emerald-50 text-emerald-700">
+                      <Store className="h-6 w-6" aria-hidden />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate font-medium text-foreground">{result.name}</h3>
+                      {result.addressNote && (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{result.addressNote}</p>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">卡牌店</p>
                     </div>
                   </Link>
                 ) : (
@@ -161,7 +179,7 @@ function SearchContent() {
         <EmptyState
           icon={<Search className="h-12 w-12" />}
           title="開始搜尋"
-          description="輸入使用者名稱或約戰地點標籤以搜尋"
+          description="輸入使用者名稱、約戰地點標籤或店家名稱以搜尋"
         />
       ) : null}
     </div>

@@ -10,6 +10,7 @@ import {
   Home,
   LogOut,
   Search,
+  Swords,
   UserCircle,
   Users,
   Settings,
@@ -27,9 +28,10 @@ const links: {
   Icon: typeof Home;
 }[] = [
   { href: "/", label: "首頁", Icon: Home },
-  { href: "/battle", label: "對戰", Icon: Search, auth: true },
+  { href: "/battle", label: "對戰", Icon: Swords, auth: true },
   { href: "/friends", label: "好友", Icon: Users, auth: true },
   { href: "/profile", label: "我的檔案", Icon: UserCircle, auth: true },
+  { href: "/search", label: "搜尋", Icon: Search, auth: true },
 ];
 
 /** `/profile` must not match `/profile/[userId]` for active state. */
@@ -146,23 +148,31 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
           ) : null}
           {visibleLinks.map(({ href, label, Icon }) => {
             const active = isNavLinkActive(href, pathname);
+            const isSearch = href === "/search";
             return (
-              <Link
-                key={href}
-                ref={(el) => {
-                  if (el) linkRefs.current.set(href, el);
-                  else linkRefs.current.delete(href);
-                }}
-                href={href}
-                className={`relative z-[1] flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] ${
-                  active
-                    ? "text-primary"
-                    : "text-muted-foreground hover:bg-black/[0.04] hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-[18px] w-[18px] shrink-0 opacity-90" strokeWidth={1.75} aria-hidden />
-                {label}
-              </Link>
+              <span key={href} className={`contents ${isSearch ? "ml-2" : ""}`}>
+                {isSearch && (
+                  <span className="mx-1 h-5 w-px shrink-0 bg-border/70" aria-hidden />
+                )}
+                <Link
+                  ref={(el) => {
+                    if (el) linkRefs.current.set(href, el);
+                    else linkRefs.current.delete(href);
+                  }}
+                  href={href}
+                  aria-label={isSearch ? label : undefined}
+                  className={`relative z-[1] flex items-center gap-2 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] ${
+                    isSearch ? "px-2.5 py-2" : "px-4 py-2 text-sm font-medium"
+                  } ${
+                    active
+                      ? "text-primary"
+                      : "text-muted-foreground hover:bg-black/[0.04] hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0 opacity-90" strokeWidth={1.75} aria-hidden />
+                  {!isSearch && label}
+                </Link>
+              </span>
             );
           })}
         </nav>
@@ -170,16 +180,6 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
         <div className="flex shrink-0 items-center gap-2">
           {user ? (
             <>
-              {/* Desktop: Search Button */}
-              <Link
-                href="/search"
-                className="hidden md:flex btn btn-ghost text-foreground cursor-pointer"
-                title="搜尋"
-                aria-label="搜尋"
-              >
-                <Search className="h-5 w-5" strokeWidth={1.75} />
-              </Link>
-
               <NotificationBell
                 initialUnreadCount={pendingInvites}
                 onCountChange={setNotificationUnread}
@@ -276,16 +276,6 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
 
                     {user && (
                       <>
-                        {/* Search */}
-                        <Link
-                          href="/search"
-                          className="menu-panel-item border-b border-border"
-                          onClick={() => setShowMobileMenu(false)}
-                        >
-                          <Search className="h-4 w-4" strokeWidth={1.75} />
-                          搜尋
-                        </Link>
-
                         {/* Notification Badge with Link */}
                         <Link
                           href="/notifications"

@@ -41,18 +41,20 @@ export async function GET(request: NextRequest) {
     const spots = await prisma.meetSpot.findMany({
       where: {
         userId: { notIn: [user.id, ...blockedIds] },
-        label: {
-          contains: trimmedQuery,
-        },
+        label: { contains: trimmedQuery, mode: "insensitive" },
         active: true,
         looking: true,
         expiresAt: { gt: new Date() },
       },
-      select: {
-        id: true,
-        label: true,
-      },
+      select: { id: true, label: true },
       take: 10,
+    });
+
+    // Search for shops
+    const shops = await prisma.shop.findMany({
+      where: { name: { contains: trimmedQuery, mode: "insensitive" } },
+      select: { id: true, name: true, addressNote: true },
+      take: 8,
     });
 
     // Format results
@@ -67,6 +69,12 @@ export async function GET(request: NextRequest) {
         id: s.id,
         label: s.label,
         type: "spot" as const,
+      })),
+      ...shops.map((s) => ({
+        id: s.id,
+        name: s.name,
+        addressNote: s.addressNote ?? undefined,
+        type: "shop" as const,
       })),
     ];
 

@@ -20,6 +20,7 @@ export async function GET() {
         battleRecordVisibility: true,
         winrateVisibility: true,
         defaultShopId: true,
+        suspendedUntil: true,
       },
     });
 
@@ -27,7 +28,13 @@ export async function GET() {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    if (user.suspendedUntil && user.suspendedUntil > new Date()) {
+      return NextResponse.json({ error: "SUSPENDED" }, { status: 401 });
+    }
+
+    const { suspendedUntil: _, ...userData } = user;
+    const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+    return NextResponse.json({ ...userData, isAdmin: adminEmails.includes(user.email) });
   } catch (error) {
     console.error("Error fetching user:", error);
     return NextResponse.json(

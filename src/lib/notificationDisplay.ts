@@ -67,6 +67,10 @@ export function getNotificationTitle(
       return "收到好友邀請";
     case "MESSAGE":
       return "收到新訊息";
+    case "SHOP_REPORT":
+      return "新店家回報";
+    case "SHOP_REPORT_REPLY":
+      return "店家回報已處理";
     default:
       return "新通知";
   }

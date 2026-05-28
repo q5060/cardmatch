@@ -25,6 +25,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "帳號或密碼錯誤" }, { status: 401 });
   }
 
+  if (user.suspendedUntil && user.suspendedUntil > new Date()) {
+    const until = user.suspendedUntil.toLocaleDateString("zh-TW");
+    return NextResponse.json({ error: `此帳號已被停權至 ${until}` }, { status: 403 });
+  }
+
   const session = await getIronSession<SessionData>(
     await cookies(),
     sessionOptions,

@@ -12,9 +12,9 @@ type Props = {
 export function BattleShopList({ shops, onSelectShop }: Props) {
   return (
     <ul
-      className="min-h-[352px] space-y-2 overflow-y-auto overscroll-contain pr-0.5"
+      className="max-h-[352px] space-y-2 overflow-y-auto overscroll-contain pr-0.5"
       role="list"
-      style={{ minHeight: "calc(3 * 110px + 16px)" }} // 3 items * ~110px each + gaps
+      style={{ maxHeight: "calc(3 * 110px + 16px)" }}
     >
       {shops.map((shop, index) => (
         <li key={shop.id} className={staggerClass(index)}>
@@ -41,17 +41,6 @@ export function BattleShopList({ shops, onSelectShop }: Props) {
                     }`}
                   >
                     {shop.openNow ? "營業中" : "休息中"}
-                  </span>
-                ) : null}
-                {shop.hasPtcgBattleArea != null ? (
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      shop.hasPtcgBattleArea
-                        ? "bg-primary/10 text-primary"
-                        : "bg-neutral-100 text-neutral-600"
-                    }`}
-                  >
-                    {shop.hasPtcgBattleArea ? "PTCG 對戰區" : "無對戰區"}
                   </span>
                 ) : null}
                 {shop.lobbyCount != null && shop.lobbyCount > 0 ? (
