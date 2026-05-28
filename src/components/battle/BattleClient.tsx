@@ -1,94 +1,275 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { UserRound } from "lucide-react";
-import { MeetMap, type MapPeerPin, type MapShopPin } from "@/components/map/MeetMap";
+import { UserRound, ArrowLeft } from "lucide-react";
+import {
+  MeetMap,
+  type MapAnnouncementPin,
+  type MapShopPin,
+} from "@/components/map/MeetMap";
+
+import type { MapFlyToTarget, MapPreviewPin } from "@/components/map/MeetMapClient";
 import { MatchChat } from "@/components/battle/MatchChat";
+import { BattleMyAnnouncementBar } from "@/components/battle/BattleMyAnnouncementBar";
+import { BattleExplorePanel } from "@/components/battle/BattleExplorePanel";
+import { BattleRandomMatch } from "@/components/battle/BattleRandomMatch";
+import { RadiusFilter } from "@/components/battle/RadiusFilter";
+import { BattleShopExploreCard } from "@/components/battle/BattleShopExploreCard";
+import { ResponsiveSheet } from "@/components/battle/ResponsiveSheet";
+import { ShopLobbyContent } from "@/components/battle/ShopLobbyContent";
+import { AnnouncementContent } from "@/components/battle/AnnouncementContent";
+import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
+import {
+  PublishAnnouncementContent,
+  type PublishDraft,
+} from "@/components/battle/PublishAnnouncementContent";
 import {
   acceptInvite,
   cancelMatch,
+  rejectCancelRequest,
   finishMatch,
-  joinRandomQueue,
-  leaveQueue,
   rejectInvite,
   resetBattleResult,
-  sendLobbyInvite,
+  sendInviteFromSpot,
   setReady,
 } from "@/actions/match";
+import { clearBattleAnnouncement, refreshShops } from "@/actions/meetSpot";
 import { MATCH_STATUS } from "@/lib/constants";
+import type { ActiveMatchDTO, BattleResultDTO } from "@/lib/matchDto";
+import type { MapAnnouncementDTO } from "@/lib/queries";
+import type { QueueStatus } from "@/actions/matchQueue";
+import {
+  useRealtimeConnected,
+  useRealtimeEvent,
+} from "@/hooks/useRealtimeEvent";
+import { useMatchCeremony } from "@/hooks/useMatchCeremony";
+import { BattleCeremonyOverlay } from "@/components/battle/BattleCeremonyOverlay";
+import { BattleReadyStrip } from "@/components/battle/BattleReadyStrip";
+import type { RealtimeEvent } from "@/lib/realtime/types";
 
-export type ActiveMatchDTO = {
-  id: number;
-  status: string;
-  invitedById: number;
-  playerAId: number;
-  playerBId: number;
-  playerAReady: boolean;
-  playerBReady: boolean;
-  meetLat: number;
-  meetLng: number;
-  meetLabel: string;
-  playerA: { id: number; displayName: string; avatarUrl?: string | null };
-  playerB: { id: number; displayName: string; avatarUrl?: string | null };
-};
-
-export type BattleResultDTO = {
-  id: string;
-  matchId: number;
-  winnerId: number | null;
-  playerAAgreed: boolean;
-  playerBAgreed: boolean;
-  status: string;
-} | null;
-
-type LobbyPeer = MapPeerPin & { timeNote: string };
+export type { ActiveMatchDTO, BattleResultDTO };
 
 export function BattleClient({
   userId,
   shops,
-  lobbyPeers,
-  activeMatch,
-  inQueue,
+  announcements: initialAnnouncements,
+  myAnnouncement: initialMyAnnouncement,
+  activeMatch: initialActiveMatch,
   defaultLat,
   defaultLng,
-  battleResult,
+  battleResult: initialBattleResult,
+  defaultShopId = null,
+  initialQueueStatus = null,
 }: {
   userId: number;
   shops: MapShopPin[];
-  lobbyPeers: LobbyPeer[];
+  announcements: MapAnnouncementDTO[];
+  myAnnouncement: MapAnnouncementDTO | null;
   activeMatch: ActiveMatchDTO | null;
-  inQueue: boolean;
   defaultLat: number;
   defaultLng: number;
   battleResult?: BattleResultDTO;
+  defaultShopId?: string | null;
+  initialQueueStatus?: QueueStatus | null;
 }) {
-  const router = useRouter();
-  const [tab, setTab] = useState<"map" | "list">("map");
-  const [radius, setRadius] = useState(5);
+  const sseConnected = useRealtimeConnected();
+  const [activeMatch, setActiveMatch] = useState<ActiveMatchDTO | null>(
+    initialActiveMatch,
+  );
+  const [battleResult, setBattleResult] = useState<BattleResultDTO>(
+    initialBattleResult ?? null,
+  );
+  const [announcements, setAnnouncements] =
+    useState<MapAnnouncementDTO[]>(initialAnnouncements);
+  const [myAnnouncement, setMyAnnouncement] = useState<MapAnnouncementDTO | null>(
+    initialMyAnnouncement,
+  );
+  const [shopsData, setShopsData] = useState<MapShopPin[]>(shops);
+
   const [outcome, setOutcome] = useState<"WIN" | "LOSS" | "DRAW">("WIN");
   const [addFriend, setAddFriend] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [publishDraft, setPublishDraft] = useState<PublishDraft | null>(null);
+  const [sheetAnnouncement, setSheetAnnouncement] =
+    useState<MapAnnouncementDTO | null>(null);
+  const [selectedShop, setSelectedShop] = useState<MapShopPin | null>(null);
+  const [flyTo, setFlyTo] = useState<MapFlyToTarget | null>(null);
+  const [previewPin, setPreviewPin] = useState<MapPreviewPin | null>(null);
+  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const locationAttemptedRef = useRef(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [radiusKm, setRadiusKm] = useState<number>(5);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
+  const [randomMatchCircle, setRandomMatchCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
+  const seenInviteMatchIdRef = useRef<number | null>(null);
+  const autoCleanedRef = useRef<number | null>(null);
+  const isFlyingRef = useRef(false);
 
-  const peers: MapPeerPin[] = useMemo(
-    () =>
-      lobbyPeers.map((p) => ({
-        userId: p.userId,
-        displayName: p.displayName,
-        avatarUrl: p.avatarUrl,
-        lat: p.lat,
-        lng: p.lng,
-        label: p.label,
-      })),
-    [lobbyPeers],
-  );
+  const isIncomingInvite =
+    activeMatch?.status === MATCH_STATUS.INVITE_PENDING &&
+    activeMatch.invitedById !== userId;
 
-  /** Server props only refresh after your own actions; poll so the opponent's ready state & status sync. */
+  const mapPins: MapAnnouncementPin[] = useMemo(() => {
+    const pins: MapAnnouncementPin[] = announcements
+      .filter((a) => !a.shopId) // Only show custom-location announcements on map, not shop-based ones
+      .map((a) => ({
+        spotId: a.spotId,
+        userId: a.userId,
+        displayName: a.displayName,
+        avatarUrl: a.avatarUrl,
+        lat: a.lat,
+        lng: a.lng,
+        label: a.label,
+        playNote: a.playNote || undefined,
+        expiresAt: a.expiresAt,
+        isOwn: false,
+      }));
+    if (myAnnouncement && !myAnnouncement.shopId) {
+      pins.push({
+        spotId: myAnnouncement.spotId,
+        userId: myAnnouncement.userId,
+        displayName: myAnnouncement.displayName,
+        avatarUrl: myAnnouncement.avatarUrl,
+        lat: myAnnouncement.lat,
+        lng: myAnnouncement.lng,
+        label: myAnnouncement.label,
+        playNote: myAnnouncement.playNote || undefined,
+        expiresAt: myAnnouncement.expiresAt,
+        isOwn: true,
+      });
+    }
+    return pins;
+  }, [announcements, myAnnouncement]);
+
+  const announcementBySpotId = useMemo(() => {
+    const map = new Map<string, MapAnnouncementDTO>();
+    for (const a of announcements) map.set(a.spotId, a);
+    if (myAnnouncement) map.set(myAnnouncement.spotId, myAnnouncement);
+    return map;
+  }, [announcements, myAnnouncement]);
+
+  const syncActiveMatch = useCallback(async () => {
+    try {
+      const res = await fetch("/api/matches/active");
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        activeMatch: ActiveMatchDTO | null;
+        battleResult: BattleResultDTO;
+      };
+      setActiveMatch(data.activeMatch);
+      setBattleResult(data.battleResult);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  const syncMapSnapshot = useCallback(async () => {
+    try {
+      const res = await fetch("/api/battle/snapshot");
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        announcements: MapAnnouncementDTO[];
+        myAnnouncement: MapAnnouncementDTO | null;
+      };
+      setAnnouncements(data.announcements);
+      setMyAnnouncement(data.myAnnouncement);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([syncActiveMatch(), syncMapSnapshot()]);
+    // Don't auto-adjust map position - let user control it
+  }, [syncActiveMatch, syncMapSnapshot]);
+
+  const onMatchUpdated = useCallback((e: RealtimeEvent) => {
+    if (e.type !== "match.updated") return;
+    setActiveMatch(e.activeMatch);
+    setBattleResult(e.battleResult);
+  }, []);
+
+  useRealtimeEvent((ev) => ev.type === "match.updated", onMatchUpdated);
+
+  /** Map snapshot fallback when SSE is disconnected. */
   useEffect(() => {
-    if (!activeMatch) return;
+    if (activeMatch || sseConnected) return;
+    const ms = myAnnouncement ? 15_000 : 30_000;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void syncMapSnapshot();
+    }, ms);
+    return () => window.clearInterval(id);
+  }, [activeMatch, myAnnouncement, sseConnected, syncMapSnapshot]);
+
+  useEffect(() => {
+    if (!isIncomingInvite) {
+      document.title = "對戰 | CardMatch";
+      return;
+    }
+    document.title = "（新邀請）對戰 | CardMatch";
+    return () => {
+      document.title = "對戰 | CardMatch";
+    };
+  }, [isIncomingInvite]);
+
+  /** Request user's GPS location when component mounts */
+  useEffect(() => {
+    if (locationAttemptedRef.current || !navigator.geolocation) return;
+    locationAttemptedRef.current = true;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setGpsLocation({ lat, lng });
+        setMapCenter({ lat, lng });
+      },
+      () => {
+        // Silently fail - use default location
+      },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const id = window.setTimeout(() => setSuccessMessage(null), 5000);
+    return () => window.clearTimeout(id);
+  }, [successMessage]);
+
+  /** Auto-clear announcement when match is accepted */
+  useEffect(() => {
+    if (!activeMatch || activeMatch.status !== MATCH_STATUS.ACCEPTED || !myAnnouncement) return;
+    // Only clear once per match
+    if (autoCleanedRef.current === activeMatch.id) return;
+
+    autoCleanedRef.current = activeMatch.id;
+    run(async () => {
+      await clearBattleAnnouncement();
+    });
+  }, [activeMatch?.id, activeMatch?.status, myAnnouncement?.spotId]);
+
+  const displayedRandomMatchCircle = activeMatch ? null : randomMatchCircle;
+
+  function handleAnnouncementPublished(published: PublishDraft & { label: string }) {
+    void refresh();
+    if (published.shopId) {
+      const shopName =
+        shops.find((s) => s.id === published.shopId)?.name ?? published.label;
+      setSuccessMessage(
+        `已在「${shopName}」發布卡店公告。可點上方「查看大廳」查看等待中的玩家。`,
+      );
+    } else {
+      setSuccessMessage(
+        `已在「${published.label}」發布約戰公告（地圖綠色釘顯示自訂地點）。`,
+      );
+    }
+  }
+
+  /** Match state fallback when SSE is disconnected. */
+  useEffect(() => {
+    if (!activeMatch || sseConnected) return;
     const syncStatuses = new Set<string>([
       MATCH_STATUS.ACCEPTED,
       MATCH_STATUS.INVITE_PENDING,
@@ -97,28 +278,74 @@ export function BattleClient({
     if (!syncStatuses.has(activeMatch.status)) return;
 
     const id = window.setInterval(() => {
-      router.refresh();
-    }, 2500);
+      if (document.visibilityState === "visible") void syncActiveMatch();
+    }, 30_000);
 
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- poll keyed by match id + status only
-  }, [activeMatch?.id, activeMatch?.status, router]);
+  }, [activeMatch?.id, activeMatch?.status, sseConnected, syncActiveMatch]);
 
-  function refresh() {
-    router.refresh();
-  }
+  // Periodically refresh shop counts (every 10 seconds)
+  useEffect(() => {
+    const id = window.setInterval(async () => {
+      try {
+        const updatedShops = await refreshShops();
+        setShopsData(updatedShops);
+      } catch (err) {
+        console.error("Failed to refresh shop data:", err);
+      }
+    }, 10_000);
+
+    return () => window.clearInterval(id);
+  }, []);
 
   function run(action: () => Promise<unknown>) {
     setErr(null);
     startTransition(async () => {
       try {
         await action();
-        refresh();
+        await refresh();
       } catch (e) {
         setErr(e instanceof Error ? e.message : "操作失敗");
       }
     });
   }
+
+  function openPublishAt(lat: number, lng: number, label: string, shopId?: string | null) {
+    setPublishDraft({ lat, lng, label, shopId });
+  }
+
+  function handleAnnouncementClick(spotId: string) {
+    const ann = announcementBySpotId.get(spotId);
+    if (ann) {
+      setSheetAnnouncement(ann);
+      // Fly to the player's location
+      isFlyingRef.current = true;
+      setFlyTo({ lat: ann.lat, lng: ann.lng, zoom: 15, key: Date.now() });
+      // Clear flyTo after animation completes to prevent map from being pulled back
+      setTimeout(() => {
+        setFlyTo(null);
+        isFlyingRef.current = false;
+      }, 1000);
+    }
+  }
+
+  function selectShopOnMap(shop: MapShopPin) {
+    setPublishDraft(null);
+    setSheetAnnouncement(null);
+    isFlyingRef.current = true;
+    setFlyTo({ lat: shop.lat, lng: shop.lng, zoom: 15, key: Date.now() });
+    // Clear flyTo after animation completes to prevent map from being pulled back
+    setTimeout(() => {
+      setFlyTo(null);
+      isFlyingRef.current = false;
+    }, 1000);
+    setMapCenter({ lat: shop.lat, lng: shop.lng });
+    setPreviewPin(null);
+    setSelectedShop(shop);
+  }
+
+  const mapSheetOpen = !!(selectedShop || sheetAnnouncement || publishDraft);
+  const mapHeight = mapSheetOpen ? 380 : 500;
 
   const otherPlayer = activeMatch
     ? activeMatch.playerAId === userId
@@ -132,6 +359,17 @@ export function BattleClient({
       : activeMatch.playerAId
     : null;
 
+  // Memoized callback for map center changes - must be defined at top level to follow Rules of Hooks
+  const handleMapCenterChange = useCallback((lat: number, lng: number) => {
+    // Ignore map center changes while flying to prevent infinite update loops
+    if (isFlyingRef.current) return;
+
+    setMapCenter(prev => {
+      if (prev.lat === lat && prev.lng === lng) return prev;
+      return { lat, lng };
+    });
+  }, []);
+
   const iAmA = activeMatch ? activeMatch.playerAId === userId : false;
   const myReady = activeMatch
     ? iAmA
@@ -144,11 +382,61 @@ export function BattleClient({
       : activeMatch.playerAReady
     : false;
 
+  const { ceremony, dismissCeremony } = useMatchCeremony(
+    activeMatch,
+    userId,
+    seenInviteMatchIdRef,
+  );
+
   if (activeMatch) {
     const st = activeMatch.status;
+    const showCeremony =
+      ceremony !== null && ceremony.matchId === activeMatch.id;
 
     return (
       <div className="space-y-6">
+        {showCeremony ? (
+          <BattleCeremonyOverlay
+            key={`${ceremony.matchId}-${ceremony.kind}`}
+            ceremony={ceremony}
+            onDismiss={dismissCeremony}
+            inviteActions={
+              ceremony.kind === "incoming_invite" ? (
+                <>
+                  <button
+                    type="button"
+                    data-testid="accept-invite"
+                    disabled={pending}
+                    onClick={() =>
+                      run(async () => {
+                        await acceptInvite(activeMatch.id.toString());
+                        dismissCeremony();
+                      })
+                    }
+                    className="btn btn-primary min-w-[7rem]"
+                  >
+                    接受約戰
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      run(async () => {
+                        await rejectInvite(activeMatch.id.toString());
+                        dismissCeremony();
+                      })
+                    }
+                    className="btn btn-outline border-red-200 font-semibold text-red-700 hover:bg-red-50"
+                  >
+                    拒絕
+                  </button>
+                </>
+              ) : undefined
+            }
+          />
+        ) : null}
+
+        <div key={st} className="motion-fade-in-up space-y-6">
         <div className="card card-hover p-5">
           <h2 className="text-lg font-semibold text-foreground">進行中的約戰</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -163,53 +451,69 @@ export function BattleClient({
             ) : (
               otherPlayer?.displayName
             )}
-            {" · "}
-            {activeMatch.meetLabel}
           </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            座標：{activeMatch.meetLat.toFixed(4)}, {activeMatch.meetLng.toFixed(4)}
-          </p>
+          <LocationNavBlock
+            className="mt-3"
+            label={activeMatch.meetLabel}
+            lat={activeMatch.meetLat}
+            lng={activeMatch.meetLng}
+          />
           {err ? (
-            <p
-              className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-              role="alert"
-            >
+            <p className="alert-error mt-3" role="alert">
               {err}
             </p>
           ) : null}
         </div>
 
         {st === MATCH_STATUS.INVITE_PENDING ? (
-          <div className="card card-hover space-y-3 p-5">
+          <div
+            id="pending-invite"
+            className={`space-y-3 p-5 ${activeMatch.invitedById !== userId
+                ? "rounded-xl border-2 border-primary bg-primary/5 shadow-lg ring-2 ring-primary/20"
+                : "card card-hover"
+              }`}
+          >
             {activeMatch.invitedById === userId ? (
               <p className="text-foreground">已送出邀請，等待對方回應。</p>
             ) : (
               <>
-                <p className="text-foreground">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  約戰邀請
+                </p>
+                <p className="text-lg font-semibold text-foreground">
                   {otherPlayerId && otherPlayer ? (
                     <Link
                       href={`/profile/${otherPlayerId}`}
-                      className="font-medium text-primary underline-offset-2 hover:underline"
+                      className="text-primary underline-offset-2 hover:underline"
                     >
                       {otherPlayer.displayName}
                     </Link>
                   ) : (
                     otherPlayer?.displayName
                   )}
-                  邀請你約戰。
+                  <span className="font-normal text-foreground"> 邀請你約戰</span>
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {/* {otherPlayerId ? (
+                    <Link
+                      href={`/profile/${otherPlayerId}`}
+                      className="btn btn-outline btn-sm"
+                    >
+                      查看個人檔案
+                    </Link>
+                  ) : null} */}
                   <button
                     type="button"
+                    data-testid="accept-invite"
                     disabled={pending}
                     onClick={() =>
                       run(async () => {
                         await acceptInvite(activeMatch.id.toString());
                       })
                     }
-                    className="btn btn-primary"
+                    className="btn btn-primary min-w-[7rem]"
                   >
-                    接受
+                    接受約戰
                   </button>
                   <button
                     type="button"
@@ -226,58 +530,7 @@ export function BattleClient({
                 </div>
               </>
             )}
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  await cancelMatch(activeMatch.id.toString());
-                })
-              }
-              className="text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground"
-            >
-              取消此約戰
-            </button>
-          </div>
-        ) : null}
-
-        {(st === MATCH_STATUS.ACCEPTED || st === MATCH_STATUS.IN_PROGRESS) && (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <MeetMap
-              shops={shops}
-              peers={[]}
-              center={[activeMatch.meetLat, activeMatch.meetLng]}
-              zoom={14}
-              height={280}
-            />
-            <MatchChat matchId={activeMatch.id.toString()} currentUserId={userId} />
-          </div>
-        )}
-
-        {st === MATCH_STATUS.ACCEPTED && (
-          <div className="card card-hover space-y-3 p-5">
-            <p className="text-sm text-foreground">
-              雙方準備完成後將自動開始對戰。你的狀態：
-              <strong className="mx-0.5">{myReady ? "已準備" : "未準備"}</strong>
-              ，對方：
-              <strong className="mx-0.5">{theirReady ? "已準備" : "未準備"}</strong>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              對方按下準備後，此處約每 2.5 秒自動同步；仍不符時請重新整理頁面。
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() =>
-                  run(async () => {
-                    await setReady(activeMatch.id.toString(), !myReady);
-                  })
-                }
-                className="btn btn-primary"
-              >
-                {myReady ? "取消準備" : "我準備好了"}
-              </button>
+            {activeMatch.invitedById === userId && (
               <button
                 type="button"
                 disabled={pending}
@@ -286,16 +539,181 @@ export function BattleClient({
                     await cancelMatch(activeMatch.id.toString());
                   })
                 }
-                className="btn btn-outline"
+                className="text-xs text-muted-foreground underline underline-offset-2 transition hover:text-foreground"
               >
-                取消約戰
+                取消邀請
               </button>
-            </div>
+            )}
+          </div>
+        ) : null}
+
+        {(st === MATCH_STATUS.ACCEPTED || st === MATCH_STATUS.IN_PROGRESS) && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <MeetMap
+              shops={shopsData}
+              announcements={[]}
+              center={[activeMatch.meetLat, activeMatch.meetLng]}
+              zoom={14}
+              height={280}
+              showLegend={false}
+              onRefresh={refresh}
+              meetPin={{ lat: activeMatch.meetLat, lng: activeMatch.meetLng, label: activeMatch.meetLabel }}
+            />
+            <MatchChat matchId={activeMatch.id.toString()} currentUserId={userId} />
+          </div>
+        )}
+
+
+        {st === MATCH_STATUS.ACCEPTED && (
+          <div className="card card-hover space-y-3 p-5">
+            {activeMatch.cancelRequestedBy ? (
+              <>
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {activeMatch.cancelRequestedBy === userId
+                    ? "你已請求取消約戰"
+                    : "對方請求取消約戰"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {activeMatch.cancelRequestedBy !== userId && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await cancelMatch(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-primary"
+                      >
+                        同意取消
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await rejectCancelRequest(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-outline border-red-200 text-red-700"
+                      >
+                        拒絕取消
+                      </button>
+                    </>
+                  )}
+                  {activeMatch.cancelRequestedBy === userId && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() =>
+                        run(async () => {
+                          await cancelMatch(activeMatch.id.toString());
+                        })
+                      }
+                      className="btn btn-outline text-xs"
+                    >
+                      撤回取消請求
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <BattleReadyStrip
+                activeMatch={activeMatch}
+                userId={userId}
+                myReady={myReady}
+                theirReady={theirReady}
+                readyButtonClassName="flex flex-wrap gap-2"
+              >
+                <button
+                  type="button"
+                  data-testid="mark-ready"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      await setReady(activeMatch.id.toString(), !myReady);
+                    })
+                  }
+                  className={`btn btn-primary ${
+                    theirReady && !myReady ? "ring-2 ring-primary/40" : ""
+                  }`}
+                >
+                  {myReady ? "取消準備" : "我準備好了"}
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    run(async () => {
+                      await cancelMatch(activeMatch.id.toString());
+                    })
+                  }
+                  className="btn btn-outline"
+                >
+                  請求取消約戰
+                </button>
+              </BattleReadyStrip>
+            )}
           </div>
         )}
 
         {st === MATCH_STATUS.IN_PROGRESS && (
           <div className="card card-hover space-y-4 p-5">
+            {activeMatch.cancelRequestedBy && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <p className="text-sm text-amber-700 mb-2">
+                  {activeMatch.cancelRequestedBy === userId
+                    ? "你已請求取消約戰"
+                    : "對方請求取消約戰"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {activeMatch.cancelRequestedBy !== userId && (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await cancelMatch(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-sm btn-primary"
+                      >
+                        同意取消
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          run(async () => {
+                            await rejectCancelRequest(activeMatch.id.toString());
+                          })
+                        }
+                        className="btn btn-sm btn-outline border-red-200 text-red-700"
+                      >
+                        拒絕取消
+                      </button>
+                    </>
+                  )}
+                  {activeMatch.cancelRequestedBy === userId && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() =>
+                        run(async () => {
+                          await cancelMatch(activeMatch.id.toString());
+                        })
+                      }
+                      className="btn btn-sm btn-outline"
+                    >
+                      撤回取消請求
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             <h3 className="font-semibold text-foreground">選擇勝方</h3>
             {err && err.includes("不相符") && (
               <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -343,7 +761,7 @@ export function BattleClient({
                           <p className="font-medium text-foreground text-sm">你</p>
                           <p className="text-xs text-muted-foreground">{iAmA ? activeMatch.playerA.displayName : activeMatch.playerB.displayName}</p>
                         </div>
-                        <button 
+                        <button
                           type="button"
                           disabled
                           className={`w-full btn btn-sm ${outcome === "WIN" ? "btn-primary" : "btn-outline"}`}
@@ -381,7 +799,7 @@ export function BattleClient({
                           <p className="font-medium text-foreground text-sm">對方</p>
                           <p className="text-xs text-muted-foreground">{otherPlayer?.displayName}</p>
                         </div>
-                        <button 
+                        <button
                           type="button"
                           disabled
                           className={`w-full btn btn-sm ${outcome === "LOSS" ? "btn-primary" : "btn-outline"}`}
@@ -391,7 +809,7 @@ export function BattleClient({
                       </div>
                     </div>
 
-                    <button 
+                    <button
                       type="button"
                       disabled
                       className={`w-full btn btn-sm ${outcome === "DRAW" ? "btn-primary" : "btn-outline"}`}
@@ -399,7 +817,7 @@ export function BattleClient({
                       平手
                     </button>
 
-                    <button 
+                    <button
                       type="button"
                       disabled
                       className={`w-full btn btn-primary`}
@@ -411,13 +829,13 @@ export function BattleClient({
                   // OPPONENT SUBMITTED - Show confirmation UI
                   <div className="space-y-4">
                     <p className="text-sm text-foreground">
-                      對方選擇 <strong>
+                      對方將比賽結束選擇為 <strong>
                         {battleResult.winnerId === null ? "平手" : battleResult.winnerId === userId ? "你" : "他們"}
                       </strong>
                       {battleResult.winnerId !== null && <span>獲勝</span>}
                       ，是否無誤？
                     </p>
-                    
+
                     <div className="grid gap-3 grid-cols-2">
                       <button
                         type="button"
@@ -565,165 +983,316 @@ export function BattleClient({
             )}
           </div>
         )}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="card flex gap-1 p-1">
+  const sheetOpen = !!(selectedShop || sheetAnnouncement || publishDraft);
+
+  const exploreSheets = (
+    <>
+      <ResponsiveSheet
+        isOpen={!!selectedShop}
+        onClose={() => setSelectedShop(null)}
+        title={selectedShop?.name}
+      >
+        {selectedShop && (
+          <ShopLobbyContent
+            shop={selectedShop}
+            currentUserId={userId}
+            parentPending={pending}
+            onSelectPlayer={(ann) => {
+              setSelectedShop(null);
+              setSheetAnnouncement(ann);
+            }}
+            onPublishAtShop={(shop) => {
+              setSelectedShop(null);
+              openPublishAt(shop.lat, shop.lng, shop.name, shop.id);
+            }}
+            onCleared={() => {
+              setSelectedShop(null);
+            }}
+          />
+        )}
+      </ResponsiveSheet>
+
+      <ResponsiveSheet
+        isOpen={!!sheetAnnouncement}
+        onClose={() => setSheetAnnouncement(null)}
+        title={sheetAnnouncement?.displayName}
+      >
+        {sheetAnnouncement && (
+          <AnnouncementContent
+            announcement={sheetAnnouncement}
+            isOwn={sheetAnnouncement.userId === userId}
+            pending={pending}
+            onInvite={() => {
+              if (!sheetAnnouncement) return;
+              run(async () => {
+                await sendInviteFromSpot(sheetAnnouncement.spotId);
+                setSheetAnnouncement(null);
+              });
+            }}
+            onClear={() =>
+              run(async () => {
+                await clearBattleAnnouncement();
+                setSheetAnnouncement(null);
+              })
+            }
+          />
+        )}
+      </ResponsiveSheet>
+
+      <ResponsiveSheet
+        isOpen={!!publishDraft}
+        onClose={() => setPublishDraft(null)}
+        title="發布約戰公告"
+      >
+        {publishDraft && (
+          <PublishAnnouncementContent
+            draft={publishDraft}
+            onClose={() => setPublishDraft(null)}
+            onPublished={handleAnnouncementPublished}
+          />
+        )}
+      </ResponsiveSheet>
+    </>
+  );
+
+  // Determine if we should show detail view on the left side
+  const showDetailView = !!(selectedShop || sheetAnnouncement || publishDraft);
+
+  // Detail view content for left sidebar (replaces shopExplore when viewing details)
+  const detailView = selectedShop ? (
+    <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
+      <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => setTab("map")}
-          className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-            tab === "map"
-              ? "bg-primary text-white shadow-md shadow-primary/25"
-              : "text-muted-foreground hover:bg-black/[0.04]"
-          }`}
+          onClick={() => setSelectedShop(null)}
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          aria-label="返回列表"
         >
-          地圖
+          <ArrowLeft className="w-5 h-5" />
         </button>
-        <button
-          type="button"
-          onClick={() => setTab("list")}
-          className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-            tab === "list"
-              ? "bg-primary text-white shadow-md shadow-primary/25"
-              : "text-muted-foreground hover:bg-black/[0.04]"
-          }`}
-        >
-          名單
-        </button>
+        <h2 className="text-base font-semibold text-foreground truncate">{selectedShop.name}</h2>
       </div>
+      <ShopLobbyContent
+        shop={selectedShop}
+        currentUserId={userId}
+        parentPending={pending}
+        onSelectPlayer={(ann) => {
+          setSelectedShop(null);
+          setSheetAnnouncement(ann);
+        }}
+        onPublishAtShop={(shop) => {
+          setSelectedShop(null);
+          openPublishAt(shop.lat, shop.lng, shop.name, shop.id);
+        }}
+        onCleared={() => {
+          setSelectedShop(null);
+        }}
+      />
+    </div>
+  ) : sheetAnnouncement ? (
+    <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setSheetAnnouncement(null)}
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          aria-label="返回列表"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-base font-semibold text-foreground truncate">{sheetAnnouncement.displayName}</h2>
+      </div>
+      <div className="min-h-0 overflow-y-auto">
+        <AnnouncementContent
+          announcement={sheetAnnouncement}
+          isOwn={sheetAnnouncement.userId === userId}
+          pending={pending}
+          onInvite={() => {
+            if (!sheetAnnouncement) return;
+            run(async () => {
+              await sendInviteFromSpot(sheetAnnouncement.spotId);
+              setSheetAnnouncement(null);
+            });
+          }}
+          onClear={() =>
+            run(async () => {
+              await clearBattleAnnouncement();
+              setSheetAnnouncement(null);
+            })
+          }
+        />
+      </div>
+    </div>
+  ) : publishDraft ? (
+    <div className="card flex min-w-0 flex-col gap-4 rounded-2xl p-4 min-h-[480px]">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setPublishDraft(null)}
+          className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+          aria-label="返回列表"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-base font-semibold text-foreground">發布約戰公告</h2>
+      </div>
+      <div className="min-h-0 overflow-y-auto">
+        <PublishAnnouncementContent
+          draft={publishDraft}
+          onClose={() => setPublishDraft(null)}
+          onPublished={handleAnnouncementPublished}
+        />
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <div className="space-y-4">
+      {myAnnouncement ? (
+        <BattleMyAnnouncementBar
+          announcement={myAnnouncement}
+          shops={shops}
+          pending={pending}
+          onViewLobby={selectShopOnMap}
+          onClear={() =>
+            run(async () => {
+              await clearBattleAnnouncement();
+            })
+          }
+        />
+      ) : null}
+
+      {successMessage ? (
+        <div
+          className="alert-success motion-toast-in flex items-start justify-between gap-3"
+          role="status"
+        >
+          <p>{successMessage}</p>
+          <button
+            type="button"
+            className="shrink-0 text-emerald-700 underline-offset-2 hover:underline"
+            onClick={() => setSuccessMessage(null)}
+            aria-label="關閉提示"
+          >
+            關閉
+          </button>
+        </div>
+      ) : null}
 
       {err ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+        <p className="alert-error" role="alert">
           {err}
         </p>
       ) : null}
 
-      {tab === "map" ? (
-        <MeetMap
-          shops={shops}
-          peers={peers}
-          center={[defaultLat, defaultLng]}
-          zoom={12}
-          height={360}
-        />
-      ) : (
-        <ul className="space-y-3">
-          {lobbyPeers.length === 0 ? (
-            <li className="rounded-lg border border-dashed border-border bg-card/80 px-4 py-8 text-center text-sm text-muted-foreground">
-              大廳目前沒有其他公開的玩家，或你尚未公開自己的地點。
-            </li>
-          ) : (
-            lobbyPeers.map((p) => (
-              <li
-                key={p.userId}
-                className="card card-hover flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <Link
-                    href={`/profile/${p.userId}`}
-                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border bg-neutral-100"
-                    aria-label={`${p.displayName} 的個人檔案`}
-                  >
-                    {p.avatarUrl ? (
-                      <Image
-                        src={p.avatarUrl}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="40px"
-                        unoptimized
-                      />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        <UserRound className="h-5 w-5" strokeWidth={1.5} />
-                      </span>
-                    )}
-                  </Link>
-                  <div className="min-w-0">
-                    <Link
-                      href={`/profile/${p.userId}`}
-                      className="font-medium text-foreground underline-offset-2 hover:underline"
-                    >
-                      {p.displayName}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">
-                      {p.label} · {p.timeNote || "未填時段"}
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() =>
-                    run(async () => {
-                      await sendLobbyInvite(p.userId);
-                    })
-                  }
-                  className="btn btn-primary shrink-0"
-                >
-                  發送約戰邀請
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      )}
-
-      <section className="card card-hover space-y-3 p-5">
-        <h3 className="font-semibold text-foreground">隨機匹配</h3>
-        <p className="text-sm text-muted-foreground">
-          以你個人檔案中最新的約戰座標為中心，與半徑內同時排隊的玩家配對。
-        </p>
-        <label className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-          <span>搜尋半徑（公里）</span>
-          <select
-            value={radius}
-            onChange={(e) => setRadius(Number(e.target.value))}
-            className="input-field w-auto py-1.5 pl-2 pr-8 text-sm"
-          >
-            <option value={3}>3</option>
-            <option value={5}>5</option>
-            <option value={10}>10</option>
-          </select>
-        </label>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() =>
-              run(async () => {
-                await joinRandomQueue(defaultLat, defaultLng, radius);
-              })
-            }
-            className="btn btn-primary"
-          >
-            {inQueue ? "更新排隊位置" : "加入隨機排隊"}
-          </button>
-          {inQueue ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() =>
-                run(async () => {
-                  await leaveQueue();
-                })
-              }
-              className="btn btn-outline"
-            >
-              離開排隊
-            </button>
-          ) : null}
-        </div>
-        {inQueue ? (
-          <p className="rounded-lg bg-[var(--success-bg)] px-3 py-2 text-xs font-medium text-[var(--success-fg)]">
-            你在隨機排隊中，配對成功會自動建立約戰。
-          </p>
-        ) : null}
-      </section>
+      <BattleExplorePanel
+        sheetOpen={sheetOpen}
+        radiusFilter={
+          <RadiusFilter
+            radiusKm={radiusKm}
+            onRadiusChange={setRadiusKm}
+          />
+        }
+        matchSetup={
+          !activeMatch ? (
+            <BattleRandomMatch
+              shops={shopsData}
+              defaultShopId={defaultShopId ?? null}
+              initialQueueStatus={initialQueueStatus ?? null}
+              radiusKm={radiusKm}
+              mapCenter={mapCenter}
+              onQueueJoin={(center, radius) => {
+                setRandomMatchCircle({ centerLat: center.lat, centerLng: center.lng, radiusKm: radius });
+              }}
+              onQueueLeave={() => {
+                setRandomMatchCircle(null);
+              }}
+            />
+          ) : null
+        }
+        shopExplore={
+          <BattleShopExploreCard
+            shops={shopsData}
+            announcements={announcements}
+            hideShopList={!!myAnnouncement}
+            onSelectShop={selectShopOnMap}
+            onSelectPlace={(place) => {
+              setSelectedShop(null);
+              setSheetAnnouncement(null);
+              isFlyingRef.current = true;
+              setFlyTo({ lat: place.lat, lng: place.lng, zoom: 15, key: Date.now() });
+              // Clear flyTo after animation completes to prevent map from being pulled back
+              setTimeout(() => {
+                setFlyTo(null);
+                isFlyingRef.current = false;
+              }, 1000);
+              setMapCenter({ lat: place.lat, lng: place.lng });
+              setPreviewPin(place);
+              openPublishAt(place.lat, place.lng, place.label);
+            }}
+            onSelectAnnouncement={(ann) => {
+              setSelectedShop(null);
+              setSheetAnnouncement(ann);
+              // Fly to the player's location
+              isFlyingRef.current = true;
+              setFlyTo({ lat: ann.lat, lng: ann.lng, zoom: 15, key: Date.now() });
+              // Clear flyTo after animation completes to prevent map from being pulled back
+              setTimeout(() => {
+                setFlyTo(null);
+                isFlyingRef.current = false;
+              }, 1000);
+              setMapCenter({ lat: ann.lat, lng: ann.lng });
+            }}
+            mapCenterLat={mapCenter.lat}
+            mapCenterLng={mapCenter.lng}
+            radiusKm={radiusKm}
+            onRadiusChange={setRadiusKm}
+          />
+        }
+        map={
+          <MeetMap
+            shops={shopsData}
+            announcements={mapPins}
+            center={[gpsLocation?.lat ?? defaultLat, gpsLocation?.lng ?? defaultLng]}
+            zoom={14}
+            height={mapHeight}
+            fillHeight
+            showLegend={false}
+            flyTo={flyTo}
+            previewPin={previewPin}
+            radiusCircle={{ centerLat: mapCenter.lat, centerLng: mapCenter.lng, radiusKm }}
+            randomMatchCircle={displayedRandomMatchCircle}
+            onMapClick={(lat, lng) => {
+              setSelectedShop(null);
+              setSheetAnnouncement(null);
+              setPreviewPin({ lat, lng, label: "" });
+              openPublishAt(lat, lng, "");
+            }}
+            onShopClick={(shop) => {
+              setPublishDraft(null);
+              setSheetAnnouncement(null);
+              setPreviewPin(null);
+              setSelectedShop(shop);
+            }}
+            onAnnouncementClick={(spotId) => {
+              setSelectedShop(null);
+              setPublishDraft(null);
+              setPreviewPin(null);
+              handleAnnouncementClick(spotId);
+            }}
+            onMapCenterChange={handleMapCenterChange}
+            onRefresh={refresh}
+          />
+        }
+        sheets={exploreSheets}
+        showDetailView={showDetailView}
+        detailView={detailView}
+      />
     </div>
   );
 }

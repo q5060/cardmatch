@@ -3,15 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
-
-/** Same-origin relative path only; blocks protocol-relative and odd schemes. */
-function safeLoginRedirect(raw: string | null): string {
-  if (!raw) return "/";
-  const t = raw.trim();
-  if (!t.startsWith("/") || t.startsWith("//")) return "/";
-  if (t.includes("\\") || t.includes("\0")) return "/";
-  return t;
-}
+import { safeLoginRedirect } from "@/lib/safeRedirect";
 
 export function LoginForm() {
   const router = useRouter();
@@ -71,6 +63,7 @@ export function LoginForm() {
         <input
           type="email"
           autoComplete="email"
+          data-testid="login-email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="input-field mt-2"
@@ -82,13 +75,19 @@ export function LoginForm() {
         <input
           type="password"
           autoComplete="current-password"
+          data-testid="login-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="input-field mt-2"
           required
         />
       </label>
-      <button type="submit" disabled={loading} className="btn btn-secondary btn-block">
+      <button
+        type="submit"
+        data-testid="login-submit"
+        disabled={loading}
+        className="btn btn-secondary btn-block"
+      >
         {loading ? "登入中…" : "登入"}
       </button>
       <p className="text-center text-sm text-muted-foreground">

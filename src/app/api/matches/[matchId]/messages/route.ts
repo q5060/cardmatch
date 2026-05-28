@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { MATCH_CHAT_ALLOWED_STATUSES } from "@/lib/constants";
+import {
+  publishMatchMessage,
+  publishNotification,
+} from "@/lib/realtime/publish";
 
 const CHAT_OK = new Set<string>(MATCH_CHAT_ALLOWED_STATUSES);
 
@@ -99,6 +103,31 @@ export async function POST(
       sender: { select: { id: true, displayName: true } },
     },
   });
+
+  // Send notification to the other player
+  const otherPlayerId = match.playerAId === session.userId ? match.playerBId : match.playerAId;
+  const senderName = msg.sender.displayName;
+  
+  await prisma.notification.create({
+    data: {
+      userId: otherPlayerId,
+      type: "MESSAGE",
+      referenceId: msg.id,
+      senderId: session.userId,
+      data: JSON.stringify(`${senderName} 在約戰中傳來訊息`),
+      read: false,
+    },
+  });
+
+  const messageDto = {
+    id: msg.id,
+    senderId: msg.senderId,
+    body: msg.body,
+    createdAt: msg.createdAt.toISOString(),
+    sender: msg.sender,
+  };
+  publishMatchMessage(id, match.playerAId, match.playerBId, messageDto);
+  await publishNotification(otherPlayerId);
 
   return NextResponse.json({ message: msg });
 }

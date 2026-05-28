@@ -1,6 +1,6 @@
 import dynamic from "next/dynamic";
 
-export type { MapShopPin, MapPeerPin } from "./MeetMapClient";
+export type { MapShopPin, MapAnnouncementPin } from "./MeetMapClient";
 
 export const MeetMap = dynamic(
   () => import("./MeetMapClient").then((m) => m.MeetMapClient),

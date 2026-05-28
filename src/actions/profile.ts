@@ -5,6 +5,8 @@ import path from "path";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { publishNotification } from "@/lib/realtime/publish";
+import { assertNotBlocked } from "@/lib/block";
 
 const AVATAR_PREFIX = "/uploads/avatars/";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -142,6 +144,8 @@ export async function sendFriendRequest(targetUserId: number) {
     throw new Error("CANNOT_ADD_SELF");
   }
 
+  await assertNotBlocked(session.userId, targetUserId);
+
   // 检查是否已有友谊关系
   const existing = await prisma.friendship.findFirst({
     where: {
@@ -181,6 +185,7 @@ export async function sendFriendRequest(targetUserId: number) {
     },
   });
 
+  await publishNotification(targetUserId);
   revalidatePath(`/profile/${targetUserId}`);
   return friendship;
 }

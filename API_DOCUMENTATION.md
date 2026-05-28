@@ -382,7 +382,7 @@
 - `FRIENDS`: 僅好友能看到
 - `PRIVATE`: 只有用戶自己能看到
 
-**winrateVisibility** - 勝率可見性
+**winrateVisibility** - 戰果統計可見性
 - `PUBLIC`: 所有用戶都能看到
 - `FRIENDS`: 僅好友能看到
 - `PRIVATE`: 只有用戶自己能看到

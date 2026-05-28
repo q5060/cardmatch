@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { prefersReducedMotion } from "@/lib/motion";
 import {
   Bell,
   Home,
@@ -17,7 +18,7 @@ import {
   Users2,
   Menu,
 } from "lucide-react";
-import { NotificationDropdown } from "./NotificationDropdown";
+import { NotificationBell } from "./NotificationBell";
 
 const links: {
   href: string;
@@ -28,8 +29,22 @@ const links: {
   { href: "/", label: "首頁", Icon: Home },
   { href: "/battle", label: "對戰", Icon: Search, auth: true },
   { href: "/friends", label: "好友", Icon: Users, auth: true },
-  { href: "/profile", label: "個人檔案", Icon: UserCircle, auth: true },
+  { href: "/profile", label: "我的檔案", Icon: UserCircle, auth: true },
 ];
+
+/** `/profile` must not match `/profile/[userId]` for active state. */
+function isNavLinkActive(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  if (href === "/profile") return pathname === "/profile";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function subscribeReducedMotion(cb: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
 
 type Props = {
   user?: { id: number; displayName: string; avatarUrl: string | null } | null;
@@ -38,21 +53,49 @@ type Props = {
 
 export function NavBar({ user, pendingInvites = 0 }: Props) {
   const pathname = usePathname();
-  const [showNotificationMenu, setShowNotificationMenu] = useState(false);
+  const [notificationUnread, setNotificationUnread] = useState<number | null>(
+    null,
+  );
+  const unreadCount = notificationUnread ?? pendingInvites;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const notificationRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const desktopNavRef = useRef<HTMLElement>(null);
+  const linkRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
+  const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
+  const reducedMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    prefersReducedMotion,
+    () => false,
+  );
+
+  const visibleLinks = useMemo(
+    () => links.filter(({ auth }) => !auth || user),
+    [user],
+  );
+
+  useLayoutEffect(() => {
+    const active = visibleLinks.find(({ href }) => isNavLinkActive(href, pathname));
+    if (!active || !desktopNavRef.current) {
+      setPill(null);
+      return;
+    }
+    const el = linkRefs.current.get(active.href);
+    if (!el) {
+      setPill(null);
+      return;
+    }
+    const navRect = desktopNavRef.current.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    setPill({
+      left: elRect.left - navRect.left,
+      width: elRect.width,
+    });
+  }, [pathname, visibleLinks]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target as Node)
-      ) {
-        setShowNotificationMenu(false);
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
@@ -61,11 +104,11 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
       }
     }
 
-    if (showNotificationMenu || showUserMenu || showMobileMenu) {
+    if (showUserMenu || showMobileMenu) {
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [showNotificationMenu, showUserMenu, showMobileMenu]);
+  }, [showUserMenu, showMobileMenu]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -88,18 +131,32 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
           />
         </Link>
 
-        <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
-          {links.map(({ href, label, auth, Icon }) => {
-            if (auth && !user) return null;
-            const active =
-              href === "/" ? pathname === "/" : pathname.startsWith(href);
+        <nav
+          ref={desktopNavRef}
+          className="relative hidden flex-1 items-center justify-center gap-1 md:flex"
+        >
+          {pill ? (
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute top-1/2 h-9 -translate-y-1/2 rounded-full bg-primary/12 ${
+                reducedMotion ? "" : "transition-[left,width] duration-250 ease-out"
+              }`}
+              style={{ left: pill.left, width: pill.width }}
+            />
+          ) : null}
+          {visibleLinks.map(({ href, label, Icon }) => {
+            const active = isNavLinkActive(href, pathname);
             return (
               <Link
                 key={href}
+                ref={(el) => {
+                  if (el) linkRefs.current.set(href, el);
+                  else linkRefs.current.delete(href);
+                }}
                 href={href}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] ${
+                className={`relative z-[1] flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)] ${
                   active
-                    ? "bg-primary/12 text-primary"
+                    ? "text-primary"
                     : "text-muted-foreground hover:bg-black/[0.04] hover:text-foreground"
                 }`}
               >
@@ -123,24 +180,11 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 <Search className="h-5 w-5" strokeWidth={1.75} />
               </Link>
 
-              {/* Desktop: Notification Dropdown */}
-              <div className="relative hidden md:block" ref={notificationRef}>
-                <button
-                  className="btn btn-ghost relative text-foreground cursor-pointer"
-                  onClick={() => setShowNotificationMenu(!showNotificationMenu)}
-                  title={pendingInvites > 0 ? `${pendingInvites} 個通知` : "通知"}
-                  aria-label="通知"
-                >
-                  <Bell className="h-5 w-5" strokeWidth={1.75} />
-                  {pendingInvites > 0 ? (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white shadow-sm">
-                      {pendingInvites > 9 ? "9+" : pendingInvites}
-                    </span>
-                  ) : null}
-                </button>
-
-                <NotificationDropdown isOpen={showNotificationMenu} onClose={() => setShowNotificationMenu(false)} />
-              </div>
+              <NotificationBell
+                initialUnreadCount={pendingInvites}
+                onCountChange={setNotificationUnread}
+                className="hidden md:block"
+              />
 
               {/* Desktop: Username and Avatar Menu */}
               <div className="relative hidden md:flex items-center gap-2" ref={userMenuRef}>
@@ -166,18 +210,18 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-white border border-border shadow-lg z-50">
+                  <div className="menu-panel motion-menu-in absolute right-0 top-full z-50 mt-2 w-48">
                     <Link
-                      href={`/profile/${user.id}`}
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-neutral-100 rounded-t-lg border-b border-border"
+                      href="/profile"
+                      className="menu-panel-item rounded-t-[1.25rem] border-b border-border"
                       onClick={() => setShowUserMenu(false)}
                     >
                       <UserCircle className="h-4 w-4" strokeWidth={2} />
-                      個人檔案
+                      我的檔案
                     </Link>
                     <Link
                       href="/settings"
-                      className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-neutral-100 border-b border-border"
+                      className="menu-panel-item border-b border-border"
                       onClick={() => setShowUserMenu(false)}
                     >
                       <Settings className="h-4 w-4" strokeWidth={2} />
@@ -189,7 +233,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         setShowUserMenu(false);
                         logout();
                       }}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                      className="menu-panel-item w-full rounded-b-[1.25rem] text-red-600 hover:bg-red-50"
                     >
                       <LogOut className="h-4 w-4" strokeWidth={2} />
                       登出
@@ -210,20 +254,17 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                 </button>
 
                 {showMobileMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-56 rounded-lg bg-white border border-border shadow-lg z-50">
+                  <div className="menu-panel motion-menu-in absolute right-0 top-full z-50 mt-2 w-56">
                     {/* Nav Items */}
                     {links.map(({ href, label, auth, Icon }) => {
                       if (auth && !user) return null;
-                      const active =
-                        href === "/" ? pathname === "/" : pathname.startsWith(href);
+                      const active = isNavLinkActive(href, pathname);
                       return (
                         <Link
                           key={href}
                           href={href}
-                          className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors border-b border-border last:border-b-0 ${
-                            active
-                              ? "bg-primary/12 text-primary"
-                              : "text-foreground hover:bg-black/[0.04]"
+                          className={`menu-panel-item border-b border-border font-medium last:border-b-0 ${
+                            active ? "bg-primary/12 text-primary" : ""
                           }`}
                           onClick={() => setShowMobileMenu(false)}
                         >
@@ -238,7 +279,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         {/* Search */}
                         <Link
                           href="/search"
-                          className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-black/[0.04] border-b border-border"
+                          className="menu-panel-item border-b border-border"
                           onClick={() => setShowMobileMenu(false)}
                         >
                           <Search className="h-4 w-4" strokeWidth={1.75} />
@@ -248,16 +289,16 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         {/* Notification Badge with Link */}
                         <Link
                           href="/notifications"
-                          className="flex items-center justify-between px-4 py-3 border-b border-border text-foreground hover:bg-black/[0.04]"
+                          className="menu-panel-item justify-between border-b border-border"
                           onClick={() => setShowMobileMenu(false)}
                         >
                           <div className="flex items-center gap-3">
                             <Bell className="h-4 w-4" strokeWidth={1.75} />
                             <span className="text-sm font-medium">通知</span>
                           </div>
-                          {pendingInvites > 0 && (
+                          {unreadCount > 0 && (
                             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-bold text-white">
-                              {pendingInvites > 9 ? "9+" : pendingInvites}
+                              {unreadCount > 9 ? "9+" : unreadCount}
                             </span>
                           )}
                         </Link>
@@ -265,7 +306,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                         {/* Settings */}
                         <Link
                           href="/settings"
-                          className="flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-black/[0.04] border-b border-border"
+                          className="menu-panel-item border-b border-border"
                           onClick={() => setShowMobileMenu(false)}
                         >
                           <Settings className="h-4 w-4" strokeWidth={2} />
@@ -279,7 +320,7 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
                             setShowMobileMenu(false);
                             logout();
                           }}
-                          className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+                          className="menu-panel-item w-full text-red-600 hover:bg-red-50"
                         >
                           <LogOut className="h-4 w-4" strokeWidth={2} />
                           登出

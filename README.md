@@ -1,6 +1,6 @@
 # Cardmatch
 
-Next.js 全端專案（App Router、API Routes、Prisma + SQLite、iron-session）。
+Next.js 全端專案（App Router、API Routes、Prisma + PostgreSQL、iron-session）。
 
 ## 需求環境
 
@@ -16,21 +16,33 @@ npm install
 
 `postinstall` 會自動執行 `prisma generate`，無須手動再跑一次（除非要除錯）。
 
-### 2. 環境變數
+### 2. 啟動 PostgreSQL
 
-在專案**根目錄**建立 `.env`（不要提交到版控）。SQLite 的檔案路徑係相對於 `prisma/schema.prisma` 所在目錄解析。
+本機需有 PostgreSQL。最簡單方式：
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+```
+
+### 3. 環境變數
+
+複製範例並編輯（不要提交 `.env` 到版控）：
+
+```bash
+cp .env.example .env
+```
 
 ```env
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://cardmatch:cardmatch@localhost:5432/cardmatch"
 SESSION_SECRET="請換成至少32個字元的隨機密鑰"
 ```
 
 | 變數 | 說明 |
 |------|------|
-| `DATABASE_URL` | Prisma 資料庫連線字串；本機開發可用 SQLite，例如 `file:./dev.db`。 |
+| `DATABASE_URL` | PostgreSQL 連線字串，例如 `postgresql://user:pass@localhost:5432/cardmatch`。 |
 | `SESSION_SECRET` | 加密 session cookie，**長度至少 32**，否則啟動會報錯。 |
 
-### 3. 建立資料表
+### 4. 建立資料表
 
 擇一即可：
 
@@ -46,7 +58,7 @@ SESSION_SECRET="請換成至少32個字元的隨機密鑰"
   npm run db:push
   ```
 
-### 4.（選用）種子資料
+### 5.（選用）種子資料
 
 寫入示意店家等資料：
 
@@ -54,13 +66,25 @@ SESSION_SECRET="請換成至少32個字元的隨機密鑰"
 npm run db:seed
 ```
 
-### 5. 開發伺服器
+### 6. 開發伺服器
 
 ```bash
 npm run dev
 ```
 
 瀏覽器開啟 [http://localhost:3000](http://localhost:3000)。
+
+### 約戰流程（對戰頁 `/battle`）
+
+1. 登入後進入 **對戰** 頁。
+2. **隨機配對（選用）**：按「隨機配對」以全站佇列配對；或選一家卡店後按「同店優先配對」（先找同店，否則與全站等候者配對）。配對成功會產生邀請，對方需在對戰頁接受。
+3. **搜尋欄**：輸入卡店名稱、地址或地標，地圖會移動到該處；選外部地點後可按「在此發布約戰」。地點搜尋使用 [Nominatim](https://nominatim.openstreetmap.org/)（OpenStreetMap，需網路）。
+4. **藍色釘（卡店）**：點擊進入店家大廳，查看在該店打牌的玩家，或按「發布約戰公告」發布公告。
+5. **綠色釘（自選地點）**：點擊地圖空白處發布，可填寫**約戰說明**（打什麼、程度）與**公告時長**（預設 4 小時，可自訂 1–24 小時）；或點擊他人玩家釘查看需求，大廳列表會顯示公告結束時間。
+6. **點擊釘或從大廳選擇玩家** 可 **發起約戰**。
+7. 對方接受後，雙方按「我準備好了」即開始對戰；可於頁面內聊天並在賽後填寫戰績。進行中約戰與公告詳情會顯示會面經緯度，並可一鍵開啟 Google 地圖導航。
+
+公告僅能從對戰頁地圖發布；個人檔案不再管理約戰地點。
 
 ---
 
@@ -132,7 +156,35 @@ docker-compose exec cardmatch npm run db:seed
 
 - **Port 已被佔用**：修改 `docker-compose.yml` 或 `docker-compose.dev.yml` 中的 `ports` 設定。
 - **Windows 上 Volume 掛載慢**：建議用 WSL 2 backend。
-- **資料庫無法寫入**：確保 Docker 有權限寫入 `/app/data` 目錄。
+- **Postgres 連不上**：確認 `docker compose -f docker-compose.db.yml up -d` 已啟動，且 `DATABASE_URL` 主機為 `localhost`（本機）或 `postgres`（Docker Compose 內）。
+
+---
+
+## 測試
+
+先啟動 Postgres，並建立測試用資料庫（只需一次）：
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+docker compose -f docker-compose.db.yml exec postgres \
+  psql -U cardmatch -c "CREATE DATABASE cardmatch_test;"
+```
+
+複製測試環境變數範例：
+
+```bash
+cp .env.test.example .env.test
+```
+
+| 指令 | 說明 |
+|------|------|
+| `npm run test:unit` | Vitest 單元測試（`tests/unit`） |
+| `npm run test:integration` | Vitest 整合測試（API + Prisma + PostgreSQL） |
+| `npm run test` | 執行所有 Vitest 測試 |
+| `npm run test:e2e` | Playwright E2E（需先 `npm run build`，並執行 `npx playwright install`） |
+| `npm run test:ci` | 本地模擬 CI：lint → unit → integration → build → e2e |
+
+GitHub Actions 會在 push / pull request 時自動執行 lint、unit、integration 與 e2e（見 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)）。
 
 ---
 
@@ -141,7 +193,7 @@ docker-compose exec cardmatch npm run db:seed
 | 指令 | 說明 |
 |------|------|
 | `npm run dev` | 開發模式 |
-| `npm run build` | 正式建置（含 `prisma generate`） |
+| `npm run build` | 正式建置（`prisma migrate deploy` + `generate` + `next build`） |
 | `npm run start` | 以正式模式啟動（需先 `build`） |
 | `npm run lint` | ESLint |
 | `npm run db:migrate` | Prisma migrate dev |
@@ -157,9 +209,94 @@ docker-compose exec cardmatch npm run db:seed
 
 ---
 
-## 部署備註
+## 即時同步（SSE）
 
-SQLite 依賴可寫入的持久化檔案系統；Serverless 託管常見作法是改用 PostgreSQL 等，並在環境中設定對應的 `DATABASE_URL`。正式環境請務必設定強隨機的 `SESSION_SECRET`，並啟用 HTTPS（production 下 session cookie 為 `secure`）。
+登入後全站會建立一條 Server-Sent Events 連線（`GET /api/realtime/stream`），用於推送：
+
+- 對戰狀態變更（邀請、準備、取消等）
+- 約戰／好友新訊息
+- 通知未讀數更新
+
+聊天與對戰頁在 SSE 斷線時會以輕量 API 輪詢作為 fallback（`afterTime` 增量拉取訊息、`/api/matches/active` 同步對戰狀態）。
+
+| 環境變數 | 說明 |
+|----------|------|
+| `REALTIME_BUS` | 預設 `memory`（單一 Node 進程）。**Vercel 等多 instance 部署請設 `redis`**。 |
+| `REDIS_URL` | `REALTIME_BUS=redis` 時必填；建議使用 [Upstash Redis](https://upstash.com/) 的 `rediss://...` 連線字串。 |
+
+### 本機開發
+
+維持預設即可（不需 Redis）：
+
+```env
+REALTIME_BUS=memory
+```
+
+若要本機驗證 Redis bus（可選）：
+
+```bash
+docker run -p 6379:6379 redis:7
+```
+
+```env
+REALTIME_BUS=redis
+REDIS_URL=redis://127.0.0.1:6379
+```
+
+### Vercel + Upstash（建議）
+
+1. 在 [Upstash Console](https://console.upstash.com/) 建立 Redis（區域建議選東京一帶，與 `vercel.json` 的 `hnd1` 相近）。
+2. 複製 **Redis URL**（`rediss://...`）。
+3. 於 Vercel 專案 **Settings → Environment Variables** 新增：
+   - `REALTIME_BUS` = `redis`
+   - `REDIS_URL` = Upstash 提供的 URL
+4. 重新部署。
+
+任一 instance 上的 API（例如接受約戰）發布事件後，會經 Redis pub/sub 送達其他 instance 上同一使用者的 SSE 連線。
+
+---
+
+## 部署到 Vercel
+
+專案已設定為 **PostgreSQL + Redis 即時 bus**，建置時會自動執行 `prisma migrate deploy`（見 `package.json` 的 `build` script）。`vercel.json` 預設區域為東京（`hnd1`）。
+
+### 1. 建立 PostgreSQL
+
+任選其一並取得 `DATABASE_URL`（`postgresql://...` 或 `postgres://...`）：
+
+- [Vercel Postgres](https://vercel.com/storage/postgres)（Storage → Connect to Project）
+- [Neon](https://neon.tech/)
+- [Supabase](https://supabase.com/)
+
+### 2. 建立 Upstash Redis
+
+見上方「Vercel + Upstash」：區域建議東京，取得 `rediss://...` URL。
+
+### 3. Vercel 環境變數
+
+於 **Settings → Environment Variables**（Production 與 Preview 建議都設）：
+
+| 變數 | 值 |
+|------|-----|
+| `DATABASE_URL` | Postgres 連線字串（Vercel 整合會自動注入） |
+| `SESSION_SECRET` | 至少 32 字元的強隨機字串 |
+| `REALTIME_BUS` | `redis` |
+| `REDIS_URL` | Upstash 的 `rediss://...` |
+
+### 4. 匯入 GitHub 並部署
+
+1. [Vercel Dashboard](https://vercel.com/new) → Import Git Repository → 選本 repo。
+2. Framework Preset 應自動辨識為 **Next.js**；Build Command 使用預設 `npm run build` 即可。
+3. 設好環境變數後 **Deploy**。
+4.（選用）部署成功後在本機對正式庫執行種子：  
+   `DATABASE_URL="你的正式庫 URL" npm run db:seed`
+
+### 5. 驗證
+
+- 註冊／登入
+- 兩個瀏覽器（或無痕）測約戰邀請是否即時出現（驗證 Redis bus）
+
+正式環境 session cookie 為 `secure`（需 HTTPS）。卡牌圖鑑等功能尚未實作，不影響目前社交／約戰功能上線。
 
 ---
 

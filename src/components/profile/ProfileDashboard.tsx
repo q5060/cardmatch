@@ -1,24 +1,26 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  ArrowLeft,
   Calendar,
   Layers,
-  MapPin,
   Swords,
+  MoreHorizontal,
   Trophy,
   UserRound,
 } from "lucide-react";
 import type { ProfileBattleStats, ProfileMatchFeedRow } from "@/lib/queries";
+import { MatchFeedList } from "@/components/profile/MatchFeedList";
+import { PROFILE_RECENT_MATCHES } from "@/lib/constants";
 
 const TABS_SELF = [
   { id: "overview" as const, label: "總覽" },
   { id: "decks" as const, label: "牌組" },
-  { id: "spots" as const, label: "約戰地點" },
 ];
 
 const TABS_OTHER = [
@@ -33,17 +35,17 @@ function normalizeTab(raw: string | null, variant: "self" | "other"): ProfileTab
     if (raw === "decks") return "decks";
     return "overview";
   }
-  if (raw === "decks" || raw === "spots") return raw;
+  if (raw === "decks") return raw;
   return "overview";
 }
 
 function heatCellClass(count: number, max: number): string {
   if (count <= 0) return "bg-neutral-200";
   const t = Math.min(count / max, 1);
-  if (t <= 0.25) return "bg-blue-200";
-  if (t <= 0.5) return "bg-blue-400";
-  if (t <= 0.75) return "bg-blue-600";
-  return "bg-blue-800";
+  if (t <= 0.25) return "bg-primary/25";
+  if (t <= 0.5) return "bg-primary/45";
+  if (t <= 0.75) return "bg-primary/70";
+  return "bg-primary";
 }
 
 function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, number> }) {
@@ -73,8 +75,8 @@ function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, numb
 
   return (
     <div className="card card-hover p-4">
-      <h3 className="text-sm font-semibold text-foreground">約戰熱度</h3>
-      <p className="mt-1 text-xs text-muted-foreground">最近 84 天（每日完成對戰場次）</p>
+      <h3 className="text-sm font-semibold text-foreground">對戰熱度</h3>
+      {/* <p className="mt-1 text-xs text-muted-foreground">最近 84 天（每日完成對戰場次）</p> */}
       <div
         className="mt-3 grid gap-1"
         style={{
@@ -83,7 +85,7 @@ function ActivityHeatmap({ activityByDay }: { activityByDay: Record<string, numb
           gridAutoFlow: "column",
         }}
         role="img"
-        aria-label="約戰熱度格子圖"
+        aria-label="對戰熱度"
       >
         {cellsColumnMajor.map((c) => (
           <span
@@ -117,13 +119,20 @@ export type ProfileDashboardProps = {
     createdAt: string;
   };
   battleStats: ProfileBattleStats;
+  battleRecordVisibility?: "PUBLIC" | "FRIENDS" | "PRIVATE";
+  winrateVisibility?: "PUBLIC" | "FRIENDS" | "PRIVATE";
+  battleRecordsHiddenReason?: string | null;
+  winrateHiddenReason?: string | null;
   deckCount: number;
   publicDeckCount: number;
-  meetSpotCount: number;
-  feed: ProfileMatchFeedRow[];
+  recentFeed: ProfileMatchFeedRow[];
+  /** Link target for the full match history page. */
+  allMatchesHref: string;
+  /** Viewer has blocked the profile owner (other profile only). */
+  blockedByViewer?: boolean;
+  /** Either direction of block — hide friend / report / block actions. */
+  interactionBlocked?: boolean;
   decksSlot: ReactNode;
-  spotsSlot?: ReactNode | null;
-  settingsSlot?: ReactNode | null;
 };
 
 export function ProfileDashboard({
@@ -134,18 +143,39 @@ export function ProfileDashboard({
   friendshipStatus,
   user,
   battleStats,
+  battleRecordVisibility,
+  winrateVisibility,
+  battleRecordsHiddenReason,
+  winrateHiddenReason,
   deckCount,
   publicDeckCount,
-  meetSpotCount,
-  feed,
+  recentFeed,
+  allMatchesHref,
+  blockedByViewer = false,
+  interactionBlocked = false,
   decksSlot,
-  spotsSlot = null,
-  settingsSlot = null,
 }: ProfileDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = normalizeTab(searchParams.get("tab"), variant);
   const tabs = variant === "other" ? TABS_OTHER : TABS_SELF;
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [modErr, setModErr] = useState<string | null>(null);
+  const [modPending, startModTransition] = useTransition();
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [moreMenuOpen]);
 
   const setTab = useCallback(
     (next: ProfileTabId) => {
@@ -170,91 +200,96 @@ export function ProfileDashboard({
   );
 
   const statTiles = useMemo(() => {
-    const deckHint =
-      variant === "other"
-        ? publicDeckCount > 0
-          ? "皆為公開"
-          : undefined
-        : `${publicDeckCount} 公開`;
+    // const deckHint =
+    //   variant === "other"
+    //     ? publicDeckCount > 0
+    //       ? "皆為公開"
+    //       : undefined
+    //     : `${publicDeckCount} 公開`;
 
     const base = [
       {
         icon: Swords,
         value: battleStats.completedTotal,
         label: "已完成對戰",
-        hint:
-          battleStats.recordedTotal > 0
-            ? `已紀錄戰果 ${battleStats.recordedTotal} 場`
-            : undefined,
+        // hint:
+        //   battleStats.recordedTotal > 0
+        //     ? `已紀錄戰果 ${battleStats.recordedTotal} 場`
+        //     : undefined,
       },
       {
         icon: Trophy,
-        value:
+        value: winrateHiddenReason ? "—" : (
           battleStats.recordedTotal > 0
             ? `${battleStats.wins}-${battleStats.losses}-${battleStats.draws}`
-            : "—",
-        label: battleStats.recordedTotal > 0 ? "勝-敗-平" : "尚無戰果統計",
-        hint:
-          battleStats.completedWithoutResult > 0
-            ? `${battleStats.completedWithoutResult} 場未紀錄戰果`
-            : undefined,
+            : "—"
+        ),
+        label: winrateHiddenReason 
+          ? "戰果統計未公開"
+          : (battleStats.recordedTotal > 0 ? "勝-敗-平" : "尚無戰果統計"),
+        hint: !winrateHiddenReason && battleStats.completedWithoutResult > 0
+          ? `${battleStats.completedWithoutResult} 場未紀錄戰果`
+          : undefined,
       },
       {
         icon: Layers,
         value: deckCount,
         label: "牌組",
-        hint: deckHint,
+        // hint: deckHint,
       },
     ];
 
-    if (variant === "self") {
-      base.push({
-        icon: MapPin,
-        value: meetSpotCount,
-        label: "約戰地點",
-        hint: undefined,
-      });
-    }
-
     return base;
-  }, [variant, battleStats, deckCount, publicDeckCount, meetSpotCount]);
+  }, [variant, battleStats, deckCount, publicDeckCount, winrateHiddenReason]);
 
-  const eyebrow =
-    variant === "other" ? (
-      <p className="text-xs font-semibold uppercase tracking-wider text-primary">{user.displayName}</p>
-    ) : (
-      <p className="text-xs font-semibold uppercase tracking-wider text-primary">{user.displayName}</p>
-    );
-
-  const title = 
-    variant === "other" ? (
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        個人檔案
-      </h1>
-    ) : (
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-        個人檔案
-      </h1>
-    );
-
-  const subtitle = null;
-    // variant === "other" ? (
-    //   <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-    //     檢視對方公開資訊（對戰統計與公開牌組）。
-    //   </p>
+  // const headerBlock =
+  //   variant === "other" ? (
+  //     <header className="space-y-2">
+        {/* <Link
+          href="/friends"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={2} aria-hidden />
+          返回好友
+        </Link>
+        <p
+          className="inline-flex rounded-lg border border-primary/25 bg-primary/8 px-3 py-1.5 text-xs font-medium text-primary"
+          role="status"
+        >
+          正在查看其他玩家的檔案
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          {user.displayName}
+          <span className="text-muted-foreground"> 的檔案</span>
+        </h1>
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          檢視對方公開的對戰統計與牌組；頂部「我的檔案」才是你自己的設定頁。
+        </p> */}
+    //   </header>
     // ) : (
-    //   <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-    //     檢視對戰統計、管理牌組與約戰地點。
-    //   </p>
+    //   <header className="space-y-2">
+        {/* <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+              我的檔案
+            </p>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              個人檔案
+            </h1>
+            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              管理顯示名稱、牌組與對戰統計。
+            </p>
+          </div>
+          <Link href="/settings" className="btn btn-outline btn-sm shrink-0">
+            編輯設定
+          </Link>
+        </div> */}
+    //   </header>
     // );
 
   return (
       <div className="space-y-8">
-        <header className="space-y-2">
-          {eyebrow}
-          {title}
-          {subtitle}
-        </header>
+        {/* {headerBlock} */}
 
         <div className="card card-hover overflow-hidden p-0 shadow-none">
           <div
@@ -308,37 +343,44 @@ export function ProfileDashboard({
                 )}
               </div>
 
-            {/* Friend Operations */}
+            {/* Friend / moderation */}
             {variant === "other" && viewedUserId && viewerId && (
               <div className="flex gap-2 relative z-10 flex-wrap items-start shrink-0 mt-6 pb-2">
-                {!friendshipStatus ? (
-                  <button
-                    onClick={async () => {
-                      try {
-                        if (!viewedUserId) return;
-                        const { sendFriendRequest } = await import("@/actions/profile");
-                        await sendFriendRequest(viewedUserId);
-                        window.location.reload();
-                      } catch (e) {
-                        alert(e instanceof Error ? e.message : "操作失敗");
-                      }
-                    }}
-                    className="btn btn-primary btn-sm"
-                  >
-                    加入好友
-                  </button>
-                ) : friendshipStatus.status === "PENDING" ? (
+                {blockedByViewer ? (
                   <>
-                    {friendshipStatus.requesterId === viewerId ? (
-                      <button disabled className="btn btn-secondary btn-sm">
-                        待審核
-                      </button>
-                    ) : (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={modPending}
+                      onClick={() => {
+                        if (!confirm("確定要解除封鎖？對方將可再次出現在大廳，你也可重新加好友或私訊。")) {
+                          return;
+                        }
+                        startModTransition(async () => {
+                          try {
+                            const { unblockUser } = await import("@/actions/moderation");
+                            await unblockUser(viewedUserId!);
+                            window.location.reload();
+                          } catch (e) {
+                            alert(e instanceof Error ? e.message : "操作失敗");
+                          }
+                        });
+                      }}
+                    >
+                      {modPending ? "處理中…" : "解除封鎖"}
+                    </button>
+                  </>
+                ) : interactionBlocked ? (
+                  <span className="text-sm text-muted-foreground">無法與此使用者互動</span>
+                ) : (
+                  <>
+                    {!friendshipStatus ? (
                       <button
                         onClick={async () => {
                           try {
-                            const { acceptFriendship } = await import("@/actions/friends");
-                            await acceptFriendship(friendshipStatus.id);
+                            if (!viewedUserId) return;
+                            const { sendFriendRequest } = await import("@/actions/profile");
+                            await sendFriendRequest(viewedUserId);
                             window.location.reload();
                           } catch (e) {
                             alert(e instanceof Error ? e.message : "操作失敗");
@@ -346,38 +388,182 @@ export function ProfileDashboard({
                         }}
                         className="btn btn-primary btn-sm"
                       >
-                        接受邀請
+                        加入好友
                       </button>
+                    ) : friendshipStatus.status === "PENDING" ? (
+                      <>
+                        {friendshipStatus.requesterId === viewerId ? (
+                          <button disabled className="btn btn-secondary btn-sm">
+                            待審核
+                          </button>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const { acceptFriendship } = await import("@/actions/friends");
+                                await acceptFriendship(friendshipStatus.id);
+                                window.location.reload();
+                              } catch (e) {
+                                alert(e instanceof Error ? e.message : "操作失敗");
+                              }
+                            }}
+                            className="btn btn-primary btn-sm"
+                          >
+                            接受邀請
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <Link
+                        href={`/chat/${friendshipStatus.id}`}
+                        className="btn btn-primary btn-sm"
+                      >
+                        私訊
+                      </Link>
                     )}
-                  </>
-                ) : (
-                  <>
-                    <Link 
-                      href={`/friends?chat=${friendshipStatus.id}`}
-                      className="btn btn-primary btn-sm"
-                    >
-                      私訊
-                    </Link>
-                    <button
-                      onClick={async () => {
-                        if (confirm("確定要刪除此好友？")) {
-                          try {
-                            const { rejectFriendship } = await import("@/actions/friends");
-                            await rejectFriendship(friendshipStatus.id);
-                            window.location.reload();
-                          } catch (e) {
-                            alert(e instanceof Error ? e.message : "操作失敗");
-                          }
-                        }
-                      }}
-                      className="btn btn-outline btn-sm text-red-600 hover:bg-red-50"
-                    >
-                      刪除好友
-                    </button>
+                    <div className="relative" ref={moreMenuRef}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm inline-flex items-center gap-1"
+                        aria-expanded={moreMenuOpen}
+                        aria-haspopup="menu"
+                        onClick={() => setMoreMenuOpen((open) => !open)}
+                      >
+                        <MoreHorizontal className="h-4 w-4" aria-hidden />
+                        更多
+                      </button>
+                      {moreMenuOpen ? (
+                        <div
+                          className="absolute right-0 top-full z-20 mt-1 min-w-[9.5rem] overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
+                          role="menu"
+                        >
+                          {friendshipStatus?.status === "ACCEPTED" ? (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                              onClick={() => {
+                                setMoreMenuOpen(false);
+                                if (!confirm("確定要刪除此好友？")) return;
+                                void (async () => {
+                                  try {
+                                    const { rejectFriendship } = await import(
+                                      "@/actions/friends"
+                                    );
+                                    await rejectFriendship(friendshipStatus.id);
+                                    window.location.reload();
+                                  } catch (e) {
+                                    alert(e instanceof Error ? e.message : "操作失敗");
+                                  }
+                                })();
+                              }}
+                            >
+                              刪除好友
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-black/[0.04]"
+                            onClick={() => {
+                              setMoreMenuOpen(false);
+                              setModErr(null);
+                              setReportReason("");
+                              setReportOpen(true);
+                            }}
+                          >
+                            檢舉
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={modPending}
+                            className="block w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            onClick={() => {
+                              setMoreMenuOpen(false);
+                              if (
+                                !confirm(
+                                  "確定要封鎖此使用者？將解除好友關係、無法私訊，且雙方不會在店家大廳看到彼此的公告。",
+                                )
+                              ) {
+                                return;
+                              }
+                              startModTransition(async () => {
+                                try {
+                                  const { blockUser } = await import("@/actions/moderation");
+                                  await blockUser(viewedUserId);
+                                  window.location.reload();
+                                } catch (e) {
+                                  alert(e instanceof Error ? e.message : "操作失敗");
+                                }
+                              });
+                            }}
+                          >
+                            封鎖
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </>
                 )}
               </div>
             )}
+            {reportOpen && variant === "other" && viewedUserId ? (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="report-dialog-title"
+              >
+                <div className="card w-full max-w-md p-5 shadow-lg">
+                  <h3 id="report-dialog-title" className="text-lg font-semibold text-foreground">
+                    檢舉使用者
+                  </h3>
+                  <textarea
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="input-field mt-3 min-h-[80px] resize-y"
+                    maxLength={500}
+                    placeholder="請簡述原因（選填）"
+                  />
+                  {modErr ? (
+                    <p className="mt-2 text-sm text-red-700" role="alert">
+                      {modErr}
+                    </p>
+                  ) : null}
+                  <div className="mt-4 flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={modPending}
+                      onClick={() => setReportOpen(false)}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={modPending}
+                      onClick={() => {
+                        setModErr(null);
+                        startModTransition(async () => {
+                          try {
+                            const { reportUser } = await import("@/actions/moderation");
+                            await reportUser(viewedUserId, reportReason);
+                            setReportOpen(false);
+                            alert("已收到檢舉，感謝回報");
+                          } catch (e) {
+                            setModErr(e instanceof Error ? e.message : "送出失敗");
+                          }
+                        });
+                      }}
+                    >
+                      {modPending ? "送出中…" : "送出檢舉"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <nav
@@ -431,68 +617,38 @@ export function ProfileDashboard({
               </div>
 
               <div className="card card-hover p-5">
-                <h2 className="text-lg font-semibold text-foreground">近期約戰</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  僅顯示已完成對戰；戰果為單方紀錄時之視角換算。
-                </p>
-                {feed.length === 0 ? (
-                  <p className="mt-6 text-sm text-muted-foreground">尚無紀錄。</p>
-                ) : (
-                  <ul className="mt-4 space-y-3">
-                    {feed.map((row) => (
-                      <li
-                        key={row.id}
-                        className="flex items-center gap-3 rounded-xl border border-border bg-black/[0.02] px-4 py-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="font-medium text-foreground">
-                            vs{" "}
-                            <Link
-                              href={`/profile/${row.otherUserId}`}
-                              className="text-primary underline-offset-2 hover:underline"
-                            >
-                              {row.otherDisplayName}
-                            </Link>
-                          </div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">
-                            {row.meetLabel} ·{" "}
-                            {new Date(row.updatedAt).toLocaleString("zh-Hant", {
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })}
-                          </div>
-                        </div>
-                        {row.outcomeLabel ? (
-                          <span className="shrink-0 rounded-full bg-primary/12 px-2.5 py-1 text-xs font-semibold text-primary">
-                            {row.outcomeLabel}
-                          </span>
-                        ) : (
-                          <span className="shrink-0 text-xs text-muted-foreground">未紀錄</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold text-foreground">近期對戰</h2>
+                  {battleStats.completedTotal > PROFILE_RECENT_MATCHES && !battleRecordsHiddenReason ? (
+                    <Link
+                      href={allMatchesHref}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      所有約戰
+                    </Link>
+                  ) : null}
+                </div>
+                <MatchFeedList 
+                  feed={recentFeed} 
+                  hiddenReason={battleRecordsHiddenReason}
+                />
               </div>
             </div>
 
             <aside className="space-y-6 lg:sticky lg:top-24">
-              <ActivityHeatmap activityByDay={battleStats.activityByDay} />
-              <div className="card card-hover p-4 text-xs leading-relaxed text-muted-foreground">
+              {!battleRecordsHiddenReason && <ActivityHeatmap activityByDay={battleStats.activityByDay} />}
+              {/* <div className="card card-hover p-4 text-xs leading-relaxed text-muted-foreground">
                 <p>
                   統計中的勝敗平僅包含<strong className="text-foreground">已送出戰果</strong>
                   的對戰；熱度圖依對戰「完成」日期計算。
                 </p>
-              </div>
+              </div> */}
             </aside>
           </div>
         )}
 
         {tab === "decks" && <div className="space-y-6">{decksSlot}</div>}
 
-        {variant === "self" && tab === "spots" && spotsSlot ? (
-          <div className="space-y-6">{spotsSlot}</div>
-        ) : null}
       </div>
     </div>
   );

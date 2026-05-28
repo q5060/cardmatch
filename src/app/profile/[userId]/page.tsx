@@ -5,8 +5,10 @@ import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ProfileDashboard } from "@/components/profile/ProfileDashboard";
 import { PublicDeckList } from "@/components/profile/PublicDeckList";
-import { getProfileBattleStats, getProfileMatchFeed } from "@/lib/queries";
-import { DECK_VISIBILITY } from "@/lib/constants";
+import { getProfileBattleStats, getProfileMatchFeed, getPrivacyHiddenReason } from "@/lib/queries";
+import { DECK_VISIBILITY, PROFILE_RECENT_MATCHES } from "@/lib/constants";
+import { isBlockedBetween } from "@/lib/block";
+import { viewerHasBlocked } from "@/actions/moderation";
 
 export async function generateMetadata(
   { params }: { params: Promise<{ userId: string }> }
@@ -80,24 +82,32 @@ export default async function OtherProfilePage({
   if (!viewer) redirect("/login");
   if (viewer.id === userId) redirect("/profile");
 
-  const [profile, battleStats, feed, friendship] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        displayName: true,
-        bio: true,
-        avatarUrl: true,
-        bannerUrl: true,
-        createdAt: true,
-        decks: {
-          where: { visibility: DECK_VISIBILITY.PUBLIC },
-          orderBy: { updatedAt: "desc" },
-          select: { id: true, title: true, notes: true },
-        },
+  // First fetch profile to get privacy settings
+  const profile = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      displayName: true,
+      bio: true,
+      avatarUrl: true,
+      bannerUrl: true,
+      createdAt: true,
+      battleRecordVisibility: true,
+      winrateVisibility: true,
+      decks: {
+        where: { visibility: DECK_VISIBILITY.PUBLIC },
+        orderBy: { updatedAt: "desc" },
+        select: { id: true, title: true, notes: true },
       },
-    }),
-    getProfileBattleStats(userId),
-    getProfileMatchFeed(userId, 15),
+    },
+  });
+
+  if (!profile) notFound();
+
+  // Then compute hidden reasons and fetch everything else in parallel
+  const [battleStats, recentFeed, friendship, blockedByViewer, blockedEither, battleRecordsHiddenReason, winrateHiddenReason] =
+    await Promise.all([
+    getProfileBattleStats(userId, viewer.id),
+    getProfileMatchFeed(userId, PROFILE_RECENT_MATCHES, viewer.id),
     prisma.friendship.findFirst({
       where: {
         OR: [
@@ -107,10 +117,13 @@ export default async function OtherProfilePage({
       },
       select: { id: true, status: true, requesterId: true },
     }),
+    viewerHasBlocked(viewer.id, userId),
+    isBlockedBetween(viewer.id, userId),
+    getPrivacyHiddenReason(userId, viewer.id, profile.battleRecordVisibility),
+    getPrivacyHiddenReason(userId, viewer.id, profile.winrateVisibility),
   ]);
 
-  if (!profile) notFound();
-
+  const friendshipForUi = blockedEither ? null : friendship;
   const deckCount = profile.decks.length;
   const publicDeckCount = deckCount;
 
@@ -121,7 +134,9 @@ export default async function OtherProfilePage({
         profileBasePath={`/profile/${userId}`}
         viewedUserId={userId}
         viewerId={viewer.id}
-        friendshipStatus={friendship}
+        friendshipStatus={friendshipForUi}
+        blockedByViewer={blockedByViewer}
+        interactionBlocked={blockedEither}
         user={{
           displayName: profile.displayName,
           bio: profile.bio,
@@ -130,10 +145,14 @@ export default async function OtherProfilePage({
           createdAt: profile.createdAt.toISOString(),
         }}
         battleStats={battleStats}
+        battleRecordVisibility={profile.battleRecordVisibility as "PUBLIC" | "FRIENDS" | "PRIVATE"}
+        winrateVisibility={profile.winrateVisibility as "PUBLIC" | "FRIENDS" | "PRIVATE"}
+        battleRecordsHiddenReason={battleRecordsHiddenReason}
+        winrateHiddenReason={winrateHiddenReason}
         deckCount={deckCount}
         publicDeckCount={publicDeckCount}
-        meetSpotCount={0}
-        feed={feed}
+        recentFeed={recentFeed}
+        allMatchesHref={`/profile/${userId}/matches`}
         decksSlot={<PublicDeckList decks={profile.decks} />}
       />
     </Suspense>

@@ -24,7 +24,7 @@ function MapPreview() {
 function QueuePreview() {
   return (
     <div className="relative flex flex-1 flex-col justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-b from-neutral-100/90 to-neutral-50 px-5 py-5">
-      {["休閒標準", "輕鬆對戰", "新手友善"].map((line, i) => (
+      {["隨機配對", "公開大廳－店家", "公開大廳－自訂地點"].map((line, i) => (
         <div
           key={line}
           className="relative rounded-lg bg-white/80 px-3 py-2 text-xs font-medium text-neutral-500 shadow-sm shadow-black/[0.04]"
@@ -67,26 +67,26 @@ function FriendsPreview() {
 
 const features = [
   {
-    tag: "Map",
-    labelEn: "Local Games",
-    title: "地圖與地點",
-    desc: "標註方便對戰的地點與時段，並查看種子卡店與大廳玩家。",
+    tag: "Battles",
+    labelEn: "Matches",
+    title: "找到你的下一場對戰",
+    desc: "在地圖上的店家或任意地點發布約戰公告，並且看到其他玩家的公告。",
     Preview: MapPreview,
     FootIcon: Map,
   },
   {
-    tag: "Queue",
-    labelEn: "Active Queues",
-    title: "大廳／隨機",
-    desc: "從名單發送邀請，或依距離自動配對另一位玩家。",
+    tag: "Modes",
+    labelEn: "Announcements",
+    title: "隨機配對＆公開大廳",
+    desc: "加入隨機配對或公開大廳，用你喜歡的方式開啟對戰。",
     Preview: QueuePreview,
     FootIcon: ClipboardList,
   },
   {
     tag: "Friends",
-    labelEn: "Friendly Matches",
+    labelEn: "Social",
     title: "聊天與好友",
-    desc: "約戰中即時文字協調；賽後可發送好友邀請與私訊。",
+    desc: "對戰成立後透過聊天室聯絡，賽後還可加好友維繫關係。",
     Preview: FriendsPreview,
     FootIcon: UsersRound,
   },
@@ -110,10 +110,11 @@ export default async function Home() {
           PTCG 實體約戰
         </p>
         <h1 className="relative mt-4 max-w-3xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-[2.65rem] md:leading-[1.15]">
-          發現你的下一場對戰
+          立即開始你的下一場對戰
         </h1>
-        <p className="relative mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg">
-          輕鬆連結喜愛寶可夢卡牌的同好：在地圖上找卡店與玩家、大廳約戰或隨機配對，見面後還能聊天、加好友。
+        <p className="relative mt-5 max-w-5xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+          找不到可以一起對戰的牌友嗎？CardMatch 讓你輕鬆連結喜愛寶可夢卡牌的同好。<br />
+          在任何地方發布約戰公告或從他人的公告發起對戰，還能加好友、聊天！
         </p>
         <div className="relative mt-10 flex flex-wrap gap-3">
           {user ? (
@@ -142,7 +143,7 @@ export default async function Home() {
 
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          你能做的事
+          在 CardMatch 你可以...
         </h2>
         <div className="mt-8 grid gap-6 sm:grid-cols-3">
           {features.map((x) => (

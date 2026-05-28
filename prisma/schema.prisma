@@ -3,11 +3,11 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// SQLite: store as string; validate in app with TS unions in lib/constants.ts
+// Enums stored as strings; validate in app with TS unions in lib/constants.ts
 
 model User {
   id              Int      @id @default(autoincrement())
@@ -28,7 +28,6 @@ model User {
 
   decks              Deck[]
   meetSpots          MeetSpot[]
-  queueEntry         MatchQueueEntry?
   matchesAsPlayerA   Match[]          @relation("PlayerA")
   matchesAsPlayerB   Match[]          @relation("PlayerB")
   messages           Message[]
@@ -37,6 +36,33 @@ model User {
   friendshipsRecv    Friendship[]     @relation("Addressee")
   battleResults      BattleResult[]
   notifications      Notification[]
+  matchQueueEntries  MatchQueueEntry[]
+  reportsMade        UserReport[]     @relation("ReportsMade")
+  reportsReceived    UserReport[]     @relation("ReportsReceived")
+  blocksMade         UserBlock[]      @relation("BlocksMade")
+  blocksReceived     UserBlock[]      @relation("BlocksReceived")
+}
+
+model UserReport {
+  id         String   @id @default(cuid())
+  reporterId Int
+  reportedId Int
+  reason     String   @default("")
+  createdAt  DateTime @default(now())
+  reporter   User     @relation("ReportsMade", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported   User     @relation("ReportsReceived", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([reportedId])
+}
+
+model UserBlock {
+  blockerId Int
+  blockedId Int
+  createdAt DateTime @default(now())
+  blocker   User @relation("BlocksMade", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
 }
 
 model Deck {
@@ -52,37 +78,48 @@ model Deck {
 }
 
 model MeetSpot {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   lat       Float
   lng       Float
   label     String
-  timeNote  String   @default("")
-  active    Boolean  @default(true)
-  looking   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  timeNote  String    @default("")
+  playNote  String    @default("") // 約戰說明：格式、程度等
+  active    Boolean   @default(true)
+  looking   Boolean   @default(false)
+  shopId    String?
+  shop      Shop?     @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model Shop {
-  id          String  @id @default(cuid())
-  name        String
-  lat         Float
-  lng         Float
-  addressNote String  @default("")
-  matches     Match[]
+  id                String     @id @default(cuid())
+  name              String
+  lat               Float
+  lng               Float
+  addressNote       String     @default("")
+  hasPtcgBattleArea Boolean    @default(false)
+  hoursJson         String     @default("{}")
+  matches           Match[]
+  meetSpots         MeetSpot[]
+  matchQueueEntries MatchQueueEntry[]
+  events            ShopEvent[]
 }
 
-model MatchQueueEntry {
-  id        String   @id @default(cuid())
-  userId    Int      @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  mode      String   @default("RANDOM") // PUBLIC_LOBBY | RANDOM
-  lat       Float
-  lng       Float
-  radiusKm  Float    @default(5)
-  createdAt DateTime @default(now())
+model ShopEvent {
+  id          String    @id @default(cuid())
+  shopId      String
+  shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title       String
+  description String    @default("")
+  startsAt    DateTime
+  endsAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([shopId, startsAt])
 }
 
 model Match {
@@ -95,6 +132,7 @@ model Match {
   status       String   @default("INVITE_PENDING") // INVITE_PENDING | ACCEPTED | IN_PROGRESS | COMPLETED | CANCELLED
   playerAReady Boolean  @default(false)
   playerBReady Boolean  @default(false)
+  cancelRequestedBy Int? // User who requested cancellation
   meetLat      Float
   meetLng      Float
   meetLabel    String
@@ -157,7 +195,7 @@ model Notification {
   id          String   @id @default(cuid())
   userId      Int
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type        String   // MATCH_CREATED | MATCH_COMPLETED | FRIEND_REQUEST | MESSAGE | BATTLE_RESULT | etc
+  type        String   // SPOT_INVITE | MATCH_CREATED | MATCH_COMPLETED | FRIEND_REQUEST | MESSAGE | BATTLE_RESULT | etc
   referenceId String?  // References match ID, friendship ID, message ID, etc
   senderId    Int?     // For MESSAGE and other notifications with a sender
   data        String?  // JSON string for additional data like notification message
@@ -165,26 +203,35 @@ model Notification {
   createdAt   DateTime @default(now())
 }
 
-
 model Card {
   id             Int          @id @default(autoincrement())
   name           String
   category       String // 寶可夢、訓練家、能量
-  
   // 寶可夢專屬欄位
   stage          String?      // 進化階段：基礎、一階等
   type           String?      // 屬性：草、火等
   hp             Int?         // 血量
-  
   // 訓練家 / 能量專屬欄位
   subType        String?      // 子類型：物品、支援者、特殊能量等
   isAceSpec      Boolean      @default(false) // 是否為 ACE SPEC
-
   // 共用欄位
   regulationMark String?      // 賽制標記 (如: G, H)
   imageUrl       String?      // 圖片網址
-  sourceUrl      String       @unique // 官方詳細頁網址 (⚠️ 設為 Unique 非常重要，用來判斷是否已爬過)
-  
+  sourceUrl      String       @unique // 官方詳細頁網址 (設為 Unique 用來判斷是否已爬過)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+/// Random match queue: one row per user (userId unique). shopId null = match globally.
+model MatchQueueEntry {
+  id       String   @id @default(cuid())
+  userId   Int      @unique
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopId   String?
+  shop     Shop?    @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  playNote String   @default("")
+  lat      Float?   // Map center latitude for random matching
+  lng      Float?   // Map center longitude for random matching
+  radiusKm Float?   // Search radius in km for random matching
+  joinedAt DateTime @default(now())
 }

@@ -1,19 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
+import {
+  shouldAnimateChatMessage,
+  useChatLastMessageRef,
+  useSyncChatLastMessageId,
+} from "@/hooks/useChatMessageAnimation";
+import type { ChatMessageDTO, RealtimeEvent } from "@/lib/realtime/types";
+import {
+  useRealtimeConnected,
+  useRealtimeEvent,
+} from "@/hooks/useRealtimeEvent";
 
-type Msg = {
-  id: string;
-  senderId?: number;
-  body: string;
-  createdAt: string;
-  sender: { id: number; displayName: string };
-};
+type Msg = ChatMessageDTO;
 
 function isOwnMessage(m: Msg, currentUserId: number): boolean {
-  const sid = m.senderId ?? m.sender?.id;
-  return Boolean(sid && currentUserId && sid === currentUserId);
+  return m.senderId === currentUserId;
+}
+
+function mergeMessages(prev: Msg[], incoming: Msg[]): Msg[] {
+  const byId = new Map(prev.map((m) => [m.id, m]));
+  for (const m of incoming) byId.set(m.id, m);
+  return [...byId.values()].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
 }
 
 export function MatchChat({
@@ -23,40 +34,77 @@ export function MatchChat({
   matchId: string;
   currentUserId: number;
 }) {
+  const sseConnected = useRealtimeConnected();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [fetchErr, setFetchErr] = useState<string | null>(null);
   const [sendErr, setSendErr] = useState<string | null>(null);
+  const lastAfterRef = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const prevLastMessageIdRef = useChatLastMessageRef();
+  useSyncChatLastMessageId(messages, prevLastMessageIdRef);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function pull() {
-      const res = await fetch(`/api/matches/${matchId}/messages`);
-      if (cancelled) return;
-      if (!res.ok) {
-        setFetchErr(res.status === 404 ? "無法載入聊天（約戰狀態或權限不符）" : "無法載入訊息");
-        return;
-      }
-      setFetchErr(null);
-      const data = (await res.json()) as { messages: Msg[] };
-      setMessages(data.messages);
+  const pull = useCallback(async (initial = false) => {
+    const url = new URL(`/api/matches/${matchId}/messages`, window.location.origin);
+    if (!initial && lastAfterRef.current) {
+      url.searchParams.set("afterTime", lastAfterRef.current);
     }
-
-    const first = window.setTimeout(() => void pull(), 0);
-    const interval = window.setInterval(() => void pull(), 4000);
-    return () => {
-      cancelled = true;
-      clearTimeout(first);
-      clearInterval(interval);
-    };
+    const res = await fetch(url.toString());
+    if (!res.ok) {
+      setFetchErr(res.status === 404 ? "無法載入聊天（約戰狀態或權限不符）" : "無法載入訊息");
+      return;
+    }
+    setFetchErr(null);
+    const data = (await res.json()) as { messages: Msg[] };
+    if (data.messages.length === 0) return;
+    const normalized = data.messages.map((m) => ({
+      ...m,
+      createdAt:
+        typeof m.createdAt === "string"
+          ? m.createdAt
+          : new Date(m.createdAt).toISOString(),
+    }));
+    lastAfterRef.current = normalized[normalized.length - 1]!.createdAt;
+    setMessages((prev) =>
+      initial ? normalized : mergeMessages(prev, normalized),
+    );
   }, [matchId]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    let cancelled = false;
+    void (async () => {
+      await pull(true);
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pull]);
+
+  useEffect(() => {
+    if (sseConnected) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void pull(false);
+    }, 12_000);
+    return () => window.clearInterval(id);
+  }, [pull, sseConnected]);
+
+  const onMessage = useCallback(
+    (e: RealtimeEvent) => {
+      if (e.type !== "message.new" || e.channel !== "match") return;
+      if (String(e.matchId) !== matchId) return;
+      const m = e.message;
+      lastAfterRef.current = m.createdAt;
+      setMessages((prev) => mergeMessages(prev, [m]));
+    },
+    [matchId],
+  );
+
+  useRealtimeEvent(
+    (e) => e.type === "message.new" && e.channel === "match",
+    onMessage,
+  );
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -72,14 +120,27 @@ export function MatchChat({
       });
       if (res.ok) {
         setText("");
-        const r = await fetch(`/api/matches/${matchId}/messages`);
-        if (r.ok) {
-          setFetchErr(null);
-          const data = (await r.json()) as { messages: Msg[] };
-          setMessages(data.messages);
-        } else {
-          setFetchErr("送出成功但重新載入失敗");
-        }
+        const data = (await res.json()) as {
+          message: {
+            id: string;
+            senderId: number;
+            body: string;
+            createdAt: string;
+            sender: { id: number; displayName: string };
+          };
+        };
+        const m: Msg = {
+          id: data.message.id,
+          senderId: data.message.senderId,
+          body: data.message.body,
+          createdAt:
+            typeof data.message.createdAt === "string"
+              ? data.message.createdAt
+              : new Date(data.message.createdAt).toISOString(),
+          sender: data.message.sender,
+        };
+        lastAfterRef.current = m.createdAt;
+        setMessages((prev) => mergeMessages(prev, [m]));
       } else {
         setSendErr(res.status === 404 ? "無法送出（約戰狀態或權限不符）" : "送出失敗");
       }
@@ -103,34 +164,16 @@ export function MatchChat({
           </p>
         ) : null}
         {messages.length === 0 ? (
-          <p className="text-muted-foreground">尚無訊息，先打聲招呼吧。</p>
+          <p className="text-sm text-muted-foreground">尚無訊息</p>
         ) : (
-          messages.map((m) => {
-            const mine = isOwnMessage(m, currentUserId);
-            return (
-              <div key={m.id} className="flex w-full min-w-0 justify-start">
-                <div
-                  className={`max-w-[85%] shrink-0 rounded-xl px-3 py-2 shadow-sm ${
-                    mine
-                      ? "ml-auto bg-primary text-white"
-                      : "bg-[var(--bubble-other)] text-foreground ring-1 ring-black/[0.04]"
-                  }`}
-                >
-                  {!mine ? (
-                    <div className="mb-1 text-xs opacity-70">
-                      <Link
-                        href={`/profile/${m.sender.id}`}
-                        className="underline-offset-2 hover:underline"
-                      >
-                        {m.sender.displayName}
-                      </Link>
-                    </div>
-                  ) : null}
-                  <div className="whitespace-pre-wrap">{m.body}</div>
-                </div>
-              </div>
-            );
-          })
+          messages.map((m, index) => (
+            <ChatMessageRow
+              key={m.id}
+              message={m}
+              mine={isOwnMessage(m, currentUserId)}
+              animateEnter={shouldAnimateChatMessage(messages, index, prevLastMessageIdRef)}
+            />
+          ))
         )}
         <div ref={bottomRef} />
       </div>

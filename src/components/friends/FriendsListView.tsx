@@ -7,7 +7,8 @@ import { Search, SortAsc, Clock } from "lucide-react";
 import { UserCircle } from "lucide-react";
 
 interface Friend {
-  id: string;
+  userId: number;  // 用户的实际 ID (流水号)
+  friendshipId: string;  // friendship ID (用于聊天链接)
   displayName: string;
   avatarUrl?: string | null;
   lastMessageAt?: string | Date | null;
@@ -15,12 +16,11 @@ interface Friend {
 
 interface FriendsListViewProps {
   friends: Friend[];
-  onSelectFriend?: (friendId: string) => void;
 }
 
 type SortType = "recent" | "name";
 
-export function FriendsListView({ friends, onSelectFriend, onDeleteFriend }: FriendsListViewProps) {
+export function FriendsListView({ friends }: FriendsListViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortType, setSortType] = useState<SortType>("recent");
 
@@ -64,17 +64,15 @@ export function FriendsListView({ friends, onSelectFriend, onDeleteFriend }: Fri
             placeholder="搜尋好友名稱..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-border bg-background pl-9 pr-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="input-field pl-9"
           />
         </div>
 
         <div className="flex gap-2">
           <button
             onClick={() => setSortType("recent")}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-              sortType === "recent"
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:border-border hover:bg-muted"
+            className={`btn btn-sm ${
+              sortType === "recent" ? "btn-secondary border-primary/30 text-primary" : "btn-ghost"
             }`}
           >
             <Clock className="h-4 w-4" />
@@ -82,10 +80,8 @@ export function FriendsListView({ friends, onSelectFriend, onDeleteFriend }: Fri
           </button>
           <button
             onClick={() => setSortType("name")}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-              sortType === "name"
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border text-muted-foreground hover:border-border hover:bg-muted"
+            className={`btn btn-sm ${
+              sortType === "name" ? "btn-secondary border-primary/30 text-primary" : "btn-ghost"
             }`}
           >
             <SortAsc className="h-4 w-4" />
@@ -106,7 +102,7 @@ export function FriendsListView({ friends, onSelectFriend, onDeleteFriend }: Fri
         <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((friend) => (
             <li
-              key={friend.id}
+              key={friend.friendshipId}
               className="card card-hover flex flex-col items-center gap-4 p-6 transition-all h-full"
             >
               {/* 頭像 */}
@@ -134,27 +130,20 @@ export function FriendsListView({ friends, onSelectFriend, onDeleteFriend }: Fri
               </div>
 
               {/* 按鈕 */}
-              <div className="w-full flex gap-2 relative z-10">
+              <div className="w-full flex gap-2">
                 <Link
-                  href={`/profile/${friend.id}`}
+                  href={`/profile/${friend.userId}`}
                   className="flex-1 btn btn-outline btn-sm"
                 >
                   檔案
                 </Link>
-                <button
-                  onClick={() => onSelectFriend?.(friend.id)}
+                <Link
+                  href={`/chat/${friend.friendshipId}`}
                   className="flex-1 btn btn-primary btn-sm"
                 >
                   聊天
-                </button>
+                </Link>
               </div>
-              
-              {/* 名字和頭像也可點擊進入個人檔案 */}
-              <Link
-                href={`/profile/${friend.id}`}
-                className="absolute inset-0 rounded-lg"
-                aria-hidden
-              />
             </li>
           ))}
         </ul>

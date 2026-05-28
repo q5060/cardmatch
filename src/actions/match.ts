@@ -1,11 +1,16 @@
 "use server";
 
+import { createInviteMatch } from "@/lib/matchInvite";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { MATCH_STATUS, BATTLE_OUTCOME, QUEUE_MODE } from "@/lib/constants";
-import { countActiveMatchesForUser } from "@/lib/queries";
-import { tryRandomPair } from "@/lib/matchmaking";
+import { MATCH_STATUS } from "@/lib/constants";
+import { assertNotBlocked } from "@/lib/block";
+import {
+  acceptInviteForUser,
+  setReadyForUser,
+} from "@/lib/matchLifecycle";
+import { publishMatchSnapshot, publishNotification } from "@/lib/realtime/publish";
 
 async function requireUserId() {
   const session = await getSession();
@@ -17,116 +22,45 @@ function isParticipant(m: { playerAId: number; playerBId: number }, userId: numb
   return m.playerAId === userId || m.playerBId === userId;
 }
 
-export async function joinRandomQueue(lat: number, lng: number, radiusKm: number) {
+export async function sendInviteFromSpot(spotId: string) {
   const userId = await requireUserId();
 
-  if ((await countActiveMatchesForUser(userId)) > 0) {
-    throw new Error("已有進行中的約戰，無法加入隨機排隊");
+  const spot = await prisma.meetSpot.findUnique({
+    where: { id: spotId },
+    include: { user: { select: { displayName: true } } },
+  });
+  if (
+    !spot ||
+    !spot.looking ||
+    !spot.active ||
+    !spot.expiresAt ||
+    spot.expiresAt <= new Date()
+  ) {
+    throw new Error("此公告已失效或不存在");
   }
 
-  await prisma.matchQueueEntry.deleteMany({ where: { userId } });
-  await prisma.matchQueueEntry.create({
-    data: {
-      userId,
-      mode: QUEUE_MODE.RANDOM,
-      lat,
-      lng,
-      radiusKm,
-    },
-  });
-
-  const matchId = await tryRandomPair(userId);
-  revalidatePath("/battle");
-  return matchId;
-}
-
-export async function leaveQueue() {
-  const userId = await requireUserId();
-  await prisma.matchQueueEntry.deleteMany({ where: { userId } });
-  revalidatePath("/battle");
-}
-
-export async function sendLobbyInvite(targetUserId: number) {
-  const userId = await requireUserId();
+  const targetUserId = spot.userId;
   if (targetUserId === userId) throw new Error("無法邀請自己");
+  await assertNotBlocked(userId, targetUserId);
 
-  const mySpot = await prisma.meetSpot.findFirst({
-    where: { userId, looking: true, active: true },
-  });
-  const theirSpot = await prisma.meetSpot.findFirst({
-    where: { userId: targetUserId, looking: true, active: true },
-  });
-  if (!mySpot || !theirSpot) throw new Error("雙方都需公開約戰地點到大廳");
-
-  if ((await countActiveMatchesForUser(userId)) > 0) {
-    throw new Error("你已有進行中的約戰");
-  }
-  if ((await countActiveMatchesForUser(targetUserId)) > 0) {
-    throw new Error("對方已有進行中的約戰");
-  }
-
-  const playerAId = userId < targetUserId ? userId : targetUserId;
-  const playerBId = userId < targetUserId ? targetUserId : userId;
-
-  const existing = await prisma.match.findFirst({
-    where: {
-      playerAId,
-      playerBId,
-      status: {
-        in: [
-          MATCH_STATUS.INVITE_PENDING,
-          MATCH_STATUS.ACCEPTED,
-          MATCH_STATUS.IN_PROGRESS,
-        ],
-      },
+  await createInviteMatch({
+    inviterId: userId,
+    targetUserId,
+    meet: {
+      lat: spot.lat,
+      lng: spot.lng,
+      label: spot.label,
+      shopId: spot.shopId,
     },
+    source: "spot",
+    spotLabelForNotification: spot.label,
   });
-  if (existing) throw new Error("已有進行中或等待回應的約戰");
-
-  const match = await prisma.match.create({
-    data: {
-      playerAId,
-      playerBId,
-      invitedById: userId,
-      status: MATCH_STATUS.INVITE_PENDING,
-      meetLat: theirSpot.lat,
-      meetLng: theirSpot.lng,
-      meetLabel: theirSpot.label,
-    },
-  });
-
-  // Send notification to target user with sender name
-  const inviter = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { displayName: true },
-  });
-  
-  await prisma.notification.create({
-    data: {
-      userId: targetUserId,
-      type: "MATCH_CREATED",
-      referenceId: match.id.toString(),
-      senderId: userId,
-      data: JSON.stringify(`${inviter?.displayName} 邀請你對戰`),
-      read: false,
-    },
-  });
-
-  revalidatePath("/battle");
 }
 
 export async function acceptInvite(matchId: string) {
   const userId = await requireUserId();
   const id = parseInt(matchId);
-  const match = await prisma.match.findUnique({ where: { id } });
-  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
-  if (match.status !== MATCH_STATUS.INVITE_PENDING) throw new Error("邀請狀態已變更");
-  if (match.invitedById === userId) throw new Error("不能接受自己發出的邀請");
-
-  await prisma.match.update({
-    where: { id },
-    data: { status: MATCH_STATUS.ACCEPTED, playerAReady: false, playerBReady: false },
-  });
+  const match = await acceptInviteForUser(id, userId);
 
   // Send notification to inviter
   const inviterId = match.invitedById;
@@ -141,6 +75,8 @@ export async function acceptInvite(matchId: string) {
     },
   });
 
+  await publishMatchSnapshot(id);
+  await publishNotification(inviterId);
   revalidatePath("/battle");
 }
 
@@ -156,6 +92,7 @@ export async function rejectInvite(matchId: string) {
     data: { status: MATCH_STATUS.CANCELLED },
   });
 
+  await publishMatchSnapshot(id);
   revalidatePath("/battle");
 }
 
@@ -164,28 +101,11 @@ export async function setReady(matchId: string, ready: boolean) {
   const id = parseInt(matchId);
   const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
-  if (match.status !== MATCH_STATUS.ACCEPTED) throw new Error("目前無法切換準備狀態");
 
-  const isA = match.playerAId === userId;
-  const data = isA ? { playerAReady: ready } : { playerBReady: ready };
+  const { started } = await setReadyForUser(id, userId, ready);
 
-  await prisma.match.update({
-    where: { id },
-    data,
-  });
-
-  const updated = await prisma.match.findUnique({ where: { id } });
-  if (
-    updated?.status === MATCH_STATUS.ACCEPTED &&
-    updated.playerAReady &&
-    updated.playerBReady
-  ) {
-    await prisma.match.update({
-      where: { id },
-      data: { status: MATCH_STATUS.IN_PROGRESS },
-    });
-
-    // Send notification to both players when battle starts
+  if (started) {
+    const isA = match.playerAId === userId;
     const otherPlayerId = isA ? match.playerBId : match.playerAId;
     await prisma.notification.create({
       data: {
@@ -197,8 +117,10 @@ export async function setReady(matchId: string, ready: boolean) {
         read: false,
       },
     });
+    await publishNotification(otherPlayerId);
   }
 
+  await publishMatchSnapshot(id);
   revalidatePath("/battle");
 }
 
@@ -207,19 +129,104 @@ export async function cancelMatch(matchId: string) {
   const id = parseInt(matchId);
   const match = await prisma.match.findUnique({ where: { id } });
   if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
-  if (
-    match.status !== MATCH_STATUS.ACCEPTED &&
-    match.status !== MATCH_STATUS.IN_PROGRESS &&
-    match.status !== MATCH_STATUS.INVITE_PENDING
-  ) {
+  
+  if (match.status === MATCH_STATUS.INVITE_PENDING) {
+    // In INVITE_PENDING state, only the inviter can cancel
+    if (match.invitedById !== userId) {
+      throw new Error("只有邀請者可以取消邀請");
+    }
+    await prisma.match.update({
+      where: { id },
+      data: { status: MATCH_STATUS.CANCELLED },
+    });
+  } else if (match.status === MATCH_STATUS.ACCEPTED || match.status === MATCH_STATUS.IN_PROGRESS) {
+    // Both players need to agree to cancel
+    const otherPlayerId = match.playerAId === userId ? match.playerBId : match.playerAId;
+    
+    // If no cancellation request exists, create one
+    if (!match.cancelRequestedBy) {
+      await prisma.match.update({
+        where: { id },
+        data: { cancelRequestedBy: userId },
+      });
+      
+      // Send notification to other player
+      await prisma.notification.create({
+        data: {
+          userId: otherPlayerId,
+          type: "MATCH_CREATED",
+          referenceId: id.toString(),
+          senderId: userId,
+          data: JSON.stringify("對方請求取消約戰"),
+          read: false,
+        },
+      });
+      await publishNotification(otherPlayerId);
+    } else if (match.cancelRequestedBy === userId) {
+      // Same player requesting again - cancel their request
+      await prisma.match.update({
+        where: { id },
+        data: { cancelRequestedBy: null },
+      });
+    } else {
+      // Other player agreed to cancel
+      await prisma.match.update({
+        where: { id },
+        data: { status: MATCH_STATUS.CANCELLED, cancelRequestedBy: null },
+      });
+      
+      // Send notification to other player
+      await prisma.notification.create({
+        data: {
+          userId: otherPlayerId,
+          type: "MATCH_CREATED",
+          referenceId: id.toString(),
+          senderId: userId,
+          data: JSON.stringify("約戰已取消"),
+          read: false,
+        },
+      });
+      await publishNotification(otherPlayerId);
+    }
+  } else {
     throw new Error("無法取消此約戰");
   }
 
+  await publishMatchSnapshot(id);
+  revalidatePath("/battle");
+}
+
+export async function rejectCancelRequest(matchId: string) {
+  const userId = await requireUserId();
+  const id = parseInt(matchId);
+  const match = await prisma.match.findUnique({ where: { id } });
+  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
+  
+  if (!match.cancelRequestedBy || match.cancelRequestedBy === userId) {
+    throw new Error("沒有取消請求");
+  }
+
+  // Clear the cancel request
   await prisma.match.update({
     where: { id },
-    data: { status: MATCH_STATUS.CANCELLED },
+    data: { cancelRequestedBy: null },
   });
 
+  // Send notification to the other player
+  const otherPlayerId = match.playerAId === userId ? match.playerBId : match.playerAId;
+  await prisma.notification.create({
+    data: {
+      userId: otherPlayerId,
+      type: "MATCH_CREATED",
+      referenceId: id.toString(),
+      senderId: userId,
+      data: JSON.stringify("對方拒絕了取消約戰的請求"),
+      read: false,
+    },
+  });
+
+  await publishMatchSnapshot(id);
+  await publishNotification(otherPlayerId);
   revalidatePath("/battle");
 }
 
@@ -315,6 +322,8 @@ export async function finishMatch(
     }
   });
 
+  await publishMatchSnapshot(id);
+  await publishNotification(otherId);
   revalidatePath("/battle");
   revalidatePath("/profile");
   revalidatePath("/friends");
@@ -334,6 +343,7 @@ export async function resetBattleResult(matchId: string) {
     where: { matchId: id },
   });
 
+  await publishMatchSnapshot(id);
   revalidatePath("/battle");
 }
 

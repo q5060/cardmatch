@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cardmatch
+      POSTGRES_PASSWORD: cardmatch
+      POSTGRES_DB: cardmatch
+    ports:
+      - "5432:5432"
+    volumes:
+      - cardmatch_dev_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardmatch -d cardmatch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   cardmatch-dev:
     build:
       context: .
@@ -9,15 +25,18 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=development
-      - DATABASE_URL=file:./data/cardmatch.db
+      - DATABASE_URL=postgresql://cardmatch:cardmatch@postgres:5432/cardmatch
+      - SESSION_SECRET=dev-session-secret-at-least-32-chars-long
+      - REALTIME_BUS=memory
     volumes:
       - .:/app
       - /app/node_modules
       - /app/.next
-      - cardmatch_dev_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
-    command: pnpm run dev
+    command: npm run dev
 
 volumes:
-  cardmatch_dev_data:
-    driver: local
+  cardmatch_dev_pg:
