@@ -22,7 +22,7 @@ const VISIBILITY_OPTIONS = [
 export default function EditDeckPage() {
   const router = useRouter();
   const params = useParams();
-  const deckId = params.id as string;
+  const id = params.id as string;
 
   const [deck, setDeck] = useState<Deck | null>(null);
   const [title, setTitle] = useState("");
@@ -35,7 +35,7 @@ export default function EditDeckPage() {
   useEffect(() => {
     const fetchDeck = async () => {
       try {
-        const res = await fetch(`/api/decks/${deckId}`);
+        const res = await fetch(`/api/decks/${id}`);
         if (!res.ok) {
           throw new Error("無法載入牌組");
         }
@@ -52,7 +52,7 @@ export default function EditDeckPage() {
     };
 
     fetchDeck();
-  }, [deckId]);
+  }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,8 +69,8 @@ export default function EditDeckPage() {
       formData.append("title", title);
       formData.append("notes", notes);
       formData.append("visibility", visibility);
-      await updateDeck(deckId, formData);
-      router.push("/profile");
+      await updateDeck(id, formData);
+      router.push(`/decks/${id}/edit`);
       router.refresh();
     } catch (err: any) {
       setError(err.message || "更新牌組失敗");
@@ -108,7 +108,7 @@ export default function EditDeckPage() {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <Link
-            href="/profile"
+            href={`/decks/${id}/edit`}
             className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-neutral-200 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -194,7 +194,7 @@ export default function EditDeckPage() {
 
           {/* Buttons */}
           <div className="flex gap-3 justify-end">
-            <Link href="/profile" className="btn btn-outline">
+            <Link href={`/decks/${id}/edit`} className="btn btn-outline">
               取消
             </Link>
             <button type="submit" disabled={!title.trim() || saving} className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed">

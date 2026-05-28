@@ -218,7 +218,7 @@ export default function DeckCompositionEditor() {
           <div className="flex items-center gap-2">
             {/* 連結到編輯牌組資訊的按鈕 */}
             <Link 
-              href={`/decks/${id}/settings`} 
+              href={`/decks/${id}/setting`} 
               className="btn btn-outline flex items-center gap-2"
             >
               <Settings className="w-4 h-4" />
