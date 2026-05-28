@@ -125,9 +125,14 @@ export default function DeckCompositionEditor() {
 
       if (existingCardIndex > -1) {
         // 3. 如果已存在，檢查是否超過 4 張限制 (能量卡通常不限，這裡可依需求調整)
-        const isBasicEnergy = card.category === "ENERGY" && !card.name.includes("特殊");
+        const isBasicEnergy = card.category === "ENERGY" && card.subType === "Basic";
         if (!isBasicEnergy && prevCards[existingCardIndex].count >= 4) {
           alert("同名卡片（除基本能量外）最多只能放入 4 張！");
+          return prevCards;
+        }
+
+        if (card.isAceSpec && prevCards[existingCardIndex].count >= 1) {
+          alert("AceSpec 最多只能放入 1 張！");
           return prevCards;
         }
 
@@ -240,7 +245,7 @@ export default function DeckCompositionEditor() {
           <div className="lg:col-span-4 space-y-4">
             <div className="bg-white rounded-2xl border p-5 shadow-sm">
               <h2 className="font-bold mb-4 flex justify-between">
-                目前清單 <span>{cards.reduce((acc, curr) => acc + curr.count, 0)} / 60</span>
+                牌組清單 <span>{cards.reduce((acc, curr) => acc + curr.count, 0)} / 60</span>
               </h2>
               <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
                 {cards.length === 0 ? (

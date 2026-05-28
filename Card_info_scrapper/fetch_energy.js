@@ -110,10 +110,14 @@ async function scrapeEnergyCards() {
                 }
 
                 // 2. 卡牌子類型 (基本能量 / 特殊能量)
-                // ⚠️ 替換點 E2：請確認能量子類型的真實 class
-                const subType = document.querySelector('.commonHeader')?.innerText.trim() || '能量卡';
+                let subType = '';
+                if (name.includes("基本")) {
+                    subType = 'Basic';
+                } else {
+                    subType = 'Special';
+                }
 
-                // ✨ 3. ACE SPEC 判斷邏輯
+                // 3. ACE SPEC 判斷邏輯
                 const aceSpecList = [
                     "不公印章", "覺醒戰鼓", "急進開關", "危險光線", "高級香氛", 
                     "頂尖捕捉器", "貴重手推車", "寶可生機劑A", "寶可夢旋風回收機", "重新啟動箱", 
@@ -130,7 +134,7 @@ async function scrapeEnergyCards() {
                 return {
                     name,
                     type: null, //沒有屬性
-                    subType, 
+                    subType, // basic / special
                     isAceSpec, // 是否為 ACE SPEC (布林值)
                     regulationMark, 
                     imageUrl,
@@ -138,7 +142,7 @@ async function scrapeEnergyCards() {
                 };
             });
 
-            // ✨ 新增：使用 upsert 直接寫入資料庫
+            // 使用 upsert 直接寫入資料庫
             await prisma.card.upsert({
                 where: { sourceUrl: cardDetails.sourceUrl }, // 透過網址判斷是否已存在
                 update: {
@@ -146,6 +150,7 @@ async function scrapeEnergyCards() {
                     category: 'ENERGY',
                     stage: cardDetails.stage,
                     type: cardDetails.type,
+                    subType: cardDetails.subType,
                     hp: cardDetails.hp,
                     isAceSpec: cardDetails.isAceSpec,
                     regulationMark: cardDetails.regulationMark,
@@ -156,6 +161,7 @@ async function scrapeEnergyCards() {
                     category: 'ENERGY',
                     stage: cardDetails.stage,
                     type: cardDetails.type,
+                    subType: cardDetails.subType,
                     hp: cardDetails.hp,
                     isAceSpec: cardDetails.isAceSpec,
                     regulationMark: cardDetails.regulationMark,
@@ -175,7 +181,7 @@ async function scrapeEnergyCards() {
 
     console.log('\n🎉 能量卡詳細資料抓取完畢，已成功寫入資料庫！');
     await browser.close();
-    await prisma.$disconnect(); // ✨ 新增：關閉資料庫連線
+    await prisma.$disconnect(); // 關閉資料庫連線
 }
 
 scrapeEnergyCards();
