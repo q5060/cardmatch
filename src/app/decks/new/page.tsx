@@ -37,8 +37,11 @@ export default function NewDeckPage() {
       formData.append("title", title);
       formData.append("notes", notes);
       formData.append("visibility", visibility);
-      await createDeck(formData);
-      router.push("/settings?tab=decks");
+      const newDeck = await createDeck(formData);
+      if (newDeck?.id) {
+      // 關鍵：導向到「組成編輯」頁面
+      router.push(`/decks/${newDeck.id}/edit`);
+    }
       router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "建立牌組失敗");

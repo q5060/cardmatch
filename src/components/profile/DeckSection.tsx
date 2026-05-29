@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import {
-  createDeck,
+  submitCreateDeck,
   deleteDeck,
   updateDeckVisibility,
 } from "@/actions/decks";
@@ -32,19 +32,24 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
         ) : (
           <ul className="space-y-3">
             {decks.map((d) => (
-              <li
-                key={d.id}
-                className="card card-hover flex flex-col gap-2 p-4 sm:flex-row sm:items-start"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-foreground">{d.title}</div>
-                  {d.notes ? (
-                    <p className="mt-1 text-sm text-muted-foreground">{d.notes}</p>
-                  ) : null}
-                  <span className="mt-1 inline-block text-xs text-muted-foreground">
-                    {d.visibility === DECK_VISIBILITY.PRIVATE ? "私人" : "公開"}
-                  </span>
-                </div>
+              <li key={d.id}>
+                {/* 將整個卡片變成連結 */}
+                <Link 
+                  href={`/decks/${d.id}/edit`} 
+                  className="card card-hover flex flex-col gap-2 p-4 sm:flex-row sm:items-start block transition-colors hover:border-primary/50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium text-foreground group-hover:text-primary">
+                      {d.title}
+                    </div>
+                    {d.notes ? (
+                      <p className="mt-1 text-sm text-muted-foreground">{d.notes}</p>
+                    ) : null}
+                    <span className="mt-1 inline-block text-xs text-muted-foreground">
+                      {d.visibility === DECK_VISIBILITY.PRIVATE ? "私人" : "公開"}
+                    </span>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>
@@ -56,7 +61,7 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
   // Edit mode: show form and edit controls (for settings page)
   return (
     <div className="space-y-6">
-      <form action={createDeck} className="card card-hover space-y-4 p-5">
+      <form action={submitCreateDeck} className="card card-hover space-y-4 p-5">
         <h3 className="font-semibold text-foreground">新增牌組</h3>
         <label className="block text-sm font-medium text-foreground">
           <span className="text-muted-foreground">牌組名稱</span>
