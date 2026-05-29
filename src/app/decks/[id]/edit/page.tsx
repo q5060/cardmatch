@@ -369,7 +369,7 @@ export default function DeckCompositionEditor() {
               {allCards.map((card) => (
                 <div key={card.id} className="bg-white rounded-xl border p-2 hover:shadow-md group">
                   <div className="aspect-[3/4] mb-2">
-                    <img src={card.imageUrl} alt={card.name} className="w-full h-full object-contain" />
+                    <img src={card.imageUrl ?? ""} alt={card.name} className="w-full h-full object-contain" />
                   </div>
                   <p className="text-xs font-bold truncate">{card.name}</p>
                   <p className="text-[10px] text-muted-foreground">{card.type} / {card.regulationMark}</p>
