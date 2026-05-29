@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { DECK_VISIBILITY } from "@/lib/constants";
 import { Deck } from "@prisma/client";
 
-export async function createDeck(prevState: any, formData: FormData): Promise<Deck | null> {
+export async function createDeck(formData: FormData): Promise<Deck> {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
 
@@ -31,7 +31,13 @@ export async function createDeck(prevState: any, formData: FormData): Promise<De
   });
 
   revalidatePath("/profile");
+  revalidatePath("/settings");
   return newDeck;
+}
+
+/** For `<form action={...}>` — must return void, not Deck. */
+export async function submitCreateDeck(formData: FormData): Promise<void> {
+  await createDeck(formData);
 }
 
 export async function deleteDeck(deckId: string) {
