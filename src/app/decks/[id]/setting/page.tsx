@@ -44,8 +44,8 @@ export default function EditDeckPage() {
         setTitle(data.title);
         setNotes(data.notes || "");
         setVisibility(data.visibility || "PUBLIC");
-      } catch (err: any) {
-        setError(err.message || "載入牌組失敗");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "載入牌組失敗");
       } finally {
         setLoading(false);
       }
@@ -72,8 +72,8 @@ export default function EditDeckPage() {
       await updateDeck(id, formData);
       router.push(`/decks/${id}/edit`);
       router.refresh();
-    } catch (err: any) {
-      setError(err.message || "更新牌組失敗");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "更新牌組失敗");
     } finally {
       setSaving(false);
     }

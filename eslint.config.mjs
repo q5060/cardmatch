@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Scraper scripts (CommonJS, run via node CLI only)
+    "Card_info_scrapper/**",
   ]),
 ]);
 

@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   const search = searchParams.get("search");
 
   // 構建 Prisma 查詢條件
-  let where: Prisma.CardWhereInput = {};
+  const where: Prisma.CardWhereInput = {};
 
   // 1. 處理類別與子類型的邏輯 (***待修改，爬蟲有問題***)
   if (categoryFilter === "POKEMON") {

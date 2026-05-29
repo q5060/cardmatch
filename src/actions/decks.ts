@@ -79,7 +79,7 @@ export async function updateDeck(deckId: string, formData: FormData) {
 
   if (!title) throw new Error("INVALID_TITLE");
 
-  const updatedDeck = await prisma.deck.update({
+  await prisma.deck.update({
     where: { id: deckId, userId: session.userId },
     data: {
       title: title.slice(0, 120),
