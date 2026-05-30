@@ -69,21 +69,32 @@ export async function updateDeck(deckId: string, formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const visibility = String(formData.get("visibility") ?? "PUBLIC");
-  const deckJson = String(formData.get("deckJson") ?? "").trim() || null;
+
+  // 確認 formData 裡面有沒有傳入 deckJson 這個 key
+  const hasDeckJson = formData.has("deckJson");
+  const deckJson = hasDeckJson ? String(formData.get("deckJson") ?? "").trim() : undefined;
 
   if (!title) throw new Error("INVALID_TITLE");
 
+  // 構建更新用的資料物件
+  const updateData: any = {
+    title: title.slice(0, 120),
+    notes: notes.slice(0, 2000),
+    visibility:
+      visibility === DECK_VISIBILITY.PRIVATE
+        ? DECK_VISIBILITY.PRIVATE
+        : DECK_VISIBILITY.PUBLIC,
+  };
+
+  // 只有當有傳入deckJson時，才加入deckJson到更新清單中
+  // 在 Prisma 中，若屬性為 undefined，該欄位就不會被更新
+  if (hasDeckJson) {
+    updateData.deckJson = deckJson ? deckJson.slice(0, 50_000) : null;
+  }
+
   const updatedDeck = await prisma.deck.update({
     where: { id: deckId, userId: session.userId },
-    data: {
-      title: title.slice(0, 120),
-      notes: notes.slice(0, 2000),
-      visibility:
-        visibility === DECK_VISIBILITY.PRIVATE
-          ? DECK_VISIBILITY.PRIVATE
-          : DECK_VISIBILITY.PUBLIC,
-      deckJson: deckJson ? deckJson.slice(0, 50_000) : null,
-    },
+    data: updateData,
   });
 
   revalidatePath("/profile");
