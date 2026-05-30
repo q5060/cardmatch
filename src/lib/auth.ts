@@ -11,7 +11,7 @@ export async function getSession() {
 export async function getCurrentUser() {
   const session = await getSession();
   if (!session.userId) return null;
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: session.userId },
     select: {
       id: true,
@@ -20,6 +20,10 @@ export async function getCurrentUser() {
       bio: true,
       avatarUrl: true,
       createdAt: true,
+      suspendedUntil: true,
     },
   });
+  if (!user) return null;
+  if (user.suspendedUntil && user.suspendedUntil > new Date()) return null;
+  return { id: user.id, email: user.email, displayName: user.displayName, bio: user.bio, avatarUrl: user.avatarUrl, createdAt: user.createdAt };
 }

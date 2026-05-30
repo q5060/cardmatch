@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { MapLocationSearch } from "@/components/map/MapLocationSearch";
 import type { MapShopPin } from "@/components/map/MeetMap";
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { BattleNearbyPlayersList } from "@/components/battle/BattleNearbyPlayersList";
 import { BattleShopList } from "@/components/battle/BattleShopList";
+import { submitShopReport } from "@/actions/shops";
 
 type Props = {
   shops: MapShopPin[];
@@ -18,6 +19,8 @@ type Props = {
   mapCenterLng?: number;
   radiusKm?: number;
   onRadiusChange?: (radiusKm: number) => void;
+  activeTab?: "players" | "shops";
+  onActiveTabChange?: (tab: "players" | "shops") => void;
 };
 
 // Calculate distance between two coordinates (in km)
@@ -45,18 +48,51 @@ export function BattleShopExploreCard({
   mapCenterLat = 25.033,
   mapCenterLng = 121.565,
   radiusKm = 5,
-  onRadiusChange,
+  activeTab,
+  onActiveTabChange,
 }: Props) {
-  const [tab, setTab] = useState<"players" | "shops">("players");
+  const [localTab, setLocalTab] = useState<"players" | "shops">("players");
+  const tab = activeTab ?? localTab;
+  const setTab = (t: "players" | "shops") => {
+    setLocalTab(t);
+    onActiveTabChange?.(t);
+  };
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestName, setSuggestName] = useState("");
+  const [suggestAddress, setSuggestAddress] = useState("");
+  const [suggestNote, setSuggestNote] = useState("");
+  const [suggestSubmitting, setSuggestSubmitting] = useState(false);
+  const [suggestSubmitted, setSuggestSubmitted] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
+
+  async function handleSuggestSubmit(e: React.SyntheticEvent) {
+    e.preventDefault();
+    if (!suggestName.trim()) { setSuggestError("請填寫店家名稱"); return; }
+    setSuggestSubmitting(true);
+    setSuggestError("");
+    try {
+      await submitShopReport({ type: "MISSING", shopName: suggestName, address: suggestAddress, note: suggestNote });
+      setSuggestSubmitted(true);
+    } catch (err) {
+      setSuggestError(err instanceof Error ? err.message : "送出失敗");
+    } finally {
+      setSuggestSubmitting(false);
+    }
+  }
+
+  function handleSuggestClose() {
+    setSuggestOpen(false);
+    setSuggestSubmitted(false);
+    setSuggestError("");
+    setSuggestName("");
+    setSuggestAddress("");
+    setSuggestNote("");
+  }
 
   // Determine available content
   const hasOtherPlayers = announcements.length > 0;
   const canShowShops = !hideShopList;
 
-  // Handle radius change directly
-  const handleRadiusChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onRadiusChange?.(parseFloat(e.target.value));
-  }, [onRadiusChange]);
   const filteredAnnouncements = useMemo(() => {
     if (announcements.length === 0) return [];
     
@@ -66,14 +102,14 @@ export function BattleShopExploreCard({
     });
   }, [announcements, radiusKm, mapCenterLat, mapCenterLng]);
 
-  // Filter shops by radius (use map center as reference point)
+  // Filter shops by radius and sort by distance
   const filteredShops = useMemo(() => {
     if (shops.length === 0) return [];
-    
-    return shops.filter(shop => {
-      const distance = calculateDistance(mapCenterLat, mapCenterLng, shop.lat, shop.lng);
-      return distance <= radiusKm;
-    });
+    return shops
+      .map(shop => ({ shop, dist: calculateDistance(mapCenterLat, mapCenterLng, shop.lat, shop.lng) }))
+      .filter(({ dist }) => dist <= radiusKm)
+      .sort((a, b) => a.dist - b.dist)
+      .map(({ shop }) => shop);
   }, [shops, radiusKm, mapCenterLat, mapCenterLng]);
 
   return (
@@ -114,41 +150,107 @@ export function BattleShopExploreCard({
 
       {/* Players content */}
       {tab === "players" && (
-        <div className="min-h-[352px] flex flex-col" style={{ minHeight: "calc(3 * 110px + 16px)" }}>
-          
-          {/* 只有當有資料時才渲染列表 */}
+        <div className="flex flex-col">
           {filteredAnnouncements.length > 0 ? (
-            <BattleNearbyPlayersList 
-              announcements={filteredAnnouncements} 
-              onSelect={onSelectAnnouncement} 
+            <BattleNearbyPlayersList
+              announcements={filteredAnnouncements}
+              onSelect={onSelectAnnouncement}
             />
           ) : (
-            /* 沒有資料時，讓這個 div 用 flex-1 填滿剩下的高度並置中內容 */
-            <div className="text-sm text-muted-foreground flex-1 flex items-center justify-center">
+            <div className="flex min-h-[200px] items-center justify-center text-sm text-muted-foreground">
               {hasOtherPlayers ? "該範圍內沒有玩家" : "目前沒有其他玩家"}
             </div>
           )}
-          
         </div>
       )}
 
       {/* Shops content */}
       {tab === "shops" && (
-        <div className="min-h-[352px] flex flex-col" style={{ minHeight: "calc(3 * 110px + 16px)" }}>
-          
-          {/* 只有當有店家資料時才渲染列表 */}
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setSuggestOpen(true)}
+            className="self-start rounded-lg border border-border bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+          >
+            + 建議新增店家
+          </button>
+
           {filteredShops.length > 0 ? (
-            <BattleShopList 
-              shops={filteredShops} 
-              onSelectShop={onSelectShop} 
+            <BattleShopList
+              shops={filteredShops}
+              onSelectShop={onSelectShop}
             />
           ) : (
-            /* 沒有店家時，讓這個 div 用 flex-1 撐滿整個容器並垂直、水平置中文字 */
-            <div className="text-sm text-muted-foreground flex-1 flex items-center justify-center">
+            <div className="flex min-h-[200px] items-center justify-center text-sm text-muted-foreground">
               {canShowShops ? "該範圍內沒有店家" : "目前沒有店家"}
             </div>
           )}
-          
+        </div>
+      )}
+
+      {/* 建議新增店家 dialog */}
+      {suggestOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            {suggestSubmitted ? (
+              <div className="space-y-4 text-center">
+                <p className="text-sm font-medium text-foreground">感謝建議！我們會確認後加入名單。</p>
+                <button
+                  type="button"
+                  onClick={handleSuggestClose}
+                  className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-white"
+                >
+                  關閉
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSuggestSubmit} className="space-y-4">
+                <h2 className="text-sm font-semibold text-foreground">建議新增店家</h2>
+
+                <input
+                  value={suggestName}
+                  onChange={(e) => setSuggestName(e.target.value)}
+                  placeholder="店家名稱（必填）"
+                  maxLength={100}
+                  className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <input
+                  value={suggestAddress}
+                  onChange={(e) => setSuggestAddress(e.target.value)}
+                  placeholder="地址（選填）"
+                  maxLength={200}
+                  className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <textarea
+                  value={suggestNote}
+                  onChange={(e) => setSuggestNote(e.target.value)}
+                  placeholder="備註（選填，例如：有道館賽、週末有活動）"
+                  rows={3}
+                  maxLength={500}
+                  className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                />
+
+                {suggestError && <p className="text-xs text-red-500">{suggestError}</p>}
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSuggestClose}
+                    className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={suggestSubmitting}
+                    className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-white disabled:opacity-50"
+                  >
+                    {suggestSubmitting ? "送出中…" : "送出"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
     </div>

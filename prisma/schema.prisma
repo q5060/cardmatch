@@ -23,6 +23,8 @@ model User {
   battleRecordVisibility String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
   winrateVisibility      String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
   
+  suspendedUntil  DateTime?
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -41,6 +43,7 @@ model User {
   reportsReceived    UserReport[]     @relation("ReportsReceived")
   blocksMade         UserBlock[]      @relation("BlocksMade")
   blocksReceived     UserBlock[]      @relation("BlocksReceived")
+  shopReports        ShopReport[]
 }
 
 model UserReport {
@@ -96,17 +99,17 @@ model MeetSpot {
 }
 
 model Shop {
-  id                String     @id @default(cuid())
+  id                String       @id @default(cuid())
   name              String
   lat               Float
   lng               Float
-  addressNote       String     @default("")
-  hasPtcgBattleArea Boolean    @default(false)
-  hoursJson         String     @default("{}")
+  addressNote       String       @default("")
+  hoursJson         String       @default("{}")
   matches           Match[]
   meetSpots         MeetSpot[]
   matchQueueEntries MatchQueueEntry[]
   events            ShopEvent[]
+  shopReports       ShopReport[]
 }
 
 model ShopEvent {
@@ -120,6 +123,25 @@ model ShopEvent {
   createdAt   DateTime  @default(now())
 
   @@index([shopId, startsAt])
+}
+
+// "MISSING" = 玩家建議新增店家; "INCORRECT" = 誤判（非卡牌店）; "CLOSED" = 已歇業
+// status: "PENDING" | "RESOLVED" | "DISMISSED"
+model ShopReport {
+  id         String   @id @default(cuid())
+  reporterId Int
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  type       String
+  shopId     String?
+  shop       Shop?    @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  shopName   String?
+  address    String?
+  note       String?
+  adminNote  String?
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+
+  @@index([status])
 }
 
 model Match {

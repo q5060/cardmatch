@@ -132,6 +132,7 @@ export type ProfileDashboardProps = {
   blockedByViewer?: boolean;
   /** Either direction of block — hide friend / report / block actions. */
   interactionBlocked?: boolean;
+  isAdmin?: boolean;
   decksSlot: ReactNode;
 };
 
@@ -153,6 +154,7 @@ export function ProfileDashboard({
   allMatchesHref,
   blockedByViewer = false,
   interactionBlocked = false,
+  isAdmin = false,
   decksSlot,
 }: ProfileDashboardProps) {
   const router = useRouter();

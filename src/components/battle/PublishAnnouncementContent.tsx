@@ -21,9 +21,10 @@ type Props = {
   draft: PublishDraft;
   onClose: () => void;
   onPublished: (published: PublishDraft & { label: string }) => void;
+  onBrowseShops?: () => void;
 };
 
-function PublishAnnouncementForm({ draft, onClose, onPublished }: Props) {
+function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }: Props) {
   const [ttlHours, setTtlHours] = useState(ANNOUNCEMENT_TTL_DEFAULT_HOURS);
   const [playNote, setPlayNote] = useState("");
   const [label, setLabel] = useState(draft.label);
@@ -123,6 +124,15 @@ function PublishAnnouncementForm({ draft, onClose, onPublished }: Props) {
         >
           {pending ? "發布中…" : "發布約戰公告"}
         </button>
+        {onBrowseShops && (
+          <button
+            type="button"
+            onClick={onBrowseShops}
+            className="btn btn-outline w-full"
+          >
+            查看附近店家
+          </button>
+        )}
       </div>
     </div>
   );

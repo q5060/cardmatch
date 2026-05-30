@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { prefersReducedMotion } from "@/lib/motion";
 import {
   MapContainer,
@@ -44,7 +44,6 @@ export type MapShopPin = {
   lng: number;
   addressNote?: string;
   lobbyCount?: number;
-  hasPtcgBattleArea?: boolean;
   hoursJson?: string;
   openNow?: boolean;
 };
@@ -99,6 +98,8 @@ type Props = {
   } | null;
   /** Called when map center changes (drag/pan/zoom) */
   onMapCenterChange?: (lat: number, lng: number) => void;
+  /** User's GPS location — shows a blue dot and enables return-to-location button */
+  userLocation?: { lat: number; lng: number } | null;
 };
 
 function MapFlyTo({ target }: { target?: MapFlyToTarget | null }) {
@@ -244,6 +245,85 @@ function MapRefreshControl({ onRefresh }: { onRefresh?: () => void }) {
   return null;
 }
 
+function MapReturnControl({ onReturn }: { onReturn: () => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const ReturnControl = L.Control.extend({
+      onAdd: () => {
+        const container = L.DomUtil.create("div");
+        container.className = "leaflet-bar";
+
+        const button = L.DomUtil.create("a", "", container);
+        button.href = "#";
+        button.title = "回到我的位置";
+
+        button.style.display = "flex";
+        button.style.alignItems = "center";
+        button.style.justifyContent = "center";
+        button.style.width = "30px";
+        button.style.height = "30px";
+        button.style.backgroundColor = "#fff";
+        button.style.color = "#ea580c";
+        button.style.cursor = "pointer";
+        button.style.transition = "background-color 0.2s";
+
+        button.onmouseover = () => { button.style.backgroundColor = "#fff7ed"; };
+        button.onmouseout = () => { button.style.backgroundColor = "#fff"; };
+
+        const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        icon.setAttribute("viewBox", "0 0 24 24");
+        icon.setAttribute("fill", "none");
+        icon.setAttribute("stroke", "currentColor");
+        icon.setAttribute("stroke-width", "2");
+        icon.setAttribute("stroke-linecap", "round");
+        icon.setAttribute("stroke-linejoin", "round");
+        icon.style.width = "16px";
+        icon.style.height = "16px";
+        icon.innerHTML = '<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="2" y1="12" x2="8" y2="12"/><line x1="16" y1="12" x2="22" y2="12"/>';
+
+        button.appendChild(icon);
+
+        L.DomEvent.on(button, "click", (e) => {
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+          onReturn();
+        });
+
+        L.DomEvent.on(button, "dblclick", L.DomEvent.stopPropagation);
+
+        return container;
+      },
+    });
+
+    const returnControl = new ReturnControl({ position: "topleft" });
+    returnControl.addTo(map);
+
+    return () => { returnControl.remove(); };
+  }, [map, onReturn]);
+
+  return null;
+}
+
+function UserLocationMarker({ location }: { location: { lat: number; lng: number } }) {
+  return (
+    <Circle
+      center={[location.lat, location.lng]}
+      radius={12}
+      pathOptions={{ color: "#ea580c", weight: 2, fillColor: "#f97316", fillOpacity: 0.9, opacity: 1 }}
+    />
+  );
+}
+
+function MapInstanceCapture({ mapRef }: { mapRef: { current: L.Map | null } }) {
+  const map = useMap();
+  useEffect(() => {
+    mapRef.current = map;
+    return () => { mapRef.current = null; };
+  }, [map, mapRef]);
+  return null;
+}
+
 const RANDOM_MATCH_CIRCLE_BASE = {
   color: "hsl(142, 76%, 36%)",
   weight: 2.5,
@@ -301,7 +381,16 @@ export function MeetMapClient({
   randomMatchCircle = null,
   meetPin = null,
   onMapCenterChange,
+  userLocation = null,
 }: Props) {
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  const handleReturnToLocation = useCallback(() => {
+    if (!userLocation || !mapInstanceRef.current) return;
+    mapInstanceRef.current.closePopup();
+    mapInstanceRef.current.flyTo([userLocation.lat, userLocation.lng], 16, { duration: 0.8 });
+  }, [userLocation]);
+
   useEffect(() => {
     delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })
       ._getIconUrl;
@@ -313,10 +402,13 @@ export function MeetMapClient({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <MapInstanceCapture mapRef={mapInstanceRef} />
       <MapFlyTo target={flyTo} />
       <MapClickLayer onMapClick={onMapClick} />
       <MapCenterTracker onMapCenterChange={onMapCenterChange} />
       <MapRefreshControl onRefresh={onRefresh} />
+      {userLocation ? <MapReturnControl onReturn={handleReturnToLocation} /> : null}
+      {userLocation ? <UserLocationMarker location={userLocation} /> : null}
       {radiusCircle ? (
         <Circle
           center={[radiusCircle.centerLat, radiusCircle.centerLng]}
@@ -438,7 +530,7 @@ export function MeetMapClient({
               {clickHint}
             </p>
           ) : null}
-          <div style={{ height }} className="w-full">
+          <div style={{ height }} className="relative w-full">
             <MapContainer
               center={center}
               zoom={zoom}

@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { User, Lock, Shield, LogOut, Plus, Trash2, Edit2, Layers, UserX } from "lucide-react";
+import { User, Lock, Shield, LogOut, Plus, Trash2, Edit2, Layers, UserX, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,6 +20,7 @@ interface UserSettings {
   battleRecordVisibility: "PUBLIC" | "FRIENDS" | "PRIVATE";
   winrateVisibility: "PUBLIC" | "FRIENDS" | "PRIVATE";
   defaultShopId: string | null;
+  isAdmin?: boolean;
 }
 
 interface Deck {
@@ -29,7 +30,7 @@ interface Deck {
   cardCount: number;
 }
 
-const TAB_IDS = ["account", "decks", "privacy", "blocked", "security"] as const;
+const TAB_IDS = ["account", "decks", "privacy", "blocked", "security", "admin"] as const;
 type TabId = (typeof TAB_IDS)[number];
 
 function normalizeTab(raw: string | null): TabId {
@@ -37,12 +38,13 @@ function normalizeTab(raw: string | null): TabId {
   return "account";
 }
 
-const tabs: { id: TabId; label: string; icon: typeof User }[] = [
+const baseTabs: { id: TabId; label: string; icon: typeof User; adminOnly?: boolean }[] = [
   { id: "account", label: "帳戶設定", icon: User },
   { id: "decks", label: "管理牌組", icon: Layers },
   { id: "privacy", label: "隱私設定", icon: Shield },
   { id: "blocked", label: "封鎖列表", icon: UserX },
   { id: "security", label: "密碼與安全", icon: Lock },
+  { id: "admin", label: "管理工具", icon: ShieldAlert, adminOnly: true },
 ];
 
 function SettingsContent() {
@@ -290,7 +292,7 @@ function SettingsContent() {
 
       <div className="flex flex-col gap-8 lg:flex-row">
         <nav className="tabs shrink-0 lg:w-52 lg:flex-col lg:border-b-0 lg:border-r lg:pr-4">
-          {tabs.map((tab) => {
+          {baseTabs.filter((t) => !t.adminOnly || user.isAdmin).map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -493,6 +495,26 @@ function SettingsContent() {
                 active={activeTab === "blocked"}
                 onMessage={setMessage}
               />
+            </div>
+          )}
+
+          {activeTab === "admin" && user.isAdmin && (
+            <div className="card space-y-4 p-6">
+              <h2 className="text-lg font-semibold text-foreground">管理工具</h2>
+              <div className="flex flex-col gap-2">
+                <Link
+                  href="/admin/shop-reports"
+                  className="btn btn-outline justify-start gap-2 text-sm"
+                >
+                  店家回報管理
+                </Link>
+                <Link
+                  href="/admin/user-reports"
+                  className="btn btn-outline justify-start gap-2 text-sm"
+                >
+                  用戶回報管理
+                </Link>
+              </div>
             </div>
           )}
 

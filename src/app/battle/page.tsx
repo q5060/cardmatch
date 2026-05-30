@@ -21,7 +21,11 @@ export const metadata: Metadata = {
 const DEFAULT_LAT = 25.033;
 const DEFAULT_LNG = 121.565;
 
-export default async function BattlePage() {
+export default async function BattlePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ shop?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -55,6 +59,7 @@ export default async function BattlePage() {
     }
   }
 
+  const { shop: initialShopId } = await searchParams;
   const defaultLat = myAnnouncement?.lat ?? DEFAULT_LAT;
   const defaultLng = myAnnouncement?.lng ?? DEFAULT_LNG;
 
@@ -71,6 +76,7 @@ export default async function BattlePage() {
         defaultShopId={userPrefs?.defaultShopId ?? null}
         initialQueueStatus={queueStatus}
         battleResult={battleResult}
+        initialShopId={initialShopId ?? null}
       />
     </div>
   );

@@ -13,9 +13,9 @@ type Props = {
 export function BattleNearbyPlayersList({ announcements, onSelect }: Props) {
   return (
     <ul
-      className="min-h-[352px] space-y-2 overflow-y-auto overscroll-contain pr-0.5"
+      className="max-h-[352px] space-y-2 overflow-y-auto overscroll-contain pr-0.5"
       role="list"
-      style={{ minHeight: "calc(3 * 110px + 16px)" }} // 3 items * ~110px each + gaps
+      style={{ maxHeight: "calc(3 * 110px + 16px)" }}
     >
       {announcements.map((ann, index) => (
         <li key={ann.spotId} className={staggerClass(index)}>

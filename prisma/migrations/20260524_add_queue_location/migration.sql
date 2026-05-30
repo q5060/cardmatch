@@ -1,0 +1,1 @@
+-- columns lat, lng, radiusKm already included in 20260525000000_init

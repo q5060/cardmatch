@@ -81,7 +81,6 @@ export async function createShop() {
       lat: 25.033,
       lng: 121.565,
       addressNote: "測試地址",
-      hasPtcgBattleArea: true,
       hoursJson: "{}",
     },
   });

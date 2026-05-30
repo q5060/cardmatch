@@ -62,6 +62,7 @@ export function BattleClient({
   battleResult: initialBattleResult,
   defaultShopId = null,
   initialQueueStatus = null,
+  initialShopId = null,
 }: {
   userId: number;
   shops: MapShopPin[];
@@ -73,6 +74,7 @@ export function BattleClient({
   battleResult?: BattleResultDTO;
   defaultShopId?: string | null;
   initialQueueStatus?: QueueStatus | null;
+  initialShopId?: string | null;
 }) {
   const sseConnected = useRealtimeConnected();
   const [activeMatch, setActiveMatch] = useState<ActiveMatchDTO | null>(
@@ -93,6 +95,7 @@ export function BattleClient({
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [publishDraft, setPublishDraft] = useState<PublishDraft | null>(null);
+  const [exploreTab, setExploreTab] = useState<"players" | "shops">("players");
   const [sheetAnnouncement, setSheetAnnouncement] =
     useState<MapAnnouncementDTO | null>(null);
   const [selectedShop, setSelectedShop] = useState<MapShopPin | null>(null);
@@ -214,6 +217,19 @@ export function BattleClient({
       document.title = "對戰 | CardMatch";
     };
   }, [isIncomingInvite]);
+
+  /** Open a specific shop on mount (e.g. navigated from search results) */
+  useEffect(() => {
+    if (!initialShopId) return;
+    const shop = shopsData.find((s) => s.id === initialShopId);
+    if (!shop) return;
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setSelectedShop(shop);
+    setFlyTo({ lat: shop.lat, lng: shop.lng, zoom: 16, key: Date.now() });
+    setMapCenter({ lat: shop.lat, lng: shop.lng });
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Request user's GPS location when component mounts */
   useEffect(() => {
@@ -1054,6 +1070,7 @@ export function BattleClient({
             draft={publishDraft}
             onClose={() => setPublishDraft(null)}
             onPublished={handleAnnouncementPublished}
+            onBrowseShops={() => { setPublishDraft(null); setExploreTab("shops"); }}
           />
         )}
       </ResponsiveSheet>
@@ -1146,6 +1163,7 @@ export function BattleClient({
           draft={publishDraft}
           onClose={() => setPublishDraft(null)}
           onPublished={handleAnnouncementPublished}
+          onBrowseShops={() => { setPublishDraft(null); setExploreTab("shops"); }}
         />
       </div>
     </div>
@@ -1252,6 +1270,8 @@ export function BattleClient({
             mapCenterLng={mapCenter.lng}
             radiusKm={radiusKm}
             onRadiusChange={setRadiusKm}
+            activeTab={exploreTab}
+            onActiveTabChange={setExploreTab}
           />
         }
         map={
@@ -1287,6 +1307,7 @@ export function BattleClient({
             }}
             onMapCenterChange={handleMapCenterChange}
             onRefresh={refresh}
+            userLocation={gpsLocation}
           />
         }
         sheets={exploreSheets}
