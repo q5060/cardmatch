@@ -77,7 +77,7 @@ export function BlockedUsersList({ active, onMessage }: BlockedUsersListProps) {
   return (
     <div>
       <p className="text-sm text-muted-foreground">
-        你已封鎖的使用者不會出現在店家大廳，也無法加好友或私訊。可在對方檔案的「更多」選單封鎖新使用者。
+        已封鎖的使用者不會出現在店家大廳或被隨機配對，也無法加好友或私訊。
       </p>
 
       {loading ? (

@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Trophy,
   UserRound,
+  Zap,
 } from "lucide-react";
 import type { ProfileBattleStats, ProfileMatchFeedRow } from "@/lib/queries";
 import { MatchFeedList } from "@/components/profile/MatchFeedList";
@@ -232,6 +233,11 @@ export function ProfileDashboard({
         hint: !winrateHiddenReason && battleStats.completedWithoutResult > 0
           ? `${battleStats.completedWithoutResult} 場未紀錄戰果`
           : undefined,
+      },
+      {
+        icon: Zap,
+        value: winrateHiddenReason ? "—" : battleStats.maxWinStreak,
+        label: "最大連勝",
       },
       {
         icon: Layers,

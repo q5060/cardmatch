@@ -181,6 +181,19 @@ async function findPartnerByOverlap(
   for (const candidate of candidates) {
     if (!candidate.lat || !candidate.lng || !candidate.radiusKm) continue;
 
+    // Check if either user has blocked the other
+    const blocked = await tx.userBlock.findFirst({
+      where: {
+        OR: [
+          { blockerId: joinerId, blockedId: candidate.userId },
+          { blockerId: candidate.userId, blockedId: joinerId },
+        ],
+      },
+    });
+    if (blocked) {
+      continue;
+    }
+
     // Check if circles overlap
     if (!circlesOverlap(joinerLat, joinerLng, joinerRadiusKm, candidate.lat, candidate.lng, candidate.radiusKm)) {
       continue;

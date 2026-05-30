@@ -39,11 +39,11 @@ function normalizeTab(raw: string | null): TabId {
 }
 
 const baseTabs: { id: TabId; label: string; icon: typeof User; adminOnly?: boolean }[] = [
-  { id: "account", label: "帳戶設定", icon: User },
+  { id: "account", label: "帳號設定", icon: User },
   { id: "decks", label: "管理牌組", icon: Layers },
   { id: "privacy", label: "隱私設定", icon: Shield },
   { id: "blocked", label: "封鎖列表", icon: UserX },
-  { id: "security", label: "密碼與安全", icon: Lock },
+  { id: "security", label: "密碼變更", icon: Lock },
   { id: "admin", label: "管理工具", icon: ShieldAlert, adminOnly: true },
 ];
 
@@ -312,7 +312,7 @@ function SettingsContent() {
         <div className="min-w-0 flex-1">
           {activeTab === "account" && (
             <div className="card space-y-6 p-6">
-              <h2 className="text-lg font-semibold text-foreground">帳戶設定</h2>
+              <h2 className="text-lg font-semibold text-foreground">帳號設定</h2>
 
               <form onSubmit={handleProfileUpdate} className="space-y-5">
                 <label className="block text-sm font-medium text-foreground">
@@ -520,7 +520,7 @@ function SettingsContent() {
 
           {activeTab === "security" && (
             <div className="card space-y-6 p-6">
-              <h2 className="text-lg font-semibold text-foreground">密碼與安全</h2>
+              <h2 className="text-lg font-semibold text-foreground">密碼變更</h2>
               <form onSubmit={handleChangePassword} className="space-y-5">
                 <label className="block text-sm font-medium text-foreground">
                   <span className="text-muted-foreground">目前密碼</span>

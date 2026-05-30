@@ -179,7 +179,7 @@ function SearchContent() {
         <EmptyState
           icon={<Search className="h-12 w-12" />}
           title="開始搜尋"
-          description="輸入使用者名稱、約戰地點標籤或店家名稱以搜尋"
+          description="輸入使用者、約戰地點或店家名稱以搜尋"
         />
       ) : null}
     </div>

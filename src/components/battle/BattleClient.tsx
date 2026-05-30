@@ -845,8 +845,8 @@ export function BattleClient({
                   // OPPONENT SUBMITTED - Show confirmation UI
                   <div className="space-y-4">
                     <p className="text-sm text-foreground">
-                      對方將比賽結束選擇為 <strong>
-                        {battleResult.winnerId === null ? "平手" : battleResult.winnerId === userId ? "你" : "他們"}
+                      對方將對戰結果選擇為 <strong>
+                        {battleResult.winnerId === null ? "平手" : battleResult.winnerId === userId ? "你 " : "對方 "}
                       </strong>
                       {battleResult.winnerId !== null && <span>獲勝</span>}
                       ，是否無誤？

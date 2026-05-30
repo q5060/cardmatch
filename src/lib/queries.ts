@@ -346,6 +346,40 @@ export async function getMatchHistory(userId: number, take = 15) {
   });
 }
 
+/** Calculate the maximum win streak from battle results */
+function calculateMaxWinStreak(
+  matches: Array<{
+    battleResults: Array<{ winnerId: number | null; status: string }>;
+  }>,
+  userId: number,
+): number {
+  // Sort matches by date ascending (oldest first) to calculate streaks
+  const sortedMatches = [...matches].reverse();
+  
+  let maxStreak = 0;
+  let currentStreak = 0;
+
+  for (const m of sortedMatches) {
+    const br = m.battleResults[0];
+    if (!br || br.status !== "AGREED") {
+      // Draw or unresolved battle breaks the win streak
+      currentStreak = 0;
+      continue;
+    }
+
+    if (br.winnerId === userId) {
+      // Win - increment streak
+      currentStreak++;
+      maxStreak = Math.max(maxStreak, currentStreak);
+    } else {
+      // Loss breaks the win streak
+      currentStreak = 0;
+    }
+  }
+
+  return maxStreak;
+}
+
 export type ProfileBattleStats = {
   completedTotal: number;
   recordedTotal: number;
@@ -353,6 +387,7 @@ export type ProfileBattleStats = {
   losses: number;
   draws: number;
   completedWithoutResult: number;
+  maxWinStreak: number;
   /** UTC yyyy-mm-dd → completed match count that calendar day */
   activityByDay: Record<string, number>;
 };
@@ -377,6 +412,7 @@ export async function getProfileBattleStats(
       wins: 0,
       losses: 0,
       draws: 0,
+      maxWinStreak: 0,
       completedWithoutResult: 0,
       activityByDay: {},
     };
@@ -443,12 +479,19 @@ export async function getProfileBattleStats(
     recordedTotal = 0;
   }
 
+  // Calculate max win streak
+  let maxWinStreak = 0;
+  if (canSeeWinrate) {
+    maxWinStreak = calculateMaxWinStreak(matches, userId);
+  }
+
   return {
     completedTotal: matches.length,
     recordedTotal,
     wins,
     losses,
     draws,
+    maxWinStreak,
     completedWithoutResult: matches.length - recordedTotal,
     activityByDay,
   };
