@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MapPin } from "lucide-react";
 import type { ProfileMatchFeedRow } from "@/lib/queries";
 
 type Props = {
@@ -12,6 +13,17 @@ export function MatchFeedList({ feed, emptyMessage = "尚無紀錄。", hiddenRe
     const message = hiddenReason || emptyMessage;
     return <p className="mt-6 text-sm text-muted-foreground">{message}</p>;
   }
+
+  const getLocationDisplay = (row: ProfileMatchFeedRow) => {
+    if (row.shopName) {
+      return row.shopName;
+    }
+    return `${row.meetLat.toFixed(4)}, ${row.meetLng.toFixed(4)}`;
+  };
+
+  const getGoogleMapsUrl = (row: ProfileMatchFeedRow) => {
+    return `https://www.google.com/maps/search/${row.meetLat},${row.meetLng}`;
+  };
 
   return (
     <ul className="mt-4 space-y-3">
@@ -30,12 +42,23 @@ export function MatchFeedList({ feed, emptyMessage = "尚無紀錄。", hiddenRe
                 {row.otherDisplayName}
               </Link>
             </div>
-            <div className="mt-0.5 text-xs text-muted-foreground">
-              {row.meetLabel} ·{" "}
-              {new Date(row.updatedAt).toLocaleString("zh-Hant", {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })}
+            <div className="mt-0.5 text-xs text-muted-foreground flex flex-wrap items-center gap-1">
+              <a
+                href={getGoogleMapsUrl(row)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+              >
+                <MapPin className="h-3 w-3" strokeWidth={2} aria-hidden />
+                {getLocationDisplay(row)}
+              </a>
+              <span>·</span>
+              <span>
+                {new Date(row.updatedAt).toLocaleString("zh-Hant", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </span>
             </div>
           </div>
           {row.outcomeLabel ? (

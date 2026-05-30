@@ -341,6 +341,7 @@ export async function getMatchHistory(userId: number, take = 15) {
       playerA: { select: { id: true, displayName: true } },
       playerB: { select: { id: true, displayName: true } },
       battleResults: true,
+      shop: { select: { id: true, name: true } },
     },
   });
 }
@@ -457,6 +458,10 @@ export type ProfileMatchFeedRow = {
   id: number;
   updatedAt: string;
   meetLabel: string;
+  meetLat: number;
+  meetLng: number;
+  shopId: string | null;
+  shopName: string | null;
   otherDisplayName: string;
   otherUserId: number;
   outcomeLabel: string | null;
@@ -512,6 +517,10 @@ export async function getProfileMatchFeed(
       id: m.id,
       updatedAt: m.updatedAt.toISOString(),
       meetLabel: m.meetLabel,
+      meetLat: m.meetLat,
+      meetLng: m.meetLng,
+      shopId: m.shopId,
+      shopName: m.shop?.name ?? null,
       otherDisplayName: otherName,
       otherUserId,
       outcomeLabel,
