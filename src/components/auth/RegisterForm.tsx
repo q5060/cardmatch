@@ -38,7 +38,7 @@ export function RegisterForm() {
 
       router.push("/profile");
       router.refresh();
-    } catch (err) {
+    } catch (_err) {
       setError("發生錯誤，請稍後再試或檢查網路連線");
     } finally {
       setLoading(false);

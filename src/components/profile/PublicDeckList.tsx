@@ -37,17 +37,19 @@ export function PublicDeckList({
   decks,
   viewedUserId,
   viewerId,
+  isOwnProfile: forceIsOwnProfile,
 }: {
   decks: Deck[];
   viewedUserId?: number;
   viewerId?: number;
+  isOwnProfile?: boolean;
 }) {
   const [deckCards, setDeckCards] = useState<Record<string, DeckCard[]>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [scrollPosition, setScrollPosition] = useState<Record<string, number>>({});
   const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const isOwnProfile = viewedUserId === viewerId;
+  const isOwnProfile = forceIsOwnProfile ?? (viewedUserId === viewerId);
 
   const fetchDeckCards = async (deck: Deck) => {
     if (deckCards[deck.id]) {

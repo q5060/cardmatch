@@ -34,7 +34,7 @@ export async function GET() {
           // Assuming deckJson has a 'cards' array or similar structure
           cardCount = Array.isArray(parsed) ? parsed.length : 
                      parsed.cards ? parsed.cards.length : 0;
-        } catch (e) {
+        } catch (_e) {
           // If parsing fails, try counting lines
           cardCount = deck.deckJson.split('\n').filter(line => line.trim()).length;
         }

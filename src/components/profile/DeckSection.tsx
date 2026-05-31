@@ -6,12 +6,14 @@ import {
   updateDeckVisibility,
 } from "@/actions/decks";
 import { DECK_VISIBILITY } from "@/lib/constants";
+import { PublicDeckList } from "./PublicDeckList";
 
 type Deck = {
   id: string;
   title: string;
   notes: string;
   visibility: string;
+  deckJson?: string | null;
 };
 
 function getVisibilityLabel(visibility: string): string {
@@ -40,7 +42,7 @@ function getNextVisibility(current: string): string {
 
 export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOnly?: boolean }) {
   if (readOnly) {
-    // Read-only mode: only show decks with a "New Deck" button
+    // Read-only mode: show decks with thumbnails using PublicDeckList
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -54,29 +56,7 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
         {decks.length === 0 ? (
           <p className="text-sm text-muted-foreground">尚未建立任何牌組。</p>
         ) : (
-          <ul className="space-y-3">
-            {decks.map((d) => (
-              <li key={d.id}>
-                {/* 將整個卡片變成連結 */}
-                <Link 
-                  href={`/decks/${d.id}/edit`} 
-                  className="card card-hover flex flex-col gap-2 p-4 sm:flex-row sm:items-start block transition-colors hover:border-primary/50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium text-foreground group-hover:text-primary">
-                      {d.title}
-                    </div>
-                    {d.notes ? (
-                      <p className="mt-1 text-sm text-muted-foreground">{d.notes}</p>
-                    ) : null}
-                    <span className="mt-1 inline-block text-xs text-muted-foreground">
-                      {getVisibilityLabel(d.visibility)}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <PublicDeckList decks={decks as any} isOwnProfile={true} />
         )}
       </div>
     );

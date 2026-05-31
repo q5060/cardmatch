@@ -11,7 +11,6 @@ import {
 import { getMyQueueStatus } from "@/actions/matchQueue";
 import { BattleClient } from "@/components/battle/BattleClient";
 import { toActiveMatchDTO } from "@/lib/matchDto";
-import { PageHeader } from "@/components/ui/PageHeader";
 
 export const metadata: Metadata = {
   title: "對戰 | CardMatch",

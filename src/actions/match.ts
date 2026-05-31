@@ -233,7 +233,7 @@ export async function rejectCancelRequest(matchId: string) {
 export async function finishMatch(
   matchId: string,
   winnerId: number | null,
-  addFriend: boolean,
+  _addFriend: boolean,
 ) {
   const userId = await requireUserId();
   const id = parseInt(matchId);

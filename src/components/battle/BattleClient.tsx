@@ -91,7 +91,6 @@ export function BattleClient({
   const [shopsData, setShopsData] = useState<MapShopPin[]>(shops);
 
   const [outcome, setOutcome] = useState<"WIN" | "LOSS" | "DRAW">("WIN");
-  const [addFriend, setAddFriend] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [publishDraft, setPublishDraft] = useState<PublishDraft | null>(null);
@@ -258,13 +257,13 @@ export function BattleClient({
   useEffect(() => {
     if (!activeMatch || activeMatch.status !== MATCH_STATUS.ACCEPTED || !myAnnouncement) return;
     // Only clear once per match
-    if (autoCleanedRef.current === activeMatch.id) return;
+    if (autoCleanedRef.current === activeMatch?.id) return;
 
-    autoCleanedRef.current = activeMatch.id;
-    run(async () => {
+    autoCleanedRef.current = activeMatch?.id ?? null;
+    void run(async () => {
       await clearBattleAnnouncement();
     });
-  }, [activeMatch?.id, activeMatch?.status, myAnnouncement?.spotId]);
+  }, [activeMatch?.id, activeMatch?.status, myAnnouncement?.spotId, run]);
 
   const displayedRandomMatchCircle = activeMatch ? null : randomMatchCircle;
 

@@ -56,7 +56,7 @@ export async function sendFriendMessage(friendshipId: string, body: string) {
   const otherId = f.requesterId === userId ? f.addresseeId : f.requesterId;
   await assertNotBlocked(userId, otherId);
 
-  const msg = await prisma.friendMessage.create({
+  await prisma.friendMessage.create({
     data: {
       friendshipId,
       senderId: userId,
