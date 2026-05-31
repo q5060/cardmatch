@@ -643,7 +643,7 @@ export async function getTopOpponents(
 
     const opponentId = m.playerAId === userId ? m.playerBId : m.playerAId;
     const opponentName =
-      m.playerAId === userId ? m.playerA.displayName : m.playerB.displayName;
+      m.playerAId === userId ? m.playerB.displayName : m.playerA.displayName;
 
     if (!opponentStats[opponentId]) {
       opponentStats[opponentId] = {
