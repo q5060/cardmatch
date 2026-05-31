@@ -15,18 +15,22 @@ import {
   UserRound,
   Zap,
 } from "lucide-react";
-import type { ProfileBattleStats, ProfileMatchFeedRow } from "@/lib/queries";
+import type { ProfileBattleStats, ProfileMatchFeedRow, TopOpponent } from "@/lib/queries";
 import { MatchFeedList } from "@/components/profile/MatchFeedList";
+import { BattleTimeHistogram } from "@/components/profile/BattleTimeHistogram";
+import { TopOpponentsPanel } from "@/components/profile/TopOpponentsPanel";
 import { PROFILE_RECENT_MATCHES } from "@/lib/constants";
 
 const TABS_SELF = [
   { id: "overview" as const, label: "總覽" },
   { id: "decks" as const, label: "牌組" },
+  { id: "matches" as const, label: "對戰" },
 ];
 
 const TABS_OTHER = [
   { id: "overview" as const, label: "總覽" },
   { id: "decks" as const, label: "牌組" },
+  { id: "matches" as const, label: "對戰" },
 ];
 
 export type ProfileTabId = (typeof TABS_SELF)[number]["id"];
@@ -34,9 +38,11 @@ export type ProfileTabId = (typeof TABS_SELF)[number]["id"];
 function normalizeTab(raw: string | null, variant: "self" | "other"): ProfileTabId {
   if (variant === "other") {
     if (raw === "decks") return "decks";
+    if (raw === "matches") return "matches";
     return "overview";
   }
-  if (raw === "decks") return raw;
+  if (raw === "decks") return "decks";
+  if (raw === "matches") return "matches";
   return "overview";
 }
 
@@ -127,6 +133,8 @@ export type ProfileDashboardProps = {
   deckCount: number;
   publicDeckCount: number;
   recentFeed: ProfileMatchFeedRow[];
+  allMatches: ProfileMatchFeedRow[];
+  topOpponents: TopOpponent[];
   /** Link target for the full match history page. */
   allMatchesHref: string;
   /** Viewer has blocked the profile owner (other profile only). */
@@ -152,6 +160,8 @@ export function ProfileDashboard({
   deckCount,
   publicDeckCount,
   recentFeed,
+  allMatches,
+  topOpponents,
   allMatchesHref,
   blockedByViewer = false,
   interactionBlocked = false,
@@ -625,26 +635,39 @@ export function ProfileDashboard({
               </div>
 
               <div className="card card-hover p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-foreground">近期對戰</h2>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                  
+                  <div className="flex items-center gap-2">
+                    <Swords className="h-5 w-5 text-primary" strokeWidth={1.75} />
+                    <h2 className="text-lg font-semibold text-foreground">近期對戰</h2>
+                  </div>
+
                   {battleStats.completedTotal > PROFILE_RECENT_MATCHES && !battleRecordsHiddenReason ? (
                     <Link
                       href={allMatchesHref}
                       className="text-sm font-medium text-primary hover:underline"
                     >
-                      所有約戰
+                      所有對戰
                     </Link>
                   ) : null}
                 </div>
+
                 <MatchFeedList 
                   feed={recentFeed} 
                   hiddenReason={battleRecordsHiddenReason}
                 />
               </div>
+
+              {!battleRecordsHiddenReason && topOpponents.length > 0 && (
+                <TopOpponentsPanel opponents={topOpponents} />
+              )}
             </div>
 
             <aside className="space-y-6 lg:sticky lg:top-24">
               {!battleRecordsHiddenReason && <ActivityHeatmap activityByDay={battleStats.activityByDay} />}
+              {!battleRecordsHiddenReason && (
+                <BattleTimeHistogram activityByHour={battleStats.activityByHour} />
+              )}
               {/* <div className="card card-hover p-4 text-xs leading-relaxed text-muted-foreground">
                 <p>
                   統計中的勝敗平僅包含<strong className="text-foreground">已送出戰果</strong>
@@ -656,6 +679,16 @@ export function ProfileDashboard({
         )}
 
         {tab === "decks" && <div className="space-y-6">{decksSlot}</div>}
+
+        {tab === "matches" && (
+          <div className="card card-hover p-5">
+            <h2 className="text-lg font-semibold text-foreground mb-4">所有對戰</h2>
+            <MatchFeedList 
+              feed={allMatches} 
+              hiddenReason={battleRecordsHiddenReason}
+            />
+          </div>
+        )}
 
       </div>
     </div>

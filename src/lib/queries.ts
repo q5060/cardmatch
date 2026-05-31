@@ -390,6 +390,8 @@ export type ProfileBattleStats = {
   maxWinStreak: number;
   /** UTC yyyy-mm-dd → completed match count that calendar day */
   activityByDay: Record<string, number>;
+  /** Hour (0-23 UTC+8) → completed match count that hour */
+  activityByHour: Record<number, number>;
 };
 
 export async function getProfileBattleStats(
@@ -415,6 +417,7 @@ export async function getProfileBattleStats(
       maxWinStreak: 0,
       completedWithoutResult: 0,
       activityByDay: {},
+      activityByHour: {},
     };
   }
 
@@ -448,12 +451,18 @@ export async function getProfileBattleStats(
   let draws = 0;
   let recordedTotal = 0;
   const activityByDay: Record<string, number> = {};
+  const activityByHour: Record<number, number> = {};
 
-  // If viewer can see battle records, calculate activity heatmap
+  // If viewer can see battle records, calculate activity heatmap and hourly activity
   if (canSeeBattleRecords) {
     for (const m of matches) {
       const day = m.updatedAt.toISOString().slice(0, 10);
       activityByDay[day] = (activityByDay[day] ?? 0) + 1;
+
+      // Calculate hour in UTC+8
+      const utc8Date = new Date(m.updatedAt.getTime() + 8 * 60 * 60 * 1000);
+      const hour = utc8Date.getUTCHours();
+      activityByHour[hour] = (activityByHour[hour] ?? 0) + 1;
     }
   }
 
@@ -494,6 +503,7 @@ export async function getProfileBattleStats(
     maxWinStreak,
     completedWithoutResult: matches.length - recordedTotal,
     activityByDay,
+    activityByHour,
   };
 }
 
@@ -569,4 +579,96 @@ export async function getProfileMatchFeed(
       outcomeLabel,
     };
   });
+}
+
+export type TopOpponent = {
+  opponentId: number;
+  displayName: string;
+  total: number;
+  wins: number;
+  losses: number;
+  draws: number;
+};
+
+export async function getTopOpponents(
+  userId: number,
+  limit = 5,
+  viewerId?: number,
+): Promise<TopOpponent[]> {
+  // First, get the user's privacy settings
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      battleRecordVisibility: true,
+    },
+  });
+
+  if (!user) {
+    return [];
+  }
+
+  // Check if viewer can see battle records
+  const canSeeBattleRecords = await shouldShowPrivateData(
+    userId,
+    viewerId ?? null,
+    user.battleRecordVisibility,
+  );
+
+  // If viewer can't see battle records, return empty list
+  if (!canSeeBattleRecords) {
+    return [];
+  }
+
+  // Get all completed matches with battle results
+  const matches = await prisma.match.findMany({
+    where: {
+      OR: [{ playerAId: userId }, { playerBId: userId }],
+      status: MATCH_STATUS.COMPLETED,
+    },
+    select: {
+      playerAId: true,
+      playerBId: true,
+      playerA: { select: { displayName: true } },
+      playerB: { select: { displayName: true } },
+      battleResults: true,
+    },
+  });
+
+  // Aggregate stats by opponent
+  const opponentStats: Record<number, TopOpponent> = {};
+
+  for (const m of matches) {
+    const br = m.battleResults[0];
+    if (!br || br.status !== "AGREED") continue;
+
+    const opponentId = m.playerAId === userId ? m.playerBId : m.playerAId;
+    const opponentName =
+      m.playerAId === userId ? m.playerA.displayName : m.playerB.displayName;
+
+    if (!opponentStats[opponentId]) {
+      opponentStats[opponentId] = {
+        opponentId,
+        displayName: opponentName,
+        total: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+      };
+    }
+
+    opponentStats[opponentId].total++;
+
+    if (br.winnerId === userId) {
+      opponentStats[opponentId].wins++;
+    } else if (br.winnerId === null) {
+      opponentStats[opponentId].draws++;
+    } else {
+      opponentStats[opponentId].losses++;
+    }
+  }
+
+  // Sort by total matches descending, then return top N
+  return Object.values(opponentStats)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit);
 }

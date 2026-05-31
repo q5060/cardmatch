@@ -20,11 +20,11 @@ export async function generateMetadata({
   });
 
   if (!user) {
-    return { title: "所有約戰 | CardMatch" };
+    return { title: "所有對戰 | CardMatch" };
   }
 
   return {
-    title: `${user.displayName} 的所有約戰 | CardMatch`,
+    title: `${user.displayName} 的所有對戰 | CardMatch`,
     description: `查看 ${user.displayName} 的對戰紀錄`,
   };
 }
@@ -54,7 +54,7 @@ export default async function UserMatchesPage({
     <ProfileMatchesPage
       feed={feed}
       backHref={`/profile/${userId}`}
-      title="所有約戰"
+      title="所有對戰"
       subtitle={`${profile.displayName} 的已完成對戰紀錄`}
     />
   );

@@ -5,8 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ProfileDashboard } from "@/components/profile/ProfileDashboard";
 import { PublicDeckList } from "@/components/profile/PublicDeckList";
-import { getProfileBattleStats, getProfileMatchFeed, getPrivacyHiddenReason } from "@/lib/queries";
-import { DECK_VISIBILITY, PROFILE_RECENT_MATCHES } from "@/lib/constants";
+import { getProfileBattleStats, getProfileMatchFeed, getPrivacyHiddenReason, getTopOpponents } from "@/lib/queries";
+import { DECK_VISIBILITY, PROFILE_RECENT_MATCHES, PROFILE_ALL_MATCHES } from "@/lib/constants";
 import { isBlockedBetween } from "@/lib/block";
 import { viewerHasBlocked } from "@/actions/moderation";
 
@@ -104,10 +104,11 @@ export default async function OtherProfilePage({
   if (!profile) notFound();
 
   // Then compute hidden reasons and fetch everything else in parallel
-  const [battleStats, recentFeed, friendship, blockedByViewer, blockedEither, battleRecordsHiddenReason, winrateHiddenReason] =
+  const [battleStats, recentFeed, allMatches, friendship, blockedByViewer, blockedEither, battleRecordsHiddenReason, winrateHiddenReason, topOpponents] =
     await Promise.all([
     getProfileBattleStats(userId, viewer.id),
     getProfileMatchFeed(userId, PROFILE_RECENT_MATCHES, viewer.id),
+    getProfileMatchFeed(userId, PROFILE_ALL_MATCHES, viewer.id),
     prisma.friendship.findFirst({
       where: {
         OR: [
@@ -121,6 +122,7 @@ export default async function OtherProfilePage({
     isBlockedBetween(viewer.id, userId),
     getPrivacyHiddenReason(userId, viewer.id, profile.battleRecordVisibility),
     getPrivacyHiddenReason(userId, viewer.id, profile.winrateVisibility),
+    getTopOpponents(userId, 5, viewer.id),
   ]);
 
   const friendshipForUi = blockedEither ? null : friendship;
@@ -152,6 +154,8 @@ export default async function OtherProfilePage({
         deckCount={deckCount}
         publicDeckCount={publicDeckCount}
         recentFeed={recentFeed}
+        allMatches={allMatches}
+        topOpponents={topOpponents}
         allMatchesHref={`/profile/${userId}/matches`}
         decksSlot={<PublicDeckList decks={profile.decks} />}
       />

@@ -8,8 +8,9 @@ import { ProfileDashboard } from "@/components/profile/ProfileDashboard";
 import {
   getProfileBattleStats,
   getProfileMatchFeed,
+  getTopOpponents,
 } from "@/lib/queries";
-import { DECK_VISIBILITY, PROFILE_RECENT_MATCHES } from "@/lib/constants";
+import { DECK_VISIBILITY, PROFILE_RECENT_MATCHES, PROFILE_ALL_MATCHES } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "個人檔案 | CardMatch",
@@ -50,7 +51,7 @@ export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [full, battleStats, recentFeed] = await Promise.all([
+  const [full, battleStats, recentFeed, allMatches, topOpponents] = await Promise.all([
     prisma.user.findUnique({
       where: { id: user.id },
       include: {
@@ -59,6 +60,8 @@ export default async function ProfilePage() {
     }),
     getProfileBattleStats(user.id, user.id),
     getProfileMatchFeed(user.id, PROFILE_RECENT_MATCHES, user.id),
+    getProfileMatchFeed(user.id, PROFILE_ALL_MATCHES, user.id),
+    getTopOpponents(user.id, 5, user.id),
   ]);
 
   if (!full) redirect("/login");
@@ -82,6 +85,8 @@ export default async function ProfilePage() {
         deckCount={deckCount}
         publicDeckCount={publicDeckCount}
         recentFeed={recentFeed}
+        allMatches={allMatches}
+        topOpponents={topOpponents}
         allMatchesHref="/profile/matches"
         decksSlot={<DeckSection decks={full.decks} readOnly />}
       />
