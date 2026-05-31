@@ -47,6 +47,8 @@ export function PublicDeckList({
   const [deckCards, setDeckCards] = useState<Record<string, DeckCard[]>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [scrollPosition, setScrollPosition] = useState<Record<string, number>>({});
+  // undefined = not yet measured, true = overflows, false = does not overflow
+  const [overflows, setOverflows] = useState<Record<string, boolean | undefined>>({});
   const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const loadedDecksRef = useRef<Set<string>>(new Set());
 
@@ -108,6 +110,19 @@ export function PublicDeckList({
     });
   }, [decks, isOwnProfile, fetchDeckCards]);
 
+  useEffect(() => {
+    // Re-measure container overflow after cards render.
+    // By the time this effect runs, React has committed the DOM and set all refs.
+    const newOverflows: Record<string, boolean> = {};
+    for (const deck of decks) {
+      const el = scrollContainerRefs.current[deck.id];
+      if (el) {
+        newOverflows[deck.id] = el.scrollWidth > el.clientWidth;
+      }
+    }
+    setOverflows((prev) => ({ ...prev, ...newOverflows }));
+  }, [deckCards, decks]);
+
   if (decks.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
@@ -121,10 +136,16 @@ export function PublicDeckList({
   };
 
   const getIsRightButtonDisabled = (deckId: string): boolean => {
+    const isOverflowing = overflows[deckId];
+    // Not yet measured — optimistically enable the button
+    if (isOverflowing === undefined) return false;
+    // Measured: container doesn't overflow at all
+    if (!isOverflowing) return true;
+    // Measured: overflows — disable only when fully scrolled to the right
     const container = scrollContainerRefs.current[deckId];
-    if (!container) return true;
+    if (!container) return false;
     const currentScroll = scrollPosition[deckId] || 0;
-    const maxScroll = container.scrollWidth - container.offsetWidth;
+    const maxScroll = container.scrollWidth - container.clientWidth;
     return currentScroll >= maxScroll;
   };
 
