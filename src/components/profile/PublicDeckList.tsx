@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DECK_VISIBILITY } from "@/lib/constants";
 
 type Deck = {
@@ -42,26 +42,20 @@ export function PublicDeckList({
   viewedUserId?: number;
   viewerId?: number;
 }) {
-  const [expandedDeckId, setExpandedDeckId] = useState<string | null>(null);
   const [deckCards, setDeckCards] = useState<Record<string, DeckCard[]>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
+  const [scrollPosition, setScrollPosition] = useState<Record<string, number>>({});
+  const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const isOwnProfile = viewedUserId === viewerId;
 
-  const handleExpandDeck = async (deck: Deck) => {
-    if (expandedDeckId === deck.id) {
-      setExpandedDeckId(null);
-      return;
-    }
-
+  const fetchDeckCards = async (deck: Deck) => {
     if (deckCards[deck.id]) {
-      setExpandedDeckId(deck.id);
       return;
     }
 
     setLoading((prev) => ({ ...prev, [deck.id]: true }));
     try {
-      // For public viewing, use viewOnly parameter
       const url = isOwnProfile ? `/api/decks/${deck.id}` : `/api/decks/${deck.id}?viewOnly=true`;
       const res = await fetch(url);
       if (res.ok) {
@@ -83,9 +77,29 @@ export function PublicDeckList({
     } finally {
       setLoading((prev) => ({ ...prev, [deck.id]: false }));
     }
-
-    setExpandedDeckId(deck.id);
   };
+
+  const handleScroll = (deckId: string, direction: "left" | "right") => {
+    const container = scrollContainerRefs.current[deckId];
+    if (!container) return;
+
+    const cardWidth = container.offsetWidth / 10; // 10 cards fit the width
+    const scrollAmount = cardWidth * 5; // Scroll 5 cards at a time
+
+    const newPosition = direction === "left"
+      ? Math.max(0, (scrollPosition[deckId] || 0) - scrollAmount)
+      : (scrollPosition[deckId] || 0) + scrollAmount;
+
+    container.scrollLeft = newPosition;
+    setScrollPosition((prev) => ({ ...prev, [deckId]: newPosition }));
+  };
+
+  useEffect(() => {
+    // Load cards for all decks when component mounts
+    decks.forEach((deck) => {
+      fetchDeckCards(deck);
+    });
+  }, [decks, isOwnProfile]);
 
   if (decks.length === 0) {
     return (
@@ -98,142 +112,159 @@ export function PublicDeckList({
   return (
     <div className="space-y-4">
       {decks.map((d) => {
-        const isExpanded = expandedDeckId === d.id;
         const cards = deckCards[d.id] || [];
         const isLoading = loading[d.id];
+        const cardWidth = 100; // Base width in pixels
+        const cardHeight = 140; // Base height in pixels
 
         return (
           <div
             key={d.id}
-            className="card card-hover overflow-hidden transition-all duration-200"
+            className="card card-hover overflow-hidden transition-all duration-200 space-y-3 p-4"
           >
-            <div className="flex items-start justify-between gap-4 p-4">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <Link
-                  href={isOwnProfile ? `/decks/${d.id}/edit` : "#"}
-                  onClick={(e) => {
-                    if (!isOwnProfile) {
-                      e.preventDefault();
-                      handleExpandDeck(d);
-                    }
-                  }}
-                  className="font-medium text-foreground hover:text-primary transition-colors block"
-                >
-                  {d.title}
-                </Link>
+                {isOwnProfile ? (
+                  <Link
+                    href={`/decks/${d.id}/edit`}
+                    className="font-medium text-foreground hover:text-primary transition-colors block"
+                  >
+                    {d.title}
+                  </Link>
+                ) : (
+                  <div className="font-medium text-foreground">
+                    {d.title}
+                  </div>
+                )}
                 {d.notes ? (
                   <p className="mt-1 text-sm text-muted-foreground">{d.notes}</p>
                 ) : null}
                 <span className="mt-2 inline-block text-xs text-muted-foreground">
                   {getVisibilityLabel(d.visibility)}
                 </span>
-
-                {/* Card preview - show first few cards */}
-                {cards.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {cards.slice(0, 4).map((card, idx) => (
-                      <div key={idx} className="relative group">
-                        {card.imageUrl ? (
-                          <img
-                            src={card.imageUrl}
-                            alt={card.name}
-                            className="h-24 w-16 rounded object-cover border border-neutral-200 hover:border-primary/50"
-                            title={`${card.name} x${card.count}`}
-                          />
-                        ) : (
-                          <div className="h-24 w-16 rounded border border-neutral-200 bg-neutral-100 flex items-center justify-center text-xs text-center px-1">
-                            <span className="text-muted-foreground truncate">
-                              {card.name}
-                            </span>
-                          </div>
-                        )}
-                        {card.count > 1 && (
-                          <span className="absolute bottom-1 right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                            {card.count}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                    {cards.length > 4 && (
-                      <div className="h-24 w-16 rounded border border-dashed border-neutral-300 flex items-center justify-center text-xs text-muted-foreground font-medium bg-neutral-50/50">
-                        +{cards.length - 4}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-
-              {/* Expand button */}
-              <button
-                onClick={() => handleExpandDeck(d)}
-                disabled={isLoading}
-                className="p-2 hover:bg-neutral-100 rounded transition-colors shrink-0"
-                title={isExpanded ? "折疊牌組" : "展開牌組"}
-              >
-                <ChevronRight
-                  className={`w-5 h-5 text-muted-foreground transition-transform ${
-                    isExpanded ? "rotate-90" : ""
-                  }`}
-                />
-              </button>
             </div>
 
-            {/* Expanded view */}
-            {isExpanded && (
-              <div className="border-t border-neutral-200 bg-neutral-50/50 p-4">
-                {isLoading ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">載入中...</p>
-                ) : cards.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    尚未加入卡片
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+            {/* Cards container with horizontal scroll */}
+            {isLoading ? (
+              <div className="text-sm text-muted-foreground text-center py-8">
+                載入中...
+              </div>
+            ) : cards.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-8">
+                尚未加入卡片
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                {/* Left scroll button */}
+                <button
+                  onClick={() => handleScroll(d.id, "left")}
+                  className="p-2 hover:bg-neutral-100 rounded transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="向左滾動"
+                  disabled={(scrollPosition[d.id] || 0) === 0}
+                >
+                  <ChevronLeft className="w-5 h-5 text-muted-foreground" />
+                </button>
+
+                {/* Scrollable cards container */}
+                <div
+                  ref={(el) => {
+                    if (el) scrollContainerRefs.current[d.id] = el;
+                  }}
+                  className="flex-1 overflow-x-auto"
+                  style={{
+                    scrollBehavior: "smooth",
+                    WebkitOverflowScrolling: "touch",
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                  } as React.CSSProperties}
+                  onScroll={(e) => {
+                    setScrollPosition((prev) => ({
+                      ...prev,
+                      [d.id]: (e.target as HTMLDivElement).scrollLeft,
+                    }));
+                  }}
+                >
+                  <div className="flex gap-2" style={{ width: "fit-content" }}>
                     {cards.map((card, idx) => (
-                      <div key={idx} className="relative group">
-                        {card.imageUrl ? (
-                          <img
-                            src={card.imageUrl}
-                            alt={card.name}
-                            className="w-full rounded object-cover border border-neutral-200 hover:border-primary/50 hover:shadow-md transition"
-                            title={`${card.name} x${card.count}`}
-                          />
-                        ) : (
-                          <div className="w-full aspect-video rounded border border-neutral-200 bg-neutral-100 flex items-center justify-center text-xs text-center px-1">
-                            <span className="text-muted-foreground truncate">
-                              {card.name}
+                      <div
+                        key={idx}
+                        className="relative shrink-0"
+                        style={{
+                          width: `${cardWidth}px`,
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        {/* Card image */}
+                        <div className="relative mb-1">
+                          {card.imageUrl ? (
+                            <img
+                              src={card.imageUrl}
+                              alt={card.name}
+                              className="w-full rounded object-cover border border-neutral-200 hover:border-primary/50"
+                              style={{ height: `${cardHeight}px` }}
+                              title={`${card.name} x${card.count}`}
+                            />
+                          ) : (
+                            <div
+                              className="rounded border border-neutral-200 bg-neutral-100 flex items-center justify-center text-xs text-center p-1"
+                              style={{ height: `${cardHeight}px` }}
+                            >
+                              <span className="text-muted-foreground truncate line-clamp-3">
+                                {card.name}
+                              </span>
+                            </div>
+                          )}
+                          {card.count > 1 && (
+                            <span className="absolute bottom-1 right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                              {card.count}
                             </span>
-                          </div>
-                        )}
-                        {card.count > 1 && (
-                          <span className="absolute bottom-1 right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                            {card.count}
-                          </span>
-                        )}
+                          )}
+                        </div>
+
+                        {/* Card name below thumbnail */}
+                        <p className="text-xs text-muted-foreground truncate leading-tight">
+                          {card.name}
+                        </p>
                       </div>
                     ))}
                   </div>
-                )}
-
-                {/* Action buttons */}
-                <div className="mt-4 flex gap-2">
-                  {isOwnProfile && (
-                    <>
-                      <Link
-                        href={`/decks/${d.id}/edit`}
-                        className="btn btn-outline btn-sm"
-                      >
-                        編輯
-                      </Link>
-                      <Link
-                        href={`/decks/${d.id}/setting`}
-                        className="btn btn-outline btn-sm"
-                      >
-                        設定
-                      </Link>
-                    </>
-                  )}
                 </div>
+
+                {/* Right scroll button */}
+                <button
+                  onClick={() => handleScroll(d.id, "right")}
+                  className="p-2 hover:bg-neutral-100 rounded transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="向右滾動"
+                  disabled={
+                    !scrollContainerRefs.current[d.id] ||
+                    (scrollPosition[d.id] || 0) >=
+                      (scrollContainerRefs.current[d.id]?.scrollWidth || 0) -
+                        (scrollContainerRefs.current[d.id]?.offsetWidth || 0)
+                  }
+                >
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                </button>
+              </div>
+            )}
+
+            {/* Action buttons for own deck */}
+            {isOwnProfile && cards.length > 0 && (
+              <div className="flex gap-2 pt-2 border-t border-neutral-200">
+                <Link
+                  href={`/decks/${d.id}/edit`}
+                  className="btn btn-outline btn-sm"
+                >
+                  編輯卡片
+                </Link>
+                <Link
+                  href={`/decks/${d.id}/setting`}
+                  className="btn btn-outline btn-sm"
+                >
+                  牌組設定
+                </Link>
               </div>
             )}
           </div>

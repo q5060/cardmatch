@@ -720,6 +720,11 @@ body {
     border: 2px solid color-mix(in srgb, var(--primary) 40%, transparent);
     background-color: color-mix(in srgb, var(--primary) 10%, var(--card));
   }
+
+  /* Hide scrollbar for horizontal scroll containers */
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .leaflet-container {
@@ -729,4 +734,9 @@ body {
   box-shadow:
     0 4px 24px rgb(0 0 0 / 0.06),
     0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+/* Hide scrollbar for horizontal scroll containers */
+.overflow-x-auto::-webkit-scrollbar {
+  display: none;
 }
