@@ -251,24 +251,6 @@ export function PublicDeckList({
                 </button>
               </div>
             )}
-
-            {/* Action buttons for own deck */}
-            {isOwnProfile && cards.length > 0 && (
-              <div className="flex gap-2 pt-2 border-t border-neutral-200">
-                <Link
-                  href={`/decks/${d.id}/edit`}
-                  className="btn btn-outline btn-sm"
-                >
-                  編輯卡片
-                </Link>
-                <Link
-                  href={`/decks/${d.id}/setting`}
-                  className="btn btn-outline btn-sm"
-                >
-                  牌組設定
-                </Link>
-              </div>
-            )}
           </div>
         );
       })}

@@ -56,7 +56,7 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
         {decks.length === 0 ? (
           <p className="text-sm text-muted-foreground">尚未建立任何牌組。</p>
         ) : (
-          <PublicDeckList decks={decks as any} isOwnProfile={true} />
+          <PublicDeckList decks={decks.map(d => ({...d, deckJson: d.deckJson || null}))} isOwnProfile={true} />
         )}
       </div>
     );

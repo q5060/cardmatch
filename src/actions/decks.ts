@@ -22,10 +22,10 @@ export async function createDeck(formData: FormData): Promise<Deck> {
     DECK_VISIBILITY.PUBLIC,
     DECK_VISIBILITY.FRIENDS,
     DECK_VISIBILITY.PRIVATE,
-  ];
-  const finalVisibility = validVisibilities.includes(visibility as any)
+  ] as const;
+  const finalVisibility = (validVisibilities.includes(visibility as any)
     ? visibility
-    : DECK_VISIBILITY.PUBLIC;
+    : DECK_VISIBILITY.PUBLIC) as typeof validVisibilities[number];
 
   const newDeck = await prisma.deck.create({
     data: {
@@ -96,16 +96,16 @@ export async function updateDeck(deckId: string, formData: FormData) {
     DECK_VISIBILITY.PUBLIC,
     DECK_VISIBILITY.FRIENDS,
     DECK_VISIBILITY.PRIVATE,
-  ];
-  const finalVisibility = validVisibilities.includes(visibility as any)
+  ] as const;
+  const finalVisibility = (validVisibilities.includes(visibility as any)
     ? visibility
-    : DECK_VISIBILITY.PUBLIC;
+    : DECK_VISIBILITY.PUBLIC) as typeof validVisibilities[number];
 
   // Build update data - only include fields that should be updated
   type UpdateData = {
     title: string;
     notes: string;
-    visibility: string;
+    visibility: typeof validVisibilities[number];
     deckJson?: string | null;
   };
   
