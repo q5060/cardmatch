@@ -17,15 +17,22 @@ export async function createDeck(formData: FormData): Promise<Deck> {
 
   if (!title) throw new Error("INVALID_TITLE");
 
+  // Validate visibility value
+  const validVisibilities = [
+    DECK_VISIBILITY.PUBLIC,
+    DECK_VISIBILITY.FRIENDS,
+    DECK_VISIBILITY.PRIVATE,
+  ];
+  const finalVisibility = validVisibilities.includes(visibility as any)
+    ? visibility
+    : DECK_VISIBILITY.PUBLIC;
+
   const newDeck = await prisma.deck.create({
     data: {
       userId: session.userId,
       title: title.slice(0, 120),
       notes: notes.slice(0, 2000),
-      visibility:
-        visibility === DECK_VISIBILITY.PRIVATE
-          ? DECK_VISIBILITY.PRIVATE
-          : DECK_VISIBILITY.PUBLIC,
+      visibility: finalVisibility,
       deckJson: deckJson ? deckJson.slice(0, 50_000) : null,
     },
   });
@@ -55,14 +62,19 @@ export async function updateDeckVisibility(deckId: string, visibility: string) {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
 
-  const v =
-    visibility === DECK_VISIBILITY.PRIVATE
-      ? DECK_VISIBILITY.PRIVATE
-      : DECK_VISIBILITY.PUBLIC;
+  // Validate visibility value
+  const validVisibilities = [
+    DECK_VISIBILITY.PUBLIC,
+    DECK_VISIBILITY.FRIENDS,
+    DECK_VISIBILITY.PRIVATE,
+  ];
+  const finalVisibility = validVisibilities.includes(visibility as any)
+    ? visibility
+    : DECK_VISIBILITY.PUBLIC;
 
   await prisma.deck.updateMany({
     where: { id: deckId, userId: session.userId },
-    data: { visibility: v },
+    data: { visibility: finalVisibility },
   });
 
   revalidatePath("/profile");
@@ -75,21 +87,42 @@ export async function updateDeck(deckId: string, formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const visibility = String(formData.get("visibility") ?? "PUBLIC");
-  const deckJson = String(formData.get("deckJson") ?? "").trim() || null;
+  const deckJsonInput = String(formData.get("deckJson") ?? "").trim() || null;
 
   if (!title) throw new Error("INVALID_TITLE");
 
+  // Validate visibility value
+  const validVisibilities = [
+    DECK_VISIBILITY.PUBLIC,
+    DECK_VISIBILITY.FRIENDS,
+    DECK_VISIBILITY.PRIVATE,
+  ];
+  const finalVisibility = validVisibilities.includes(visibility as any)
+    ? visibility
+    : DECK_VISIBILITY.PUBLIC;
+
+  // Build update data - only include fields that should be updated
+  type UpdateData = {
+    title: string;
+    notes: string;
+    visibility: string;
+    deckJson?: string | null;
+  };
+  
+  const updateData: UpdateData = {
+    title: title.slice(0, 120),
+    notes: notes.slice(0, 2000),
+    visibility: finalVisibility,
+  };
+  
+  // Only update deckJson if explicitly provided
+  if (deckJsonInput !== null) {
+    updateData.deckJson = deckJsonInput.slice(0, 50_000);
+  }
+
   await prisma.deck.update({
     where: { id: deckId, userId: session.userId },
-    data: {
-      title: title.slice(0, 120),
-      notes: notes.slice(0, 2000),
-      visibility:
-        visibility === DECK_VISIBILITY.PRIVATE
-          ? DECK_VISIBILITY.PRIVATE
-          : DECK_VISIBILITY.PUBLIC,
-      deckJson: deckJson ? deckJson.slice(0, 50_000) : null,
-    },
+    data: updateData,
   });
 
   revalidatePath("/profile");

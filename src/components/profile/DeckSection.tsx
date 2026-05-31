@@ -14,6 +14,30 @@ type Deck = {
   visibility: string;
 };
 
+function getVisibilityLabel(visibility: string): string {
+  switch (visibility) {
+    case DECK_VISIBILITY.PRIVATE:
+      return "私人";
+    case DECK_VISIBILITY.FRIENDS:
+      return "限好友";
+    case DECK_VISIBILITY.PUBLIC:
+    default:
+      return "公開";
+  }
+}
+
+function getNextVisibility(current: string): string {
+  switch (current) {
+    case DECK_VISIBILITY.PUBLIC:
+      return DECK_VISIBILITY.FRIENDS;
+    case DECK_VISIBILITY.FRIENDS:
+      return DECK_VISIBILITY.PRIVATE;
+    case DECK_VISIBILITY.PRIVATE:
+    default:
+      return DECK_VISIBILITY.PUBLIC;
+  }
+}
+
 export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOnly?: boolean }) {
   if (readOnly) {
     // Read-only mode: only show decks with a "New Deck" button
@@ -46,7 +70,7 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
                       <p className="mt-1 text-sm text-muted-foreground">{d.notes}</p>
                     ) : null}
                     <span className="mt-1 inline-block text-xs text-muted-foreground">
-                      {d.visibility === DECK_VISIBILITY.PRIVATE ? "私人" : "公開"}
+                      {getVisibilityLabel(d.visibility)}
                     </span>
                   </div>
                 </Link>
@@ -75,6 +99,7 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
           <span className="text-muted-foreground">隱私</span>
           <select name="visibility" className="input-field mt-2">
             <option value={DECK_VISIBILITY.PUBLIC}>公開</option>
+            <option value={DECK_VISIBILITY.FRIENDS}>限好友</option>
             <option value={DECK_VISIBILITY.PRIVATE}>私人</option>
           </select>
         </label>
@@ -104,7 +129,7 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
                 <p className="mt-1 text-sm text-muted-foreground">{d.notes}</p>
               ) : null}
               <span className="mt-1 inline-block text-xs text-muted-foreground">
-                {d.visibility === DECK_VISIBILITY.PRIVATE ? "私人" : "公開"}
+                {getVisibilityLabel(d.visibility)}
               </span>
             </div>
       <div className="flex gap-2 flex-wrap">
@@ -115,13 +140,11 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
                   action={updateDeckVisibility.bind(
                     null,
                     d.id,
-                    d.visibility === DECK_VISIBILITY.PRIVATE
-                      ? DECK_VISIBILITY.PUBLIC
-                      : DECK_VISIBILITY.PRIVATE,
+                    getNextVisibility(d.visibility),
                   )}
                 >
                   <button type="submit" className="btn btn-outline btn-sm">
-                    切換為{d.visibility === DECK_VISIBILITY.PRIVATE ? "公開" : "私人"}
+                    切換為{getVisibilityLabel(getNextVisibility(d.visibility))}
                   </button>
                 </form>
                 <form action={deleteDeck.bind(null, d.id)}>

@@ -82,33 +82,20 @@ export default async function OtherProfilePage({
   if (!viewer) redirect("/login");
   if (viewer.id === userId) redirect("/profile");
 
-  // First fetch profile to get privacy settings
-  const profile = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      displayName: true,
-      bio: true,
-      avatarUrl: true,
-      bannerUrl: true,
-      createdAt: true,
-      battleRecordVisibility: true,
-      winrateVisibility: true,
-      decks: {
-        where: { visibility: DECK_VISIBILITY.PUBLIC },
-        orderBy: { updatedAt: "desc" },
-        select: { id: true, title: true, notes: true },
+  // First fetch profile info and friendship status
+  const [profile, friendship, blockedByViewer, blockedEither] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        displayName: true,
+        bio: true,
+        avatarUrl: true,
+        bannerUrl: true,
+        createdAt: true,
+        battleRecordVisibility: true,
+        winrateVisibility: true,
       },
-    },
-  });
-
-  if (!profile) notFound();
-
-  // Then compute hidden reasons and fetch everything else in parallel
-  const [battleStats, recentFeed, allMatches, friendship, blockedByViewer, blockedEither, battleRecordsHiddenReason, winrateHiddenReason, topOpponents] =
-    await Promise.all([
-    getProfileBattleStats(userId, viewer.id),
-    getProfileMatchFeed(userId, PROFILE_RECENT_MATCHES, viewer.id),
-    getProfileMatchFeed(userId, PROFILE_ALL_MATCHES, viewer.id),
+    }),
     prisma.friendship.findFirst({
       where: {
         OR: [
@@ -120,13 +107,43 @@ export default async function OtherProfilePage({
     }),
     viewerHasBlocked(viewer.id, userId),
     isBlockedBetween(viewer.id, userId),
+  ]);
+
+  if (!profile) notFound();
+
+  // Determine which decks are visible based on friendship and privacy settings
+  const isFriend = friendship?.status === "ACCEPTED";
+  
+  // Get decks based on visibility
+  const deckFilters = [];
+  deckFilters.push({ visibility: DECK_VISIBILITY.PUBLIC });
+  if (isFriend) {
+    deckFilters.push({ visibility: DECK_VISIBILITY.FRIENDS });
+  }
+
+  const decks = await prisma.deck.findMany({
+    where: {
+      userId: userId,
+      OR: deckFilters,
+    },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, title: true, notes: true, visibility: true, deckJson: true },
+  });
+
+  const friendshipForUi = blockedEither ? null : friendship;
+
+  // Then compute hidden reasons and fetch everything else in parallel
+  const [battleStats, recentFeed, allMatches, battleRecordsHiddenReason, winrateHiddenReason, topOpponents] =
+    await Promise.all([
+    getProfileBattleStats(userId, viewer.id),
+    getProfileMatchFeed(userId, PROFILE_RECENT_MATCHES, viewer.id),
+    getProfileMatchFeed(userId, PROFILE_ALL_MATCHES, viewer.id),
     getPrivacyHiddenReason(userId, viewer.id, profile.battleRecordVisibility),
     getPrivacyHiddenReason(userId, viewer.id, profile.winrateVisibility),
     getTopOpponents(userId, 5, viewer.id),
   ]);
 
-  const friendshipForUi = blockedEither ? null : friendship;
-  const deckCount = profile.decks.length;
+  const deckCount = decks.length;
   const publicDeckCount = deckCount;
 
   return (
@@ -157,7 +174,7 @@ export default async function OtherProfilePage({
         allMatches={allMatches}
         topOpponents={topOpponents}
         allMatchesHref={`/profile/${userId}/matches`}
-        decksSlot={<PublicDeckList decks={profile.decks} />}
+        decksSlot={<PublicDeckList decks={decks} viewedUserId={userId} viewerId={viewer.id} />}
       />
     </Suspense>
   );

@@ -1,6 +1,21 @@
 import { getSession } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { NextResponse, NextRequest } from "next/server";
+import { DECK_VISIBILITY } from "@/lib/constants";
+
+// Helper function to check if two users are friends
+async function areFriends(userId1: number, userId2: number): Promise<boolean> {
+  const friendship = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { requesterId: userId1, addresseeId: userId2 },
+        { requesterId: userId2, addresseeId: userId1 },
+      ],
+      status: "ACCEPTED",
+    },
+  });
+  return !!friendship;
+}
 
 export async function GET(
   request: Request,
@@ -9,6 +24,8 @@ export async function GET(
   try {
     const { id } = await params;
     const session = await getSession();
+    const { searchParams } = new URL(request.url);
+    const viewOnly = searchParams.get("viewOnly") === "true";
 
     if (!session.userId) {
       return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
@@ -32,12 +49,31 @@ export async function GET(
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    // Only allow the owner to view
-    if (deck.userId !== session.userId) {
-      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    // If viewing own deck
+    if (deck.userId === session.userId) {
+      return NextResponse.json(deck);
     }
 
-    return NextResponse.json(deck);
+    // If viewing other's deck, check visibility permissions
+    if (viewOnly) {
+      // Check visibility settings
+      if (deck.visibility === DECK_VISIBILITY.PRIVATE) {
+        return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+      }
+
+      if (deck.visibility === DECK_VISIBILITY.FRIENDS) {
+        const isFriend = await areFriends(deck.userId, session.userId);
+        if (!isFriend) {
+          return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+        }
+      }
+
+      // Return deck with deckJson for view-only mode
+      return NextResponse.json(deck);
+    }
+
+    // Default: Only owner can edit
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   } catch (error) {
     console.error("Error fetching deck:", error);
     return NextResponse.json(

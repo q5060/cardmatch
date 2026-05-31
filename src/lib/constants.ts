@@ -1,5 +1,6 @@
 export const DECK_VISIBILITY = {
   PUBLIC: "PUBLIC",
+  FRIENDS: "FRIENDS",
   PRIVATE: "PRIVATE",
 } as const;
 

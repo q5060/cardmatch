@@ -11,6 +11,7 @@ import { Alert } from "@/components/ui/Alert";
 
 const VISIBILITY_OPTIONS = [
   { value: "PUBLIC", label: "公開", desc: "所有人都可以看到" },
+  { value: "FRIENDS", label: "限好友", desc: "只有加為好友的人可以看到" },
   { value: "PRIVATE", label: "私人", desc: "只有自己可以看到" },
 ];
 
