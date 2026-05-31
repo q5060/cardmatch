@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -145,7 +145,7 @@ export type ProfileDashboardProps = {
   decksSlot: ReactNode;
 };
 
-export function ProfileDashboard({
+function ProfileDashboardInner({
   variant = "self",
   profileBasePath = "/profile",
   viewedUserId,
@@ -692,5 +692,13 @@ export function ProfileDashboard({
 
       </div>
     </div>
+  );
+}
+
+export function ProfileDashboard(props: ProfileDashboardProps) {
+  return (
+    <Suspense fallback={null}>
+      <ProfileDashboardInner {...props} />
+    </Suspense>
   );
 }

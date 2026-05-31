@@ -47,7 +47,6 @@ export function PublicDeckList({
   const [deckCards, setDeckCards] = useState<Record<string, DeckCard[]>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [scrollPosition, setScrollPosition] = useState<Record<string, number>>({});
-  const [containerSizes, setContainerSizes] = useState<Record<string, { scrollWidth: number; offsetWidth: number }>>({});
   const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const loadedDecksRef = useRef<Set<string>>(new Set());
 
@@ -100,17 +99,6 @@ export function PublicDeckList({
 
     container.scrollLeft = newPosition;
     setScrollPosition((prev) => ({ ...prev, [deckId]: newPosition }));
-    
-    // Update container sizes for button state
-    setTimeout(() => {
-      setContainerSizes((prev) => ({
-        ...prev,
-        [deckId]: {
-          scrollWidth: container.scrollWidth,
-          offsetWidth: container.offsetWidth,
-        }
-      }));
-    }, 0);
   };
 
   useEffect(() => {
@@ -127,6 +115,18 @@ export function PublicDeckList({
       </p>
     );
   }
+
+  const getIsLeftButtonDisabled = (deckId: string): boolean => {
+    return (scrollPosition[deckId] || 0) === 0;
+  };
+
+  const getIsRightButtonDisabled = (deckId: string): boolean => {
+    const container = scrollContainerRefs.current[deckId];
+    if (!container) return true;
+    const currentScroll = scrollPosition[deckId] || 0;
+    const maxScroll = container.scrollWidth - container.offsetWidth;
+    return currentScroll >= maxScroll;
+  };
 
   return (
     <div className="space-y-4">
@@ -181,7 +181,7 @@ export function PublicDeckList({
                   onClick={() => handleScroll(d.id, "left")}
                   className="p-2 hover:bg-neutral-100 rounded transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="向左滾動"
-                  disabled={(scrollPosition[d.id] || 0) === 0}
+                  disabled={getIsLeftButtonDisabled(d.id)}
                 >
                   <ChevronLeft className="w-5 h-5 text-muted-foreground" />
                 </button>
@@ -189,17 +189,7 @@ export function PublicDeckList({
                 {/* Scrollable cards container */}
                 <div
                   ref={(el) => {
-                    if (el) {
-                      scrollContainerRefs.current[d.id] = el;
-                      // Update container sizes when ref is set
-                      setContainerSizes((prev) => ({
-                        ...prev,
-                        [d.id]: {
-                          scrollWidth: el.scrollWidth,
-                          offsetWidth: el.offsetWidth,
-                        }
-                      }));
-                    }
+                    scrollContainerRefs.current[d.id] = el;
                   }}
                   className="flex-1 overflow-x-auto"
                   style={{
@@ -213,13 +203,6 @@ export function PublicDeckList({
                     setScrollPosition((prev) => ({
                       ...prev,
                       [d.id]: target.scrollLeft,
-                    }));
-                    setContainerSizes((prev) => ({
-                      ...prev,
-                      [d.id]: {
-                        scrollWidth: target.scrollWidth,
-                        offsetWidth: target.offsetWidth,
-                      }
                     }));
                   }}
                 >
@@ -275,12 +258,7 @@ export function PublicDeckList({
                   onClick={() => handleScroll(d.id, "right")}
                   className="p-2 hover:bg-neutral-100 rounded transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="向右滾動"
-                  disabled={
-                    !containerSizes[d.id] ||
-                    (scrollPosition[d.id] || 0) >=
-                      (containerSizes[d.id]?.scrollWidth || 0) -
-                        (containerSizes[d.id]?.offsetWidth || 0)
-                  }
+                  disabled={getIsRightButtonDisabled(d.id)}
                 >
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
                 </button>
