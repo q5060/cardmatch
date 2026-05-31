@@ -47,10 +47,10 @@ export function PublicDeckList({
   const [deckCards, setDeckCards] = useState<Record<string, DeckCard[]>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [scrollPosition, setScrollPosition] = useState<Record<string, number>>({});
-  // undefined = not yet measured, true = overflows, false = does not overflow
-  const [overflows, setOverflows] = useState<Record<string, boolean | undefined>>({});
-  // maxScroll per deck (scrollWidth - clientWidth), populated in effect after DOM commit
-  const [maxScrolls, setMaxScrolls] = useState<Record<string, number>>({});
+  // Populated via ResizeObserver callback (not directly in effect body)
+  const [scrollMetrics, setScrollMetrics] = useState<
+    Record<string, { overflows: boolean; maxScroll: number }>
+  >({});
   const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const loadedDecksRef = useRef<Set<string>>(new Set());
 
@@ -113,20 +113,31 @@ export function PublicDeckList({
   }, [decks, isOwnProfile, fetchDeckCards]);
 
   useEffect(() => {
-    // Re-measure container overflow after cards render.
-    // By the time this effect runs, React has committed the DOM and set all refs.
-    const newOverflows: Record<string, boolean> = {};
-    const newMaxScrolls: Record<string, number> = {};
+    // Use ResizeObserver so setState is called in a callback, not in the effect body.
+    // The observer fires immediately on first observe (initial measurement) and again
+    // whenever the container resizes — satisfying react-hooks/set-state-in-effect.
+    const observers: ResizeObserver[] = [];
+
     for (const deck of decks) {
       const el = scrollContainerRefs.current[deck.id];
-      if (el) {
+      if (!el) continue;
+
+      const measure = () => {
         const max = el.scrollWidth - el.clientWidth;
-        newOverflows[deck.id] = max > 0;
-        newMaxScrolls[deck.id] = max;
-      }
+        setScrollMetrics((prev) => ({
+          ...prev,
+          [deck.id]: { overflows: max > 0, maxScroll: max },
+        }));
+      };
+
+      const observer = new ResizeObserver(measure);
+      observer.observe(el);
+      observers.push(observer);
     }
-    setOverflows((prev) => ({ ...prev, ...newOverflows }));
-    setMaxScrolls((prev) => ({ ...prev, ...newMaxScrolls }));
+
+    return () => {
+      observers.forEach((o) => o.disconnect());
+    };
   }, [deckCards, decks]);
 
   if (decks.length === 0) {
@@ -142,16 +153,13 @@ export function PublicDeckList({
   };
 
   const getIsRightButtonDisabled = (deckId: string): boolean => {
-    const isOverflowing = overflows[deckId];
+    const metrics = scrollMetrics[deckId];
     // Not yet measured — optimistically enable the button
-    if (isOverflowing === undefined) return false;
+    if (!metrics) return false;
     // Measured: container doesn't overflow at all
-    if (!isOverflowing) return true;
+    if (!metrics.overflows) return true;
     // Measured: overflows — disable only when fully scrolled to the right
-    // Use maxScrolls state (set in effect) — never reads refs during render
-    const currentScroll = scrollPosition[deckId] || 0;
-    const maxScroll = maxScrolls[deckId] ?? 0;
-    return currentScroll >= maxScroll;
+    return (scrollPosition[deckId] || 0) >= metrics.maxScroll;
   };
 
   return (
