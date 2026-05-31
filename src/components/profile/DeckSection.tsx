@@ -112,30 +112,30 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
                 {getVisibilityLabel(d.visibility)}
               </span>
             </div>
-      <div className="flex gap-2 flex-wrap">
-                <Link href={`/decks/${d.id}/edit`} className="btn btn-outline btn-sm">
-                  編輯
-                </Link>
-                <form
-                  action={updateDeckVisibility.bind(
-                    null,
-                    d.id,
-                    getNextVisibility(d.visibility),
-                  )}
+            <div className="flex gap-2 flex-wrap">
+              <Link href={`/decks/${d.id}/edit`} className="btn btn-outline btn-sm">
+                編輯
+              </Link>
+              <form
+                action={updateDeckVisibility.bind(
+                  null,
+                  d.id,
+                  getNextVisibility(d.visibility),
+                )}
+              >
+                <button type="submit" className="btn btn-outline btn-sm">
+                  切換為{getVisibilityLabel(getNextVisibility(d.visibility))}
+                </button>
+              </form>
+              <form action={deleteDeck.bind(null, d.id)}>
+                <button
+                  type="submit"
+                  className="rounded-md bg-red-500/15 px-3 py-1 text-xs font-medium text-red-800 transition hover:bg-red-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
-                  <button type="submit" className="btn btn-outline btn-sm">
-                    切換為{getVisibilityLabel(getNextVisibility(d.visibility))}
-                  </button>
-                </form>
-                <form action={deleteDeck.bind(null, d.id)}>
-                  <button
-                    type="submit"
-                    className="rounded-md bg-red-500/15 px-3 py-1 text-xs font-medium text-red-800 transition hover:bg-red-500/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  >
-                    刪除
-                  </button>
-                </form>
-              </div>
+                  刪除
+                </button>
+              </form>
+            </div>
           </li>
         ))}
       </ul>
