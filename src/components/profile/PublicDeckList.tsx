@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DECK_VISIBILITY } from "@/lib/constants";
 
@@ -47,39 +47,44 @@ export function PublicDeckList({
   const [deckCards, setDeckCards] = useState<Record<string, DeckCard[]>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [scrollPosition, setScrollPosition] = useState<Record<string, number>>({});
+  const [containerSizes, setContainerSizes] = useState<Record<string, { scrollWidth: number; offsetWidth: number }>>({});
   const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const isOwnProfile = forceIsOwnProfile ?? (viewedUserId === viewerId);
 
-  const fetchDeckCards = async (deck: Deck) => {
-    if (deckCards[deck.id]) {
-      return;
-    }
-
-    setLoading((prev) => ({ ...prev, [deck.id]: true }));
-    try {
-      const url = isOwnProfile ? `/api/decks/${deck.id}` : `/api/decks/${deck.id}?viewOnly=true`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.deckJson) {
-          try {
-            const cards = JSON.parse(data.deckJson);
-            setDeckCards((prev) => ({
-              ...prev,
-              [deck.id]: Array.isArray(cards) ? cards : [],
-            }));
-          } catch (e) {
-            console.error("Failed to parse deckJson:", e);
+  const fetchDeckCards = useCallback(async (deck: Deck) => {
+    setDeckCards((prev) => {
+      if (prev[deck.id]) return prev; // Already loaded
+      
+      (async () => {
+        setLoading((p) => ({ ...p, [deck.id]: true }));
+        try {
+          const url = isOwnProfile ? `/api/decks/${deck.id}` : `/api/decks/${deck.id}?viewOnly=true`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.deckJson) {
+              try {
+                const cards = JSON.parse(data.deckJson);
+                setDeckCards((p) => ({
+                  ...p,
+                  [deck.id]: Array.isArray(cards) ? cards : [],
+                }));
+              } catch (e) {
+                console.error("Failed to parse deckJson:", e);
+              }
+            }
           }
+        } catch (err) {
+          console.error("Failed to fetch deck details:", err);
+        } finally {
+          setLoading((p) => ({ ...p, [deck.id]: false }));
         }
-      }
-    } catch (err) {
-      console.error("Failed to fetch deck details:", err);
-    } finally {
-      setLoading((prev) => ({ ...prev, [deck.id]: false }));
-    }
-  };
+      })();
+      
+      return prev;
+    });
+  }, [isOwnProfile]);
 
   const handleScroll = (deckId: string, direction: "left" | "right") => {
     const container = scrollContainerRefs.current[deckId];
@@ -94,6 +99,17 @@ export function PublicDeckList({
 
     container.scrollLeft = newPosition;
     setScrollPosition((prev) => ({ ...prev, [deckId]: newPosition }));
+    
+    // Update container sizes for button state
+    setTimeout(() => {
+      setContainerSizes((prev) => ({
+        ...prev,
+        [deckId]: {
+          scrollWidth: container.scrollWidth,
+          offsetWidth: container.offsetWidth,
+        }
+      }));
+    }, 0);
   };
 
   useEffect(() => {
@@ -101,7 +117,7 @@ export function PublicDeckList({
     decks.forEach((deck) => {
       fetchDeckCards(deck);
     });
-  }, [decks, isOwnProfile]);
+  }, [decks, isOwnProfile, fetchDeckCards]);
 
   if (decks.length === 0) {
     return (
@@ -172,7 +188,17 @@ export function PublicDeckList({
                 {/* Scrollable cards container */}
                 <div
                   ref={(el) => {
-                    if (el) scrollContainerRefs.current[d.id] = el;
+                    if (el) {
+                      scrollContainerRefs.current[d.id] = el;
+                      // Update container sizes when ref is set
+                      setContainerSizes((prev) => ({
+                        ...prev,
+                        [d.id]: {
+                          scrollWidth: el.scrollWidth,
+                          offsetWidth: el.offsetWidth,
+                        }
+                      }));
+                    }
                   }}
                   className="flex-1 overflow-x-auto"
                   style={{
@@ -182,9 +208,17 @@ export function PublicDeckList({
                     msOverflowStyle: "none",
                   } as React.CSSProperties}
                   onScroll={(e) => {
+                    const target = e.target as HTMLDivElement;
                     setScrollPosition((prev) => ({
                       ...prev,
-                      [d.id]: (e.target as HTMLDivElement).scrollLeft,
+                      [d.id]: target.scrollLeft,
+                    }));
+                    setContainerSizes((prev) => ({
+                      ...prev,
+                      [d.id]: {
+                        scrollWidth: target.scrollWidth,
+                        offsetWidth: target.offsetWidth,
+                      }
                     }));
                   }}
                 >
@@ -241,10 +275,10 @@ export function PublicDeckList({
                   className="p-2 hover:bg-neutral-100 rounded transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="向右滾動"
                   disabled={
-                    !scrollContainerRefs.current[d.id] ||
+                    !containerSizes[d.id] ||
                     (scrollPosition[d.id] || 0) >=
-                      (scrollContainerRefs.current[d.id]?.scrollWidth || 0) -
-                        (scrollContainerRefs.current[d.id]?.offsetWidth || 0)
+                      (containerSizes[d.id]?.scrollWidth || 0) -
+                        (containerSizes[d.id]?.offsetWidth || 0)
                   }
                 >
                   <ChevronRight className="w-5 h-5 text-muted-foreground" />
