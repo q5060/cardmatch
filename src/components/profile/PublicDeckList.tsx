@@ -49,6 +49,8 @@ export function PublicDeckList({
   const [scrollPosition, setScrollPosition] = useState<Record<string, number>>({});
   // undefined = not yet measured, true = overflows, false = does not overflow
   const [overflows, setOverflows] = useState<Record<string, boolean | undefined>>({});
+  // maxScroll per deck (scrollWidth - clientWidth), populated in effect after DOM commit
+  const [maxScrolls, setMaxScrolls] = useState<Record<string, number>>({});
   const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const loadedDecksRef = useRef<Set<string>>(new Set());
 
@@ -114,13 +116,17 @@ export function PublicDeckList({
     // Re-measure container overflow after cards render.
     // By the time this effect runs, React has committed the DOM and set all refs.
     const newOverflows: Record<string, boolean> = {};
+    const newMaxScrolls: Record<string, number> = {};
     for (const deck of decks) {
       const el = scrollContainerRefs.current[deck.id];
       if (el) {
-        newOverflows[deck.id] = el.scrollWidth > el.clientWidth;
+        const max = el.scrollWidth - el.clientWidth;
+        newOverflows[deck.id] = max > 0;
+        newMaxScrolls[deck.id] = max;
       }
     }
     setOverflows((prev) => ({ ...prev, ...newOverflows }));
+    setMaxScrolls((prev) => ({ ...prev, ...newMaxScrolls }));
   }, [deckCards, decks]);
 
   if (decks.length === 0) {
@@ -142,10 +148,9 @@ export function PublicDeckList({
     // Measured: container doesn't overflow at all
     if (!isOverflowing) return true;
     // Measured: overflows — disable only when fully scrolled to the right
-    const container = scrollContainerRefs.current[deckId];
-    if (!container) return false;
+    // Use maxScrolls state (set in effect) — never reads refs during render
     const currentScroll = scrollPosition[deckId] || 0;
-    const maxScroll = container.scrollWidth - container.clientWidth;
+    const maxScroll = maxScrolls[deckId] ?? 0;
     return currentScroll >= maxScroll;
   };
 
