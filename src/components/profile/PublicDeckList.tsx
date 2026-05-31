@@ -49,42 +49,43 @@ export function PublicDeckList({
   const [scrollPosition, setScrollPosition] = useState<Record<string, number>>({});
   const [containerSizes, setContainerSizes] = useState<Record<string, { scrollWidth: number; offsetWidth: number }>>({});
   const scrollContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const loadedDecksRef = useRef<Set<string>>(new Set());
 
   const isOwnProfile = forceIsOwnProfile ?? (viewedUserId === viewerId);
 
   const fetchDeckCards = useCallback(async (deck: Deck) => {
-    setDeckCards((prev) => {
-      if (prev[deck.id]) return prev; // Already loaded
+    // Skip if already loading or loaded
+    if (loadedDecksRef.current.has(deck.id) || loading[deck.id]) {
+      return;
+    }
+
+    loadedDecksRef.current.add(deck.id);
+    setLoading((p) => ({ ...p, [deck.id]: true }));
+
+    try {
+      const url = isOwnProfile ? `/api/decks/${deck.id}` : `/api/decks/${deck.id}?viewOnly=true`;
+      const res = await fetch(url);
       
-      (async () => {
-        setLoading((p) => ({ ...p, [deck.id]: true }));
-        try {
-          const url = isOwnProfile ? `/api/decks/${deck.id}` : `/api/decks/${deck.id}?viewOnly=true`;
-          const res = await fetch(url);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.deckJson) {
-              try {
-                const cards = JSON.parse(data.deckJson);
-                setDeckCards((p) => ({
-                  ...p,
-                  [deck.id]: Array.isArray(cards) ? cards : [],
-                }));
-              } catch (e) {
-                console.error("Failed to parse deckJson:", e);
-              }
-            }
+      if (res.ok) {
+        const data = await res.json();
+        if (data.deckJson) {
+          try {
+            const cards = JSON.parse(data.deckJson);
+            setDeckCards((p) => ({
+              ...p,
+              [deck.id]: Array.isArray(cards) ? cards : [],
+            }));
+          } catch (e) {
+            console.error("Failed to parse deckJson:", e);
           }
-        } catch (err) {
-          console.error("Failed to fetch deck details:", err);
-        } finally {
-          setLoading((p) => ({ ...p, [deck.id]: false }));
         }
-      })();
-      
-      return prev;
-    });
-  }, [isOwnProfile]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch deck details:", err);
+    } finally {
+      setLoading((p) => ({ ...p, [deck.id]: false }));
+    }
+  }, [isOwnProfile, loading]);
 
   const handleScroll = (deckId: string, direction: "left" | "right") => {
     const container = scrollContainerRefs.current[deckId];
