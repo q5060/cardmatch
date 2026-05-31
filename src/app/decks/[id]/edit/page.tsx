@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowLeft, Save, Settings, Search, Plus, Minus } from "lucide-react";
 
 interface Deck {
@@ -369,8 +368,21 @@ export default function DeckCompositionEditor() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {allCards.map((card) => (
                 <div key={card.id} className="bg-white rounded-xl border p-2 hover:shadow-md group">
-                  <div className="aspect-[3/4] mb-2">
-                    <Image src={card.imageUrl ?? ""} alt={card.name} className="w-full h-full object-contain" width={150} height={200} />
+                  <div className="aspect-[3/4] mb-2 bg-neutral-100 rounded overflow-hidden">
+                    {card.imageUrl ? (
+                      <img 
+                        src={card.imageUrl} 
+                        alt={card.name} 
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                        title={card.name}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-[10px] text-muted-foreground text-center px-1">
+                          {card.name}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs font-bold truncate">{card.name}</p>
                   <p className="text-[10px] text-muted-foreground">{card.type} / {card.regulationMark}</p>

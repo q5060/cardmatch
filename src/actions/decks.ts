@@ -23,7 +23,7 @@ export async function createDeck(formData: FormData): Promise<Deck> {
     DECK_VISIBILITY.FRIENDS,
     DECK_VISIBILITY.PRIVATE,
   ] as const;
-  const finalVisibility = (validVisibilities.includes(visibility as any)
+  const finalVisibility = (validVisibilities.includes(visibility as typeof validVisibilities[number])
     ? visibility
     : DECK_VISIBILITY.PUBLIC) as typeof validVisibilities[number];
 
@@ -97,7 +97,7 @@ export async function updateDeck(deckId: string, formData: FormData) {
     DECK_VISIBILITY.FRIENDS,
     DECK_VISIBILITY.PRIVATE,
   ] as const;
-  const finalVisibility = (validVisibilities.includes(visibility as any)
+  const finalVisibility = (validVisibilities.includes(visibility as typeof validVisibilities[number])
     ? visibility
     : DECK_VISIBILITY.PUBLIC) as typeof validVisibilities[number];
 
