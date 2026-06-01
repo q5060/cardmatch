@@ -78,7 +78,7 @@ function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }:
 
       {/* Play note */}
       <label className="block text-sm font-medium text-foreground">
-        <span className="text-muted-foreground">約戰說明（選填）</span>
+        <span className="text-muted-foreground">說明（選填）</span>
         <textarea
           value={playNote}
           onChange={(e) => setPlayNote(e.target.value)}

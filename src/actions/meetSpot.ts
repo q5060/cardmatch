@@ -127,10 +127,11 @@ export async function fetchShopLobby(shopId: string): Promise<{
   events: ShopEventDTO[];
 }> {
   try {
-    const userId = await requireUserId();
     if (!shopId) throw new Error("無效的卡店");
+    const session = await getSession();
+    const viewerId = session.userId ?? null;
     const [players, events] = await Promise.all([
-      getAnnouncementsAtShop(shopId, userId),
+      getAnnouncementsAtShop(shopId, viewerId),
       getShopRecentEvents(shopId),
     ]);
     return { players, events };
@@ -141,6 +142,6 @@ export async function fetchShopLobby(shopId: string): Promise<{
 }
 
 export async function refreshShops() {
-  const userId = await requireUserId();
-  return getShops(userId);
+  const session = await getSession();
+  return getShops(session.userId ?? null);
 }

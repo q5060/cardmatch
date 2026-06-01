@@ -6,7 +6,8 @@ import {
 import { getBlockedUserIds } from "./block";
 import { isShopOpenNow, parseShopHours } from "./shopHours";
 
-async function hiddenUserIdsForViewer(viewerId: number): Promise<number[]> {
+async function hiddenUserIdsForViewer(viewerId: number | null): Promise<number[]> {
+  if (viewerId === null) return [];
   const blocked = await getBlockedUserIds(viewerId);
   return [viewerId, ...blocked];
 }
@@ -96,10 +97,10 @@ export type ShopEventDTO = {
   endsAt: string | null;
 };
 
-export async function getShops(viewerId: number) {
+export async function getShops(viewerId: number | null) {
   try {
-    const blocked = await getBlockedUserIds(viewerId);
-    const blockedArray = Array.from(blocked);
+    const blockedArray =
+      viewerId === null ? [] : Array.from(await getBlockedUserIds(viewerId));
     const [shops, counts] = await Promise.all([
       prisma.shop.findMany({ orderBy: { name: "asc" } }),
       prisma.meetSpot.groupBy({
@@ -235,7 +236,7 @@ const userInclude = {
 
 /** Map announcements including both custom-location and shop-based announcements. Only the latest per user. */
 export async function getMapAnnouncements(
-  viewerId: number,
+  viewerId: number | null,
 ): Promise<MapAnnouncementDTO[]> {
   const hidden = await hiddenUserIdsForViewer(viewerId);
   
@@ -262,11 +263,10 @@ export async function getMapAnnouncements(
 
 export async function getAnnouncementsAtShop(
   shopId: string,
-  viewerId: number,
+  viewerId: number | null,
 ): Promise<MapAnnouncementDTO[]> {
-  // Include own announcements in shop lobby, but still filter out blocked users
-  const blocked = await getBlockedUserIds(viewerId);
-  const blockedArray = Array.from(blocked); // Convert Set to array for Prisma
+  const blockedArray =
+    viewerId === null ? [] : Array.from(await getBlockedUserIds(viewerId));
   if (!prisma || !prisma.meetSpot) {
     console.error("Prisma client not initialized properly");
     return [];

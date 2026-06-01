@@ -39,8 +39,7 @@ export default async function UserMatchesPage({
   if (Number.isNaN(userId)) notFound();
 
   const viewer = await getCurrentUser();
-  if (!viewer) redirect("/login");
-  if (viewer.id === userId) redirect("/profile/matches");
+  if (viewer?.id === userId) redirect("/profile/matches");
 
   const profile = await prisma.user.findUnique({
     where: { id: userId },
@@ -48,7 +47,11 @@ export default async function UserMatchesPage({
   });
   if (!profile) notFound();
 
-  const feed = await getProfileMatchFeed(userId, PROFILE_ALL_MATCHES, viewer.id);
+  const feed = await getProfileMatchFeed(
+    userId,
+    PROFILE_ALL_MATCHES,
+    viewer?.id,
+  );
 
   return (
     <ProfileMatchesPage

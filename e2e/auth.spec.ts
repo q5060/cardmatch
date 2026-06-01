@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("auth", () => {
-  test("redirects unauthenticated users from /battle to login", async ({
+  test("allows guests to browse battle map but requires login for random match", async ({
     page,
   }) => {
     await page.goto("/battle");
+    await expect(page).toHaveURL(/\/battle/);
+    await page.getByRole("button", { name: "隨機配對" }).click();
     await expect(page).toHaveURL(/\/login\?next=%2Fbattle/);
   });
 

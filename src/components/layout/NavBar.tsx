@@ -28,7 +28,7 @@ const links: {
   Icon: typeof Home;
 }[] = [
   { href: "/", label: "首頁", Icon: Home },
-  { href: "/battle", label: "對戰", Icon: Swords, auth: true },
+  { href: "/battle", label: "對戰", Icon: Swords },
   { href: "/friends", label: "好友", Icon: Users, auth: true },
   { href: "/profile", label: "我的檔案", Icon: UserCircle, auth: true },
   { href: "/search", label: "搜尋", Icon: Search, auth: true },

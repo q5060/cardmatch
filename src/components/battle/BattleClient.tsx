@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { loginUrlWithNext } from "@/lib/safeRedirect";
 import { UserRound, ArrowLeft } from "lucide-react";
 import {
   MeetMap,
@@ -64,7 +66,7 @@ export function BattleClient({
   initialQueueStatus = null,
   initialShopId = null,
 }: {
-  userId: number;
+  userId: number | null;
   shops: MapShopPin[];
   announcements: MapAnnouncementDTO[];
   myAnnouncement: MapAnnouncementDTO | null;
@@ -76,6 +78,12 @@ export function BattleClient({
   initialQueueStatus?: QueueStatus | null;
   initialShopId?: string | null;
 }) {
+  const router = useRouter();
+  const isGuest = userId === null;
+  const requireLogin = useCallback(() => {
+    router.push(loginUrlWithNext("/battle"));
+  }, [router]);
+
   const sseConnected = useRealtimeConnected();
   const [activeMatch, setActiveMatch] = useState<ActiveMatchDTO | null>(
     initialActiveMatch,
@@ -154,6 +162,7 @@ export function BattleClient({
   }, [announcements, myAnnouncement]);
 
   const syncActiveMatch = useCallback(async () => {
+    if (isGuest) return;
     try {
       const res = await fetch("/api/matches/active");
       if (!res.ok) return;
@@ -166,9 +175,10 @@ export function BattleClient({
     } catch {
       // silent
     }
-  }, []);
+  }, [isGuest]);
 
   const syncMapSnapshot = useCallback(async () => {
+    if (isGuest) return;
     try {
       const res = await fetch("/api/battle/snapshot");
       if (!res.ok) return;
@@ -181,7 +191,7 @@ export function BattleClient({
     } catch {
       // silent
     }
-  }, []);
+  }, [isGuest]);
 
   const refresh = useCallback(async () => {
     await Promise.all([syncActiveMatch(), syncMapSnapshot()]);
@@ -326,6 +336,10 @@ export function BattleClient({
   }
 
   function openPublishAt(lat: number, lng: number, label: string, shopId?: string | null) {
+    if (isGuest) {
+      requireLogin();
+      return;
+    }
     setPublishDraft({ lat, lng, label, shopId });
   }
 
@@ -399,11 +413,11 @@ export function BattleClient({
 
   const { ceremony, dismissCeremony } = useMatchCeremony(
     activeMatch,
-    userId,
+    userId ?? 0,
     seenInviteMatchIdRef,
   );
 
-  if (activeMatch) {
+  if (activeMatch && userId !== null) {
     const st = activeMatch.status;
     const showCeremony =
       ceremony !== null && ceremony.matchId === activeMatch.id;
@@ -1017,6 +1031,7 @@ export function BattleClient({
             shop={selectedShop}
             currentUserId={userId}
             parentPending={pending}
+            onRequireLogin={isGuest ? requireLogin : undefined}
             onSelectPlayer={(ann) => {
               setSelectedShop(null);
               setSheetAnnouncement(ann);
@@ -1040,20 +1055,27 @@ export function BattleClient({
         {sheetAnnouncement && (
           <AnnouncementContent
             announcement={sheetAnnouncement}
-            isOwn={sheetAnnouncement.userId === userId}
+            isOwn={!isGuest && sheetAnnouncement.userId === userId}
             pending={pending}
-            onInvite={() => {
-              if (!sheetAnnouncement) return;
-              run(async () => {
-                await sendInviteFromSpot(sheetAnnouncement.spotId);
-                setSheetAnnouncement(null);
-              });
-            }}
-            onClear={() =>
-              run(async () => {
-                await clearBattleAnnouncement();
-                setSheetAnnouncement(null);
-              })
+            onInvite={
+              isGuest
+                ? undefined
+                : () => {
+                    if (!sheetAnnouncement) return;
+                    run(async () => {
+                      await sendInviteFromSpot(sheetAnnouncement.spotId);
+                      setSheetAnnouncement(null);
+                    });
+                  }
+            }
+            onClear={
+              isGuest
+                ? undefined
+                : () =>
+                    run(async () => {
+                      await clearBattleAnnouncement();
+                      setSheetAnnouncement(null);
+                    })
             }
           />
         )}
@@ -1097,6 +1119,7 @@ export function BattleClient({
         shop={selectedShop}
         currentUserId={userId}
         parentPending={pending}
+        onRequireLogin={isGuest ? requireLogin : undefined}
         onSelectPlayer={(ann) => {
           setSelectedShop(null);
           setSheetAnnouncement(ann);
@@ -1126,20 +1149,27 @@ export function BattleClient({
       <div className="min-h-0 overflow-y-auto">
         <AnnouncementContent
           announcement={sheetAnnouncement}
-          isOwn={sheetAnnouncement.userId === userId}
+          isOwn={!isGuest && sheetAnnouncement.userId === userId}
           pending={pending}
-          onInvite={() => {
-            if (!sheetAnnouncement) return;
-            run(async () => {
-              await sendInviteFromSpot(sheetAnnouncement.spotId);
-              setSheetAnnouncement(null);
-            });
-          }}
-          onClear={() =>
-            run(async () => {
-              await clearBattleAnnouncement();
-              setSheetAnnouncement(null);
-            })
+          onInvite={
+            isGuest
+              ? undefined
+              : () => {
+                  if (!sheetAnnouncement) return;
+                  run(async () => {
+                    await sendInviteFromSpot(sheetAnnouncement.spotId);
+                    setSheetAnnouncement(null);
+                  });
+                }
+          }
+          onClear={
+            isGuest
+              ? undefined
+              : () =>
+                  run(async () => {
+                    await clearBattleAnnouncement();
+                    setSheetAnnouncement(null);
+                  })
           }
         />
       </div>
@@ -1223,6 +1253,7 @@ export function BattleClient({
               initialQueueStatus={initialQueueStatus ?? null}
               radiusKm={radiusKm}
               mapCenter={mapCenter}
+              onRequireLogin={isGuest ? requireLogin : undefined}
               onQueueJoin={(center, radius) => {
                 setRandomMatchCircle({ centerLat: center.lat, centerLng: center.lng, radiusKm: radius });
               }}

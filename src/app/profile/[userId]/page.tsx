@@ -79,44 +79,55 @@ export default async function OtherProfilePage({
   const { userId: userIdStr } = await params;
   const userId = parseInt(userIdStr);
   const viewer = await getCurrentUser();
-  if (!viewer) redirect("/login");
-  if (viewer.id === userId) redirect("/profile");
+  if (viewer?.id === userId) redirect("/profile");
 
-  // First fetch profile info and friendship status
-  const [profile, friendship, blockedByViewer, blockedEither] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        displayName: true,
-        bio: true,
-        avatarUrl: true,
-        bannerUrl: true,
-        createdAt: true,
-        battleRecordVisibility: true,
-        winrateVisibility: true,
-      },
-    }),
-    prisma.friendship.findFirst({
-      where: {
-        OR: [
-          { requesterId: viewer.id, addresseeId: userId },
-          { requesterId: userId, addresseeId: viewer.id },
-        ],
-      },
-      select: { id: true, status: true, requesterId: true },
-    }),
-    viewerHasBlocked(viewer.id, userId),
-    isBlockedBetween(viewer.id, userId),
-  ]);
+  const profile = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      displayName: true,
+      bio: true,
+      avatarUrl: true,
+      bannerUrl: true,
+      createdAt: true,
+      battleRecordVisibility: true,
+      winrateVisibility: true,
+    },
+  });
 
   if (!profile) notFound();
 
-  // Determine which decks are visible based on friendship and privacy settings
+  let friendship: {
+    id: string;
+    status: string;
+    requesterId: number;
+  } | null = null;
+  let blockedByViewer = false;
+  let blockedEither = false;
+
+  if (viewer) {
+    const [friendshipRow, blocked, blockedBoth] = await Promise.all([
+      prisma.friendship.findFirst({
+        where: {
+          OR: [
+            { requesterId: viewer.id, addresseeId: userId },
+            { requesterId: userId, addresseeId: viewer.id },
+          ],
+        },
+        select: { id: true, status: true, requesterId: true },
+      }),
+      viewerHasBlocked(viewer.id, userId),
+      isBlockedBetween(viewer.id, userId),
+    ]);
+    friendship = friendshipRow;
+    blockedByViewer = blocked;
+    blockedEither = blockedBoth;
+  }
+
   const isFriend = friendship?.status === "ACCEPTED";
-  
-  // Get decks based on visibility
-  const deckFilters = [];
-  deckFilters.push({ visibility: DECK_VISIBILITY.PUBLIC });
+
+  const deckFilters: { visibility: string }[] = [
+    { visibility: DECK_VISIBILITY.PUBLIC },
+  ];
   if (isFriend) {
     deckFilters.push({ visibility: DECK_VISIBILITY.FRIENDS });
   }
@@ -131,16 +142,16 @@ export default async function OtherProfilePage({
   });
 
   const friendshipForUi = blockedEither ? null : friendship;
+  const viewerId = viewer?.id ?? null;
 
-  // Then compute hidden reasons and fetch everything else in parallel
   const [battleStats, recentFeed, allMatches, battleRecordsHiddenReason, winrateHiddenReason, topOpponents] =
     await Promise.all([
-    getProfileBattleStats(userId, viewer.id),
-    getProfileMatchFeed(userId, PROFILE_RECENT_MATCHES, viewer.id),
-    getProfileMatchFeed(userId, PROFILE_ALL_MATCHES, viewer.id),
-    getPrivacyHiddenReason(userId, viewer.id, profile.battleRecordVisibility),
-    getPrivacyHiddenReason(userId, viewer.id, profile.winrateVisibility),
-    getTopOpponents(userId, 5, viewer.id),
+    getProfileBattleStats(userId, viewerId ?? undefined),
+    getProfileMatchFeed(userId, PROFILE_RECENT_MATCHES, viewerId ?? undefined),
+    getProfileMatchFeed(userId, PROFILE_ALL_MATCHES, viewerId ?? undefined),
+    getPrivacyHiddenReason(userId, viewerId, profile.battleRecordVisibility),
+    getPrivacyHiddenReason(userId, viewerId, profile.winrateVisibility),
+    getTopOpponents(userId, 5, viewerId ?? undefined),
   ]);
 
   const deckCount = decks.length;
@@ -152,7 +163,7 @@ export default async function OtherProfilePage({
         variant="other"
         profileBasePath={`/profile/${userId}`}
         viewedUserId={userId}
-        viewerId={viewer.id}
+        viewerId={viewerId ?? undefined}
         friendshipStatus={friendshipForUi}
         blockedByViewer={blockedByViewer}
         interactionBlocked={blockedEither}
@@ -174,7 +185,13 @@ export default async function OtherProfilePage({
         allMatches={allMatches}
         topOpponents={topOpponents}
         allMatchesHref={`/profile/${userId}/matches`}
-        decksSlot={<PublicDeckList decks={decks} viewedUserId={userId} viewerId={viewer.id} />}
+        decksSlot={
+          <PublicDeckList
+            decks={decks}
+            viewedUserId={userId}
+            viewerId={viewerId ?? undefined}
+          />
+        }
       />
     </Suspense>
   );

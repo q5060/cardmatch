@@ -12,11 +12,12 @@ import { ShopInfoPanel } from "@/components/battle/ShopInfoPanel";
 
 type Props = {
   shop: MapShopPin;
-  currentUserId: number;
+  currentUserId: number | null;
   parentPending?: boolean;
   onSelectPlayer: (announcement: MapAnnouncementDTO) => void;
   onPublishAtShop: (shop: MapShopPin) => void;
   onCleared?: () => void;
+  onRequireLogin?: () => void;
 };
 
 export function ShopLobbyContent({
@@ -26,6 +27,7 @@ export function ShopLobbyContent({
   onSelectPlayer,
   onPublishAtShop,
   onCleared,
+  onRequireLogin,
 }: Props) {
   const [players, setPlayers] = useState<MapAnnouncementDTO[]>([]);
   const [events, setEvents] = useState<ShopEventDTO[]>([]);
@@ -175,8 +177,14 @@ export function ShopLobbyContent({
       <div className="border-t border-border p-5">
         <button
           type="button"
-          disabled={isBusy || !!myEntry}
-          onClick={() => onPublishAtShop(shop)}
+          disabled={isBusy || (!!myEntry && currentUserId !== null)}
+          onClick={() => {
+            if (currentUserId === null) {
+              onRequireLogin?.();
+              return;
+            }
+            onPublishAtShop(shop);
+          }}
           className="btn btn-primary w-full"
           title={myEntry ? "你已有此店的公告" : undefined}
         >

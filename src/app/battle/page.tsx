@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -26,23 +25,25 @@ export default async function BattlePage({
   searchParams: Promise<{ shop?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const viewerId = user?.id ?? null;
 
   const [activeMatch, announcements, myAnnouncement, shops, userPrefs, queueStatus] =
     await Promise.all([
-    getActiveMatchForUser(user.id),
-    getMapAnnouncements(user.id),
-    getMyActiveAnnouncement(user.id),
-    getShops(user.id),
-    prisma.user.findUnique({
-      where: { id: user.id },
-      select: { defaultShopId: true },
-    }),
-    getMyQueueStatus(),
-  ]);
+      viewerId ? getActiveMatchForUser(viewerId) : Promise.resolve(null),
+      getMapAnnouncements(viewerId),
+      viewerId ? getMyActiveAnnouncement(viewerId) : Promise.resolve(null),
+      getShops(viewerId),
+      viewerId
+        ? prisma.user.findUnique({
+            where: { id: viewerId },
+            select: { defaultShopId: true },
+          })
+        : Promise.resolve(null),
+      viewerId ? getMyQueueStatus() : Promise.resolve(null),
+    ]);
 
   let battleResult = null;
-  if (activeMatch) {
+  if (activeMatch && viewerId) {
     const result = await prisma.battleResult.findUnique({
       where: { matchId: activeMatch.id },
     });
@@ -65,7 +66,7 @@ export default async function BattlePage({
   return (
     <div className="space-y-4">
       <BattleClient
-        userId={user.id}
+        userId={viewerId}
         shops={shops}
         announcements={announcements}
         myAnnouncement={myAnnouncement}

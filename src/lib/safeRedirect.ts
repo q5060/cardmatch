@@ -6,3 +6,8 @@ export function safeLoginRedirect(raw: string | null): string {
   if (t.includes("\\") || t.includes("\0")) return "/";
   return t;
 }
+
+/** Login URL preserving return path after sign-in. */
+export function loginUrlWithNext(nextPath: string): string {
+  return `/login?next=${encodeURIComponent(safeLoginRedirect(nextPath))}`;
+}

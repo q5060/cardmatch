@@ -15,9 +15,20 @@ type Props = {
   mapCenter?: { lat: number; lng: number };
   onQueueJoin?: (center: { lat: number; lng: number }, radiusKm: number) => void;
   onQueueLeave?: () => void;
+  /** When set, join/leave actions redirect to login instead of calling the queue API. */
+  onRequireLogin?: () => void;
 };
 
-export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, radiusKm = 5, mapCenter, onQueueJoin, onQueueLeave }: Props) {
+export function BattleRandomMatch({
+  shops,
+  defaultShopId,
+  initialQueueStatus,
+  radiusKm = 5,
+  mapCenter,
+  onQueueJoin,
+  onQueueLeave,
+  onRequireLogin,
+}: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(initialQueueStatus);
@@ -70,6 +81,10 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
   }, [inQueue, onQueueLeave, router]);
 
   function runJoin() {
+    if (onRequireLogin) {
+      onRequireLogin();
+      return;
+    }
     if (!mapCenter) {
       setErr("無法取得地圖位置，請稍後再試");
       return;
@@ -108,6 +123,10 @@ export function BattleRandomMatch({ shops, defaultShopId, initialQueueStatus, ra
   }
 
   function runLeave() {
+    if (onRequireLogin) {
+      onRequireLogin();
+      return;
+    }
     setErr(null);
     startTransition(async () => {
       try {

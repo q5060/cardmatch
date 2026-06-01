@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeLoginRedirect } from "@/lib/safeRedirect";
+import { loginUrlWithNext, safeLoginRedirect } from "@/lib/safeRedirect";
 
 describe("safeLoginRedirect", () => {
   it("returns / when missing", () => {
@@ -20,5 +20,11 @@ describe("safeLoginRedirect", () => {
   it("blocks backslash and null byte", () => {
     expect(safeLoginRedirect("/\\evil")).toBe("/");
     expect(safeLoginRedirect("/battle\0")).toBe("/");
+  });
+});
+
+describe("loginUrlWithNext", () => {
+  it("builds login URL with encoded next path", () => {
+    expect(loginUrlWithNext("/battle")).toBe("/login?next=%2Fbattle");
   });
 });
