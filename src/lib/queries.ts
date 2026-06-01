@@ -261,6 +261,44 @@ export async function getMapAnnouncements(
   return Array.from(latestByUser.values()).map(mapSpotToDTO);
 }
 
+export type HomeAnnouncementPreview = {
+  userId: number;
+  displayName: string;
+  label: string;
+};
+
+/** Distinct players with an active announcement + up to `limit` most recently updated. */
+export async function getHomeAnnouncementStats(limit = 3): Promise<{
+  playerCount: number;
+  recent: HomeAnnouncementPreview[];
+}> {
+  const allSpots = await prisma.meetSpot.findMany({
+    where: activeAnnouncementWhere(),
+    include: userInclude,
+    orderBy: { updatedAt: "desc" },
+  });
+
+  const latestByUser = new Map<number, (typeof allSpots)[0]>();
+  for (const spot of allSpots) {
+    if (!latestByUser.has(spot.userId)) {
+      latestByUser.set(spot.userId, spot);
+    }
+  }
+
+  const latest = Array.from(latestByUser.values()).sort(
+    (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+  );
+
+  return {
+    playerCount: latest.length,
+    recent: latest.slice(0, limit).map((s) => ({
+      userId: s.userId,
+      displayName: s.user.displayName,
+      label: s.label,
+    })),
+  };
+}
+
 export async function getAnnouncementsAtShop(
   shopId: string,
   viewerId: number | null,

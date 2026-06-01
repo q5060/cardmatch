@@ -25,7 +25,7 @@ export function RadiusFilter({ radiusKm, onRadiusChange }: Props) {
           id="radius-filter"
           type="range"
           min="0.5"
-          max="50"
+          max="20"
           step="0.5"
           value={radiusKm}
           onChange={handleRadiusChange}

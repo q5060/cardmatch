@@ -111,7 +111,7 @@ export function BattleClient({
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const locationAttemptedRef = useRef(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [radiusKm, setRadiusKm] = useState<number>(5);
+  const [radiusKm, setRadiusKm] = useState<number>(3);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
   const [randomMatchCircle, setRandomMatchCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
   const seenInviteMatchIdRef = useRef<number | null>(null);

@@ -23,7 +23,7 @@ export function BattleRandomMatch({
   shops,
   defaultShopId,
   initialQueueStatus,
-  radiusKm = 5,
+  radiusKm = 3,
   mapCenter,
   onQueueJoin,
   onQueueLeave,
