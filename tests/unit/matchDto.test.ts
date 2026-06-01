@@ -17,6 +17,7 @@ describe("toActiveMatchDTO", () => {
       meetLabel: "測試地點",
       playerA: { id: 1, displayName: "A", avatarUrl: null },
       playerB: { id: 2, displayName: "B", avatarUrl: "/a.png" },
+      shop: null,
     });
 
     expect(dto).toEqual({

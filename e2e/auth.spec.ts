@@ -27,4 +27,23 @@ test.describe("auth", () => {
     await page.getByTestId("login-submit").click();
     await expect(page.getByText("帳號或密碼錯誤")).toBeVisible();
   });
+
+  test("opens forgot-password form from login", async ({ page }) => {
+    await page.goto("/login");
+    await page.getByTestId("login-forgot-password").click();
+    await expect(page.getByTestId("forgot-password-email")).toBeVisible();
+    await expect(page.getByTestId("forgot-password-submit")).toBeVisible();
+  });
+
+  test("submits forgot-password for unknown email with generic success", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+    await page.getByTestId("login-forgot-password").click();
+    await page.getByTestId("forgot-password-email").fill("unknown@example.com");
+    await page.getByTestId("forgot-password-submit").click();
+    await expect(page.getByText(/若此電子郵件已註冊/)).toBeVisible({
+      timeout: 10_000,
+    });
+  });
 });

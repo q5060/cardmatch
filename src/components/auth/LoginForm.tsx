@@ -93,6 +93,7 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => setMode("forgot")}
+            data-testid="login-forgot-password"
             className="text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
           >
             忘記密碼？

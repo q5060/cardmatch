@@ -28,6 +28,7 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/lib/realtime/publish", () => ({
   publishMatchSnapshot: vi.fn(),
+  publishMatchCompleted: vi.fn(),
   publishNotification: vi.fn(),
   publishToUser: vi.fn(),
   publishMatchMessage: vi.fn(),

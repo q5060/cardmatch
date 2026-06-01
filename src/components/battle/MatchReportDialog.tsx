@@ -99,6 +99,7 @@ export function MatchReportDialog({
                 >
                   <input
                     type="checkbox"
+                    data-testid={`match-report-cat-${cat}`}
                     checked={selected.has(cat)}
                     onChange={() => toggleCategory(cat)}
                     className="mt-0.5 accent-primary"
@@ -138,6 +139,7 @@ export function MatchReportDialog({
               </button>
               <button
                 type="button"
+                data-testid="match-report-next"
                 className="btn btn-primary btn-sm"
                 disabled={pending}
                 onClick={goConfirm}
@@ -176,6 +178,7 @@ export function MatchReportDialog({
               </button>
               <button
                 type="button"
+                data-testid="match-report-confirm"
                 className="btn btn-primary btn-sm"
                 disabled={pending}
                 onClick={submitReport}
