@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { POST as registerPost } from "@/app/api/auth/register/route";
 import { POST as loginPost } from "@/app/api/auth/login/route";
+import { POST as forgotPasswordPost } from "@/app/api/auth/forgot-password/route";
 import { clearTestCookies } from "../helpers/auth";
 import { createUser, resetTables } from "../helpers/db";
 
@@ -102,6 +103,51 @@ describe("auth API", () => {
       expect(res.status).toBe(200);
       const body = (await res.json()) as { ok?: boolean };
       expect(body.ok).toBe(true);
+    });
+  });
+
+  describe("POST /api/auth/forgot-password", () => {
+    it("returns 400 for invalid email", async () => {
+      const res = await forgotPasswordPost(
+        jsonRequest("http://localhost/api/auth/forgot-password", {
+          email: "not-valid",
+        }),
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it("returns ok for unknown email without revealing existence", async () => {
+      const res = await forgotPasswordPost(
+        jsonRequest("http://localhost/api/auth/forgot-password", {
+          email: "nobody@example.com",
+        }),
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { ok?: boolean; message?: string };
+      expect(body.ok).toBe(true);
+      expect(body.message).toBeTruthy();
+    });
+
+    it("resets password for existing user", async () => {
+      await createUser({
+        email: "reset@example.com",
+        password: "password12",
+        displayName: "Reset User",
+      });
+      const res = await forgotPasswordPost(
+        jsonRequest("http://localhost/api/auth/forgot-password", {
+          email: "reset@example.com",
+        }),
+      );
+      expect(res.status).toBe(200);
+
+      const bad = await loginPost(
+        jsonRequest("http://localhost/api/auth/login", {
+          email: "reset@example.com",
+          password: "password12",
+        }),
+      );
+      expect(bad.status).toBe(401);
     });
   });
 });

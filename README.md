@@ -41,6 +41,7 @@ SESSION_SECRET="請換成至少32個字元的隨機密鑰"
 |------|------|
 | `DATABASE_URL` | PostgreSQL 連線字串，例如 `postgresql://user:pass@localhost:5432/cardmatch`。 |
 | `SESSION_SECRET` | 加密 session cookie，**長度至少 32**，否則啟動會報錯。 |
+| `SMTP_*` | 忘記密碼寄信用（`SMTP_HOST`、`SMTP_PORT`、`SMTP_USER`、`SMTP_PASS`、`SMTP_FROM`）。本機未設定時僅在終端機印出信件內容。 |
 
 ### 4. 建立資料表
 

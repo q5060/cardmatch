@@ -4,16 +4,22 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { safeLoginRedirect } from "@/lib/safeRedirect";
+import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeLoginRedirect(searchParams.get("next"));
 
+  const [mode, setMode] = useState<"login" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  if (mode === "forgot") {
+    return <ForgotPasswordForm onBack={() => setMode("login")} />;
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,18 +76,29 @@ export function LoginForm() {
           required
         />
       </label>
-      <label className="block text-sm font-medium text-foreground">
-        <span className="text-muted-foreground">密碼</span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          data-testid="login-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="input-field mt-2"
-          required
-        />
-      </label>
+      <div>
+        <label className="block text-sm font-medium text-foreground">
+          <span className="text-muted-foreground">密碼</span>
+          <input
+            type="password"
+            autoComplete="current-password"
+            data-testid="login-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="input-field mt-2"
+            required
+          />
+        </label>
+        <p className="mt-2 text-right">
+          <button
+            type="button"
+            onClick={() => setMode("forgot")}
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-primary hover:underline"
+          >
+            忘記密碼？
+          </button>
+        </p>
+      </div>
       <button
         type="submit"
         data-testid="login-submit"
