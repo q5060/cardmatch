@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { DECK_VISIBILITY } from "@/lib/constants";
 import { Deck } from "@prisma/client";
+import { fetchOfficialDeck } from "@/lib/deckScrapper";
 
 export async function createDeck(formData: FormData): Promise<Deck> {
   const session = await getSession();
@@ -14,8 +15,55 @@ export async function createDeck(formData: FormData): Promise<Deck> {
   const notes = String(formData.get("notes") ?? "").trim();
   const visibility = String(formData.get("visibility") ?? "PUBLIC");
   const deckJson = String(formData.get("deckJson") ?? "").trim() || null;
+  const officialCode = String(formData.get("officialCode") ?? "").trim();
+  
+  // 預設的 deckJson (空牌組或前端傳入的自訂牌組)
+  let finalDeckJson = String(formData.get("deckJson") ?? "").trim() || null;
 
   if (!title) throw new Error("INVALID_TITLE");
+
+  // 若有 officialCode，執行爬蟲並覆蓋 finalDeckJson
+  if (officialCode) {
+    try {
+      const { cards: scrapedCards } = await fetchOfficialDeck(officialCode);
+      
+      // 提取所有抓到的圖片網址
+      const imageUrls = scrapedCards.map(c => c.imageUrl);
+
+      // 🟢 1. 印出我們要去 DB 找的網址長怎樣
+      console.log("[對應測試] 準備搜尋的圖片網址:", imageUrls);
+
+      // 透過圖片網址從資料庫尋找對應的卡片
+      const dbCards = await prisma.card.findMany({
+        where: {
+          imageUrl: { in: imageUrls }
+        }
+      });
+
+      // 🟢 2. 印出資料庫到底有沒有找到東西
+      console.log(`[對應測試] 從資料庫找到 ${dbCards.length} 張對應卡片`);
+
+      // 組合符合前端 DeckCard 格式的 JSON
+      const deckCards = dbCards.map(dbCard => {
+        // 找出爬蟲結果中對應數量的資料
+        const scrapedData = scrapedCards.find(c => c.imageUrl === dbCard.imageUrl);
+        return {
+          id: dbCard.id,
+          name: dbCard.name,
+          imageUrl: dbCard.imageUrl,
+          count: scrapedData?.count || 1,
+          category: dbCard.category
+        };
+      });
+
+      finalDeckJson = JSON.stringify(deckCards);
+      console.log("[對應測試] 準備存入的 JSON:", finalDeckJson);
+    } catch (error) {
+      console.error("解析官方牌組失敗:", error);
+      // 你可以根據需求決定要 throw Error 阻斷建立，還是退回建立空牌組
+      // throw new Error("FETCH_OFFICIAL_FAILED"); 
+    }
+  }
 
   const newDeck = await prisma.deck.create({
     data: {
@@ -26,7 +74,7 @@ export async function createDeck(formData: FormData): Promise<Deck> {
         visibility === DECK_VISIBILITY.PRIVATE
           ? DECK_VISIBILITY.PRIVATE
           : DECK_VISIBILITY.PUBLIC,
-      deckJson: deckJson ? deckJson.slice(0, 50_000) : null,
+      deckJson: finalDeckJson ? finalDeckJson.slice(0, 50_000) : null,
     },
   });
 
