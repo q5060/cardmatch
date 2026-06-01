@@ -205,14 +205,27 @@ async function scrapeType(typeKey, page) {
   const urls = JSON.parse(fs.readFileSync(urlsPath, "utf8"));
   const failedPath = path.join(process.cwd(), config.failedFile);
 
-  console.log(`\n=== ${typeKey}: ${urls.length} URLs ===`);
+  const existing = new Set(
+    (
+      await prisma.card.findMany({
+        where: { category: config.category },
+        select: { sourceUrl: true },
+      })
+    ).map((c) => c.sourceUrl),
+  );
+
+  const pending = urls.filter((url) => !existing.has(url));
+  console.log(
+    `\n=== ${typeKey}: ${urls.length} URLs (${existing.size} already in DB, ${pending.length} to fetch) ===`,
+  );
 
   let ok = 0;
+  let skip = existing.size;
   let fail = 0;
 
-  for (let i = 0; i < urls.length; i++) {
-    const url = urls[i];
-    console.log(`[${typeKey}] [${i + 1}/${urls.length}] ${url}`);
+  for (let i = 0; i < pending.length; i++) {
+    const url = pending[i];
+    console.log(`[${typeKey}] [${i + 1}/${pending.length}] ${url}`);
 
     try {
       await page.goto(url, { waitUntil: "domcontentloaded" });
@@ -254,7 +267,7 @@ async function scrapeType(typeKey, page) {
     }
   }
 
-  console.log(`=== ${typeKey} done: ${ok} ok, ${fail} failed ===`);
+  console.log(`=== ${typeKey} done: ${ok} fetched, ${skip} skipped, ${fail} failed ===`);
   return { ok, fail };
 }
 
