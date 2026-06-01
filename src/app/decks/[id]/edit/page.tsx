@@ -386,7 +386,7 @@ export default function DeckCompositionEditor() {
                   </div>
                   <p className="text-xs font-bold truncate">{card.name}</p>
                   <p className="text-[10px] text-muted-foreground">{card.type} / {card.regulationMark}</p>
-                  {/* 待實作：卡片加入卡組的按鈕 */}
+                  {/* 卡片加入卡組的按鈕 */}
                   <button 
                     onClick={() => addToDeck(card)} 
                     className="mt-2 w-full flex items-center justify-center gap-1 bg-primary text-white py-1 rounded-md hover:bg-primary/90 transition-colors text-xs"

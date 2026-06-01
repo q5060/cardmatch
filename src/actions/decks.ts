@@ -5,6 +5,21 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { DECK_VISIBILITY } from "@/lib/constants";
 import { Deck } from "@prisma/client";
+import { fetchOfficialDeck } from "@/lib/deckScrapper";
+
+const VALID_VISIBILITIES = [
+  DECK_VISIBILITY.PUBLIC,
+  DECK_VISIBILITY.FRIENDS,
+  DECK_VISIBILITY.PRIVATE,
+] as const;
+
+type DeckVisibility = (typeof VALID_VISIBILITIES)[number];
+
+function parseVisibility(visibility: string): DeckVisibility {
+  return VALID_VISIBILITIES.includes(visibility as DeckVisibility)
+    ? (visibility as DeckVisibility)
+    : DECK_VISIBILITY.PUBLIC;
+}
 
 export async function createDeck(formData: FormData): Promise<Deck> {
   const session = await getSession();
@@ -13,19 +28,42 @@ export async function createDeck(formData: FormData): Promise<Deck> {
   const title = String(formData.get("title") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const visibility = String(formData.get("visibility") ?? "PUBLIC");
-  const deckJson = String(formData.get("deckJson") ?? "").trim() || null;
+  const officialCode = String(formData.get("officialCode") ?? "").trim();
+  const finalVisibility = parseVisibility(visibility);
+
+  let finalDeckJson = String(formData.get("deckJson") ?? "").trim() || null;
 
   if (!title) throw new Error("INVALID_TITLE");
 
-  // Validate visibility value
-  const validVisibilities = [
-    DECK_VISIBILITY.PUBLIC,
-    DECK_VISIBILITY.FRIENDS,
-    DECK_VISIBILITY.PRIVATE,
-  ] as const;
-  const finalVisibility = (validVisibilities.includes(visibility as typeof validVisibilities[number])
-    ? visibility
-    : DECK_VISIBILITY.PUBLIC) as typeof validVisibilities[number];
+  if (officialCode) {
+    try {
+      const { cards: scrapedCards } = await fetchOfficialDeck(officialCode);
+      const imageUrls = scrapedCards.map((c) => c.imageUrl);
+
+      const dbCards = await prisma.card.findMany({
+        where: {
+          imageUrl: { in: imageUrls },
+        },
+      });
+
+      const deckCards = dbCards.map((dbCard) => {
+        const scrapedData = scrapedCards.find(
+          (c) => c.imageUrl === dbCard.imageUrl,
+        );
+        return {
+          id: dbCard.id,
+          name: dbCard.name,
+          imageUrl: dbCard.imageUrl,
+          count: scrapedData?.count ?? 1,
+          category: dbCard.category,
+        };
+      });
+
+      finalDeckJson = JSON.stringify(deckCards);
+    } catch (error) {
+      console.error("解析官方牌組失敗:", error);
+    }
+  }
 
   const newDeck = await prisma.deck.create({
     data: {
@@ -33,7 +71,7 @@ export async function createDeck(formData: FormData): Promise<Deck> {
       title: title.slice(0, 120),
       notes: notes.slice(0, 2000),
       visibility: finalVisibility,
-      deckJson: deckJson ? deckJson.slice(0, 50_000) : null,
+      deckJson: finalDeckJson ? finalDeckJson.slice(0, 50_000) : null,
     },
   });
 
@@ -62,15 +100,7 @@ export async function updateDeckVisibility(deckId: string, visibility: string) {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
 
-  // Validate visibility value
-  const validVisibilities = [
-    DECK_VISIBILITY.PUBLIC,
-    DECK_VISIBILITY.FRIENDS,
-    DECK_VISIBILITY.PRIVATE,
-  ];
-  const finalVisibility: string = validVisibilities.includes(visibility as typeof validVisibilities[number])
-    ? visibility
-    : DECK_VISIBILITY.PUBLIC;
+  const finalVisibility = parseVisibility(visibility);
 
   await prisma.deck.updateMany({
     where: { id: deckId, userId: session.userId },
@@ -87,37 +117,26 @@ export async function updateDeck(deckId: string, formData: FormData) {
   const title = String(formData.get("title") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
   const visibility = String(formData.get("visibility") ?? "PUBLIC");
-  const deckJsonInput = String(formData.get("deckJson") ?? "").trim() || null;
 
   if (!title) throw new Error("INVALID_TITLE");
 
-  // Validate visibility value
-  const validVisibilities = [
-    DECK_VISIBILITY.PUBLIC,
-    DECK_VISIBILITY.FRIENDS,
-    DECK_VISIBILITY.PRIVATE,
-  ] as const;
-  const finalVisibility = (validVisibilities.includes(visibility as typeof validVisibilities[number])
-    ? visibility
-    : DECK_VISIBILITY.PUBLIC) as typeof validVisibilities[number];
+  const finalVisibility = parseVisibility(visibility);
 
-  // Build update data - only include fields that should be updated
-  type UpdateData = {
+  // Only update deckJson when the form explicitly sends it (avoids clearing cards on settings-only save).
+  const updateData: {
     title: string;
     notes: string;
-    visibility: typeof validVisibilities[number];
+    visibility: DeckVisibility;
     deckJson?: string | null;
-  };
-  
-  const updateData: UpdateData = {
+  } = {
     title: title.slice(0, 120),
     notes: notes.slice(0, 2000),
     visibility: finalVisibility,
   };
-  
-  // Only update deckJson if explicitly provided
-  if (deckJsonInput !== null) {
-    updateData.deckJson = deckJsonInput.slice(0, 50_000);
+
+  if (formData.has("deckJson")) {
+    const dj = String(formData.get("deckJson") ?? "").trim();
+    updateData.deckJson = dj ? dj.slice(0, 50_000) : null;
   }
 
   await prisma.deck.update({
@@ -126,5 +145,5 @@ export async function updateDeck(deckId: string, formData: FormData) {
   });
 
   revalidatePath("/profile");
-  revalidatePath(`/decks/${deckId}/edit`); // 更新編輯頁面緩存
+  revalidatePath(`/decks/${deckId}/edit`);
 }
