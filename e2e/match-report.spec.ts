@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { testPrisma } from "../tests/helpers/db";
+import { createUser, testPrisma } from "../tests/helpers/db";
 
 test.describe("match report", () => {
   test("logged-in player can report opponent and end match", async ({
@@ -10,6 +10,14 @@ test.describe("match report", () => {
     const emailA = `report-a-${suffix}@example.com`;
     const emailB = `report-b-${suffix}@example.com`;
 
+    // Register B in DB only — must not call /api/auth/register here; it would
+    // overwrite the browser session cookie for player A.
+    await createUser({
+      email: emailB,
+      password,
+      displayName: "Opponent",
+    });
+
     await page.goto("/register");
     await page.getByTestId("register-display-name").fill("Reporter");
     await page.getByTestId("register-email").fill(emailA);
@@ -17,18 +25,10 @@ test.describe("match report", () => {
     await page.getByTestId("register-submit").click();
     await expect(page).toHaveURL(/\/profile/, { timeout: 15_000 });
 
-    const registerB = await page.request.post("/api/auth/register", {
-      data: {
-        email: emailB,
-        password,
-        displayName: "Opponent",
-      },
+    const userA = await testPrisma.user.findUniqueOrThrow({
+      where: { email: emailA.toLowerCase() },
+      select: { id: true },
     });
-    expect(registerB.ok()).toBeTruthy();
-
-    const meRes = await page.request.get("/api/auth/me");
-    expect(meRes.ok()).toBeTruthy();
-    const me = (await meRes.json()) as { id: number };
     const userB = await testPrisma.user.findUniqueOrThrow({
       where: { email: emailB.toLowerCase() },
       select: { id: true },
@@ -36,9 +36,9 @@ test.describe("match report", () => {
 
     const match = await testPrisma.match.create({
       data: {
-        playerAId: me.id,
+        playerAId: userA.id,
         playerBId: userB.id,
-        invitedById: me.id,
+        invitedById: userA.id,
         status: "ACCEPTED",
         meetLat: 25.033,
         meetLng: 121.565,
@@ -61,12 +61,14 @@ test.describe("match report", () => {
     });
 
     await expect
-      .poll(async () => {
-        const res = await page.request.get("/api/matches/active");
-        if (!res.ok()) return "pending";
-        const body = (await res.json()) as { activeMatch: unknown };
-        return body.activeMatch;
-      })
+      .poll(async () =>
+        page.evaluate(async () => {
+          const res = await fetch("/api/matches/active");
+          if (!res.ok) return "pending";
+          const body = (await res.json()) as { activeMatch: unknown };
+          return body.activeMatch;
+        }),
+      )
       .toBeNull();
 
     const row = await testPrisma.match.findUnique({ where: { id: match.id } });
