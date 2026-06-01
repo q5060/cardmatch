@@ -40,6 +40,13 @@ yarn-error.log*
 .env*
 !.env.example
 !.env.test.example
+!.env.production.example
+
+# scraper runtime artifacts
+/failed_urls.txt
+/failed_energy_urls.txt
+/failed_trainer_urls.txt
+/Card_info_scrapper/scrape.log
 
 # vercel
 .vercel

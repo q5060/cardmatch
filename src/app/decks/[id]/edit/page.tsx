@@ -1,33 +1,97 @@
 "use client";
 
-import { useState, useActionState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Settings, Search, Plus, Minus } from "lucide-react";
 
-
-// 定義 Deck 介面，包含 deckJson 
 interface Deck {
   id: string;
   title: string;
   deckJson: string | null;
 }
 
+type DeckCard = {
+  id: number;
+  name: string;
+  imageUrl?: string | null;
+  count: number;
+  category?: string;
+};
+
+type LibraryCard = {
+  id: number;
+  name: string;
+  imageUrl?: string | null;
+  type?: string | null;
+  regulationMark?: string | null;
+  category?: string;
+  subType?: string | null;
+  isAceSpec?: boolean;
+};
+
+type CardFilters = {
+  category: string;
+  type: string;
+  stage: string;
+  search: string;
+};
+
 export default function DeckCompositionEditor() {
   const router = useRouter();
   const { id } = useParams();
-  
-  // 狀態管理
-  const [deck, setDeck] = useState<Deck | null>(null);
-  const [cards, setCards] = useState<any[]>([]); // 牌組內的卡片
-  const [allCards, setAllCards] = useState<any[]>([]); // 資料庫全卡片
-  const [loading, setLoading] = useState(true);
-  const [libLoading, setLibLoading] = useState(true); // 新增卡庫載入狀態
-  const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState(1);       // 追蹤目前抓到第幾頁
-  const [hasMore, setHasMore] = useState(true); // 追蹤是否還有更多資料
 
-  // Hook 1：抓取特定牌組資料
+  const [deck, setDeck] = useState<Deck | null>(null);
+  const [cards, setCards] = useState<DeckCard[]>([]);
+  const [allCards, setAllCards] = useState<LibraryCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [libLoading, setLibLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [filters, setFilters] = useState<CardFilters>({
+    category: "ALL",
+    type: "",
+    stage: "",
+    search: "",
+  });
+
+  const fetchLibrary = useCallback(
+    async (targetPage: number, append = false) => {
+      setLibLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: targetPage.toString(),
+          limit: "20",
+          category: filters.category,
+          type: filters.type,
+          stage: filters.stage,
+          search: filters.search,
+        });
+
+        const res = await fetch(`/api/cards?${params.toString()}`);
+        const data = await res.json();
+
+        if (data && Array.isArray(data.cards)) {
+          if (append) {
+            setAllCards((prev) => [...prev, ...data.cards]);
+          } else {
+            setAllCards(data.cards);
+          }
+          setHasMore(data.hasMore);
+        } else {
+          console.error("API 回傳格式錯誤:", data);
+          if (!append) setAllCards([]);
+        }
+      } catch (err) {
+        console.error("載入失敗", err);
+      } finally {
+        setLibLoading(false);
+      }
+    },
+    [filters],
+  );
+
   useEffect(() => {
     const fetchDeck = async () => {
       try {
@@ -46,70 +110,23 @@ export default function DeckCompositionEditor() {
     fetchDeck();
   }, [id]);
 
-  // 修改後的抓取函式
-  const fetchLibrary = async (targetPage: number, append = false) => {
-    setLibLoading(true);
-    try {
-    // 組建查詢字串
-    const params = new URLSearchParams({
-      page: targetPage.toString(),
-      limit: "20",
-      category: filters.category,
-      type: filters.type,
-      stage: filters.stage,
-      search: filters.search
-    });
-    
-      const res = await fetch(`/api/cards?${params.toString()}`);
-      const data = await res.json();
-      
-      // ✨ 增加檢查：確保 data.cards 是陣列才更新狀態
-    if (data && Array.isArray(data.cards)) {
-      if (append) {
-        setAllCards(prev => [...(prev || []), ...data.cards]);
-      } else {
-        setAllCards(data.cards);
-      }
-      setHasMore(data.hasMore);
-    } else {
-      // 如果格式不對，設定為空陣列避免報錯
-      console.error("API 回傳格式錯誤:", data);
-      if (!append) setAllCards([]); 
-    }
-  } catch (err) {
-    console.error("載入失敗", err);
-  } finally {
-    setLibLoading(false);
-  }
-};
-  // 初次掛載
-  useEffect(() => {
-    fetchLibrary(1);
-  }, []);
+  const updateFilters = (patch: Partial<CardFilters>) => {
+    setPage(1);
+    setFilters((prev) => ({ ...prev, ...patch }));
+  };
 
-  // 處理載入更多按鈕
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refetch card library when filters change
+    void fetchLibrary(1, false);
+  }, [fetchLibrary]);
+
   const handleLoadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    fetchLibrary(nextPage, true);
+    void fetchLibrary(nextPage, true);
   };
 
-  // 卡牌篩選條件
-  const [filters, setFilters] = useState({
-    category: "ALL",
-    type: "",
-    stage: "",
-    search: ""
-  });
-
-  // 當篩選條件改變時，重置頁數並執行重新抓取
-  useEffect(() => {
-    setPage(1); // 重置為第一頁
-    fetchLibrary(1, false); // false 表示替換舊資料而不是接續
-  }, [filters]);
-
-  // 加入卡片到牌組
-  const addToDeck = (card: any) => {
+  const addToDeck = (card: LibraryCard) => {
     // 1. 計算目前總牌數
     const totalCount = cards.reduce((acc, curr) => acc + curr.count, 0);
     
@@ -160,7 +177,7 @@ export default function DeckCompositionEditor() {
     });
   };
 
-  const removeFromDeck = (cardId: string) => {
+  const removeFromDeck = (cardId: number) => {
     setCards((prevCards) => {
       const existingCard = prevCards.find((c) => c.id === cardId);
       
@@ -196,7 +213,7 @@ export default function DeckCompositionEditor() {
         router.refresh();
         alert("牌組組成已儲存");
       }
-    } catch (err) {
+    } catch {
       alert("儲存失敗");
     } finally {
       setSaving(false);
@@ -287,7 +304,7 @@ export default function DeckCompositionEditor() {
                 {/* 類別選單 */}
                 <select 
                   value={filters.category}
-                  onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                  onChange={(e) => updateFilters({ category: e.target.value })}
                   className="input-field w-40"
                 >
                   <option value="ALL">全類別</option>
@@ -304,7 +321,7 @@ export default function DeckCompositionEditor() {
                   <>
                     <select 
                       value={filters.type}
-                      onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                      onChange={(e) => updateFilters({ type: e.target.value })}
                       className="input-field w-32"
                     >
                       <option value="">選屬性</option>
@@ -322,7 +339,7 @@ export default function DeckCompositionEditor() {
 
                     <select 
                       value={filters.stage}
-                      onChange={(e) => setFilters(prev => ({ ...prev, stage: e.target.value }))}
+                      onChange={(e) => updateFilters({ stage: e.target.value })}
                       className="input-field w-32"
                     >
                       <option value="">基礎進化</option>
@@ -342,7 +359,7 @@ export default function DeckCompositionEditor() {
                   placeholder="搜尋卡片名稱..."
                   className="input-field pl-10"
                   value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  onChange={(e) => updateFilters({ search: e.target.value })}
                 />
               </div>
             </div>    
@@ -352,7 +369,7 @@ export default function DeckCompositionEditor() {
               {allCards.map((card) => (
                 <div key={card.id} className="bg-white rounded-xl border p-2 hover:shadow-md group">
                   <div className="aspect-[3/4] mb-2">
-                    <img src={card.imageUrl} alt={card.name} className="w-full h-full object-contain" />
+                    <img src={card.imageUrl ?? ""} alt={card.name} className="w-full h-full object-contain" />
                   </div>
                   <p className="text-xs font-bold truncate">{card.name}</p>
                   <p className="text-[10px] text-muted-foreground">{card.type} / {card.regulationMark}</p>

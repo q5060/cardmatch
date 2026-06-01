@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "npx tsx prisma/seed.ts",
+    "db:sync-cards": "npx tsx scripts/sync-cards-to-production.ts",
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",

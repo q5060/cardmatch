@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import {
-  createDeck,
+  submitCreateDeck,
   deleteDeck,
   updateDeckVisibility,
 } from "@/actions/decks";
@@ -61,7 +61,7 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
   // Edit mode: show form and edit controls (for settings page)
   return (
     <div className="space-y-6">
-      <form action={createDeck} className="card card-hover space-y-4 p-5">
+      <form action={submitCreateDeck} className="card card-hover space-y-4 p-5">
         <h3 className="font-semibold text-foreground">新增牌組</h3>
         <label className="block text-sm font-medium text-foreground">
           <span className="text-muted-foreground">牌組名稱</span>

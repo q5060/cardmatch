@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { DECK_VISIBILITY } from "@/lib/constants";
 import { Deck } from "@prisma/client";
 
-export async function createDeck(prevState: any, formData: FormData): Promise<Deck | null> {
+export async function createDeck(formData: FormData): Promise<Deck> {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
 
@@ -31,7 +31,13 @@ export async function createDeck(prevState: any, formData: FormData): Promise<De
   });
 
   revalidatePath("/profile");
+  revalidatePath("/settings");
   return newDeck;
+}
+
+/** For `<form action={...}>` — must return void, not Deck. */
+export async function submitCreateDeck(formData: FormData): Promise<void> {
+  await createDeck(formData);
 }
 
 export async function deleteDeck(deckId: string) {
@@ -76,25 +82,17 @@ export async function updateDeck(deckId: string, formData: FormData) {
 
   if (!title) throw new Error("INVALID_TITLE");
 
-  // 構建更新用的資料物件
-  const updateData: any = {
-    title: title.slice(0, 120),
-    notes: notes.slice(0, 2000),
-    visibility:
-      visibility === DECK_VISIBILITY.PRIVATE
-        ? DECK_VISIBILITY.PRIVATE
-        : DECK_VISIBILITY.PUBLIC,
-  };
-
-  // 只有當有傳入deckJson時，才加入deckJson到更新清單中
-  // 在 Prisma 中，若屬性為 undefined，該欄位就不會被更新
-  if (hasDeckJson) {
-    updateData.deckJson = deckJson ? deckJson.slice(0, 50_000) : null;
-  }
-
-  const updatedDeck = await prisma.deck.update({
+  await prisma.deck.update({
     where: { id: deckId, userId: session.userId },
-    data: updateData,
+    data: {
+      title: title.slice(0, 120),
+      notes: notes.slice(0, 2000),
+      visibility:
+        visibility === DECK_VISIBILITY.PRIVATE
+          ? DECK_VISIBILITY.PRIVATE
+          : DECK_VISIBILITY.PUBLIC,
+      deckJson: deckJson ? deckJson.slice(0, 50_000) : null,
+    },
   });
 
   revalidatePath("/profile");
