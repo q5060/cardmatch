@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { getCurrentUser } from "@/lib/auth";
@@ -36,6 +37,7 @@ export default async function RootLayout({
     >
       <body className="min-h-full font-sans">
         <AppShell user={user}>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   );
