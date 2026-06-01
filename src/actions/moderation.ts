@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { executeMatchReport } from "@/lib/matchReport";
 import { revalidatePath } from "next/cache";
 
 async function requireUserId() {
@@ -23,6 +24,25 @@ export async function reportUser(reportedId: number, reason?: string) {
       reason: trimmed,
     },
   });
+}
+
+export async function reportMatchOpponent(
+  matchId: string,
+  categories: string[],
+  note?: string,
+) {
+  const reporterId = await requireUserId();
+  const id = parseInt(matchId, 10);
+  if (!Number.isFinite(id)) throw new Error("找不到約戰");
+
+  await executeMatchReport({
+    reporterId,
+    matchId: id,
+    categories,
+    note,
+  });
+
+  revalidatePath("/battle");
 }
 
 export async function blockUser(blockedId: number) {

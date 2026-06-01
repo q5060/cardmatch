@@ -50,6 +50,7 @@ import { useMatchCeremony } from "@/hooks/useMatchCeremony";
 import { BattleCeremonyOverlay } from "@/components/battle/BattleCeremonyOverlay";
 import { BattleReadyStrip } from "@/components/battle/BattleReadyStrip";
 import { BattleResultShareScreen } from "@/components/battle/BattleResultShareScreen";
+import { MatchReportDialog } from "@/components/battle/MatchReportDialog";
 import type { MatchSharePayload } from "@/lib/matchShare";
 import type { RealtimeEvent } from "@/lib/realtime/types";
 
@@ -117,6 +118,7 @@ export function BattleClient({
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
   const [randomMatchCircle, setRandomMatchCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
   const [shareScreen, setShareScreen] = useState<MatchSharePayload | null>(null);
+  const [matchReportOpen, setMatchReportOpen] = useState(false);
   const seenInviteMatchIdRef = useRef<number | null>(null);
   const autoCleanedRef = useRef<number | null>(null);
   const isFlyingRef = useRef(false);
@@ -514,7 +516,19 @@ export function BattleClient({
 
         <div key={st} className="motion-fade-in-up space-y-6">
         <div className="card card-hover p-5">
-          <h2 className="text-lg font-semibold text-foreground">進行中的約戰</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-semibold text-foreground">進行中的約戰</h2>
+            {otherPlayer ? (
+              <button
+                type="button"
+                data-testid="match-report-open"
+                onClick={() => setMatchReportOpen(true)}
+                className="shrink-0 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                檢舉
+              </button>
+            ) : null}
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             對手：
             {otherPlayerId && otherPlayer ? (
@@ -540,6 +554,21 @@ export function BattleClient({
             </p>
           ) : null}
         </div>
+
+        {matchReportOpen && otherPlayer ? (
+          <MatchReportDialog
+            matchId={activeMatch.id}
+            opponentName={otherPlayer.displayName}
+            onClose={() => setMatchReportOpen(false)}
+            onReported={() => {
+              setMatchReportOpen(false);
+              setActiveMatch(null);
+              setBattleResult(null);
+              setSuccessMessage("已送出檢舉，約戰已結束");
+              void refresh();
+            }}
+          />
+        ) : null}
 
         {st === MATCH_STATUS.INVITE_PENDING ? (
           <div
