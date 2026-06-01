@@ -10,7 +10,15 @@ import {
   acceptInviteForUser,
   setReadyForUser,
 } from "@/lib/matchLifecycle";
-import { publishMatchSnapshot, publishNotification } from "@/lib/realtime/publish";
+import {
+  getMatchSharePayload,
+  type FinishMatchResult,
+} from "@/lib/matchShare";
+import {
+  publishMatchCompleted,
+  publishMatchSnapshot,
+  publishNotification,
+} from "@/lib/realtime/publish";
 
 async function requireUserId() {
   const session = await getSession();
@@ -234,7 +242,7 @@ export async function finishMatch(
   matchId: string,
   winnerId: number | null,
   _addFriend: boolean,
-) {
+): Promise<FinishMatchResult> {
   const userId = await requireUserId();
   const id = parseInt(matchId);
   const match = await prisma.match.findUnique({ where: { id } });
@@ -250,6 +258,8 @@ export async function finishMatch(
 
   const otherId =
     match.playerAId === userId ? match.playerBId : match.playerAId;
+
+  let completed = false;
 
   await prisma.$transaction(async (tx) => {
     const isPlayerA = userId === match.playerAId;
@@ -308,6 +318,8 @@ export async function finishMatch(
         data: { status: MATCH_STATUS.COMPLETED },
       });
 
+      completed = true;
+
       // Send notification to other player
       await tx.notification.create({
         data: {
@@ -324,9 +336,23 @@ export async function finishMatch(
 
   await publishMatchSnapshot(id);
   await publishNotification(otherId);
+
+  if (completed) {
+    await publishMatchCompleted(id);
+    const share = await getMatchSharePayload(id);
+    if (share) {
+      revalidatePath("/battle");
+      revalidatePath("/profile");
+      revalidatePath("/friends");
+      revalidatePath(`/battle/result/${id}`);
+      return { completed: true, share };
+    }
+  }
+
   revalidatePath("/battle");
   revalidatePath("/profile");
   revalidatePath("/friends");
+  return { completed: false };
 }
 
 export async function resetBattleResult(matchId: string) {

@@ -4,6 +4,7 @@ import {
   type ActiveMatchDTO,
   type BattleResultDTO,
 } from "@/lib/matchDto";
+import { getMatchSharePayload } from "@/lib/matchShare";
 import { getBus } from "./getBus";
 import type { ChatMessageDTO, RealtimeEvent } from "./types";
 
@@ -34,6 +35,22 @@ async function publishMatchUpdatedToPlayer(
     activeMatch,
     battleResult,
   });
+}
+
+/** Notify both players to open the result share screen. */
+export async function publishMatchCompleted(matchId: number) {
+  const share = await getMatchSharePayload(matchId);
+  if (!share) return;
+
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: { playerAId: true, playerBId: true },
+  });
+  if (!match) return;
+
+  const event: RealtimeEvent = { type: "match.completed", matchId, share };
+  publishToUser(match.playerAId, event);
+  publishToUser(match.playerBId, event);
 }
 
 /** Push current match snapshot to both participants (or cleared state if match ended). */

@@ -49,6 +49,8 @@ import {
 import { useMatchCeremony } from "@/hooks/useMatchCeremony";
 import { BattleCeremonyOverlay } from "@/components/battle/BattleCeremonyOverlay";
 import { BattleReadyStrip } from "@/components/battle/BattleReadyStrip";
+import { BattleResultShareScreen } from "@/components/battle/BattleResultShareScreen";
+import type { MatchSharePayload } from "@/lib/matchShare";
 import type { RealtimeEvent } from "@/lib/realtime/types";
 
 export type { ActiveMatchDTO, BattleResultDTO };
@@ -114,6 +116,7 @@ export function BattleClient({
   const [radiusKm, setRadiusKm] = useState<number>(3);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: defaultLat, lng: defaultLng });
   const [randomMatchCircle, setRandomMatchCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
+  const [shareScreen, setShareScreen] = useState<MatchSharePayload | null>(null);
   const seenInviteMatchIdRef = useRef<number | null>(null);
   const autoCleanedRef = useRef<number | null>(null);
   const isFlyingRef = useRef(false);
@@ -204,7 +207,15 @@ export function BattleClient({
     setBattleResult(e.battleResult);
   }, []);
 
+  const onMatchCompleted = useCallback((e: RealtimeEvent) => {
+    if (e.type !== "match.completed") return;
+    setShareScreen(e.share);
+    setActiveMatch(null);
+    setBattleResult(null);
+  }, []);
+
   useRealtimeEvent((ev) => ev.type === "match.updated", onMatchUpdated);
+  useRealtimeEvent((ev) => ev.type === "match.completed", onMatchCompleted);
 
   /** Map snapshot fallback when SSE is disconnected. */
   useEffect(() => {
@@ -335,6 +346,29 @@ export function BattleClient({
     });
   }
 
+  function confirmBattleResult(winnerId: number | null) {
+    if (!activeMatch) return;
+    setErr(null);
+    startTransition(async () => {
+      try {
+        const result = await finishMatch(
+          activeMatch.id.toString(),
+          winnerId,
+          false,
+        );
+        if (result.completed && result.share) {
+          setShareScreen(result.share);
+          setActiveMatch(null);
+          setBattleResult(null);
+        } else {
+          await refresh();
+        }
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "操作失敗");
+      }
+    });
+  }
+
   function openPublishAt(lat: number, lng: number, label: string, shopId?: string | null) {
     if (isGuest) {
       requireLogin();
@@ -416,6 +450,19 @@ export function BattleClient({
     userId ?? 0,
     seenInviteMatchIdRef,
   );
+
+  if (shareScreen && userId !== null) {
+    return (
+      <BattleResultShareScreen
+        share={shareScreen}
+        viewerId={userId}
+        onDone={() => {
+          setShareScreen(null);
+          void refresh();
+        }}
+      />
+    );
+  }
 
   if (activeMatch && userId !== null) {
     const st = activeMatch.status;
@@ -869,11 +916,7 @@ export function BattleClient({
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() =>
-                          run(async () => {
-                            await finishMatch(activeMatch.id.toString(), battleResult.winnerId, false);
-                          })
-                        }
+                        onClick={() => confirmBattleResult(battleResult.winnerId)}
                         className="btn btn-primary btn-sm"
                       >
                         結果正確

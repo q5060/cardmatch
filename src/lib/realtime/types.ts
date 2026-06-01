@@ -1,4 +1,5 @@
 import type { ActiveMatchDTO, BattleResultDTO } from "@/lib/matchDto";
+import type { MatchSharePayload } from "@/lib/matchShare";
 
 export type ChatMessageDTO = {
   id: string;
@@ -15,6 +16,11 @@ export type RealtimeEvent =
       matchId: number;
       activeMatch: ActiveMatchDTO | null;
       battleResult: BattleResultDTO;
+    }
+  | {
+      type: "match.completed";
+      matchId: number;
+      share: MatchSharePayload;
     }
   | {
       type: "message.new";
