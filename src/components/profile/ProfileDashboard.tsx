@@ -613,11 +613,7 @@ function ProfileDashboardInner({
         {tab === "overview" && (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
             <div className="space-y-6">
-              <div
-                className={`grid gap-3 sm:grid-cols-2 ${
-                  variant === "other" ? "lg:grid-cols-3" : "lg:grid-cols-4"
-                }`}
-              >
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {statTiles.map(({ icon: Icon, value, label, hint }) => (
                   <div key={label} className="card card-hover flex gap-3 p-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">

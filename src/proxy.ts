@@ -8,7 +8,7 @@ function isPublicProfilePath(pathname: string): boolean {
   return /^\/profile\/\d+(\/.*)?$/.test(pathname);
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isPublicProfilePath(pathname)) {

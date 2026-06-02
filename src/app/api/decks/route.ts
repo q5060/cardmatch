@@ -22,7 +22,7 @@ export async function GET() {
         visibility: true,
         deckJson: true,
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
     });
 
     // Transform to include cardCount (parsed from deckJson)

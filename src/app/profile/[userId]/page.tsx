@@ -137,7 +137,7 @@ export default async function OtherProfilePage({
       userId: userId,
       OR: deckFilters,
     },
-    orderBy: { updatedAt: "desc" },
+    orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
     select: { id: true, title: true, notes: true, visibility: true, deckJson: true },
   });
 

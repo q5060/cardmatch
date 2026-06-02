@@ -80,6 +80,7 @@ model Deck {
   notes      String   @default("")
   visibility String   @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
   deckJson   String?
+  sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 }

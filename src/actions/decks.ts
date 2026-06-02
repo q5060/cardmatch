@@ -65,6 +65,11 @@ export async function createDeck(formData: FormData): Promise<Deck> {
     }
   }
 
+  const maxSort = await prisma.deck.aggregate({
+    where: { userId: session.userId },
+    _max: { sortOrder: true },
+  });
+
   const newDeck = await prisma.deck.create({
     data: {
       userId: session.userId,
@@ -72,6 +77,7 @@ export async function createDeck(formData: FormData): Promise<Deck> {
       notes: notes.slice(0, 2000),
       visibility: finalVisibility,
       deckJson: finalDeckJson ? finalDeckJson.slice(0, 50_000) : null,
+      sortOrder: (maxSort._max.sortOrder ?? -1) + 1,
     },
   });
 

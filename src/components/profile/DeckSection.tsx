@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import {
   submitCreateDeck,
   deleteDeck,
@@ -47,9 +46,8 @@ export function DeckSection({ decks, readOnly = false }: { decks: Deck[]; readOn
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-foreground">牌組</h3>
-          <Link href="/decks/new" className="btn btn-primary btn-sm">
-            <Plus className="h-4 w-4" />
-            新增牌組
+          <Link href="/settings?tab=decks" className="btn btn-primary btn-sm">
+            管理牌組
           </Link>
         </div>
 

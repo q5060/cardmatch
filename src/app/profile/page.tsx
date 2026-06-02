@@ -55,7 +55,7 @@ export default async function ProfilePage() {
     prisma.user.findUnique({
       where: { id: user.id },
       include: {
-        decks: { orderBy: { updatedAt: "desc" } },
+        decks: { orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }] },
       },
     }),
     getProfileBattleStats(user.id, user.id),

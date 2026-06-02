@@ -4,10 +4,10 @@ import { useState, useEffect, Suspense } from "react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { User, Lock, Shield, LogOut, Plus, Trash2, Edit2, Layers, UserX, ShieldAlert } from "lucide-react";
+import { User, Lock, Shield, LogOut, Layers, UserX, ShieldAlert } from "lucide-react";
+import { SettingsDecksPanel } from "@/components/settings/SettingsDecksPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Alert } from "@/components/ui/Alert";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { BlockedUsersList } from "@/components/settings/BlockedUsersList";
 
 interface UserSettings {
@@ -397,53 +397,13 @@ function SettingsContent() {
           )}
 
           {activeTab === "decks" && (
-            <div className="card space-y-6 p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-foreground">管理牌組</h2>
-                <Link href="/decks/new" className="btn btn-primary btn-sm">
-                  <Plus className="h-4 w-4" aria-hidden />
-                  新增牌組
-                </Link>
-              </div>
-
-              {decks.length === 0 ? (
-                <EmptyState title="您還沒有建立任何牌組" description="點擊上方按鈕新增第一個牌組" />
-              ) : (
-                <ul className="space-y-3">
-                  {decks.map((deck) => (
-                    <li
-                      key={deck.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-black/[0.02] p-4"
-                    >
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-foreground">{deck.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {deck.cardCount} 張牌卡 · {deck.visibility}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 gap-1">
-                        <Link
-                          href={`/decks/${deck.id}/edit`}
-                          className="btn btn-ghost p-2"
-                          aria-label="編輯"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDeckDelete(deck.id)}
-                          disabled={decksLoading}
-                          className="btn btn-ghost p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          aria-label="刪除"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <SettingsDecksPanel
+              decks={decks}
+              onDecksChange={setDecks}
+              decksLoading={decksLoading}
+              onDelete={handleDeckDelete}
+              onMessage={setMessage}
+            />
           )}
 
           {activeTab === "privacy" && (
