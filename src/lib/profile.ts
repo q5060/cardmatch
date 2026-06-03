@@ -19,6 +19,12 @@ export type ProfileIdentificationFields = {
   avatarUrl: string | null;
 };
 
+const EMPTY_PROFILE_IDENTIFICATION: ProfileIdentificationFields = {
+  gender: null,
+  age: null,
+  avatarUrl: null,
+};
+
 export const PLAYER_IDENTIFICATION_SELECT = {
   id: true,
   displayName: true,
@@ -99,7 +105,9 @@ export async function assertProfileIdentificationComplete(userId: number): Promi
     },
   });
   if (!user || !isProfileIdentificationComplete(user)) {
-    throw new Error(profileIdentificationErrorMessage(user ?? {}));
+    throw new Error(
+      profileIdentificationErrorMessage(user ?? EMPTY_PROFILE_IDENTIFICATION),
+    );
   }
 }
 

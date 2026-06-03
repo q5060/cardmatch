@@ -343,11 +343,7 @@ export async function getMyActiveAnnouncement(
       userId,
       ...activeAnnouncementWhere(),
     },
-    include: {
-      user: {
-        select: { id: true, displayName: true, avatarUrl: true, bio: true },
-      },
-    },
+    include: userInclude,
   });
   if (!s || !s.expiresAt) return null;
 
