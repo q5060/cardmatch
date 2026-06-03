@@ -18,6 +18,10 @@ model User {
   avatarUrl       String?
   bannerUrl       String?  // 個人檔案橫幅
   defaultShopId   String?  // 常去的店家
+
+  // 實體會面識別（約戰必填）
+  gender          String   @default("") // MALE | FEMALE
+  age             Int?     // 確切歲數
   
   // 隱私設定
   battleRecordVisibility String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE

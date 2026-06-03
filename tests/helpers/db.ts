@@ -34,16 +34,31 @@ export async function resetTables() {
   ]);
 }
 
+const TEST_PROFILE_DEFAULTS = {
+  gender: "MALE",
+  age: 25,
+  avatarUrl: "/default-avatar.svg",
+} as const;
+
 export async function createUser(input: {
   email: string;
   password: string;
   displayName: string;
+  gender?: string;
+  age?: number;
+  avatarUrl?: string | null;
 }) {
   return testPrisma.user.create({
     data: {
       email: input.email.toLowerCase(),
       passwordHash: await hashPassword(input.password),
       displayName: input.displayName,
+      gender: input.gender ?? TEST_PROFILE_DEFAULTS.gender,
+      age: input.age ?? TEST_PROFILE_DEFAULTS.age,
+      avatarUrl:
+        input.avatarUrl === undefined
+          ? TEST_PROFILE_DEFAULTS.avatarUrl
+          : input.avatarUrl,
     },
   });
 }

@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { MATCH_STATUS } from "@/lib/constants";
 import { assertNotBlocked } from "@/lib/block";
+import { assertProfileIdentificationComplete } from "@/lib/profile";
 import {
   acceptInviteForUser,
   setReadyForUser,
@@ -32,6 +33,7 @@ function isParticipant(m: { playerAId: number; playerBId: number }, userId: numb
 
 export async function sendInviteFromSpot(spotId: string) {
   const userId = await requireUserId();
+  await assertProfileIdentificationComplete(userId);
 
   const spot = await prisma.meetSpot.findUnique({
     where: { id: spotId },
@@ -67,6 +69,7 @@ export async function sendInviteFromSpot(spotId: string) {
 
 export async function acceptInvite(matchId: string) {
   const userId = await requireUserId();
+  await assertProfileIdentificationComplete(userId);
   const id = parseInt(matchId);
   const match = await acceptInviteForUser(id, userId);
 

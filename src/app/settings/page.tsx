@@ -9,6 +9,8 @@ import { SettingsDecksPanel } from "@/components/settings/SettingsDecksPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Alert } from "@/components/ui/Alert";
 import { BlockedUsersList } from "@/components/settings/BlockedUsersList";
+import { USER_AGE_MAX, USER_AGE_MIN, USER_GENDER } from "@/lib/constants";
+import { USER_GENDER_LABELS } from "@/lib/profile";
 
 interface UserSettings {
   id: number;
@@ -17,6 +19,10 @@ interface UserSettings {
   bio: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
+  gender: string;
+  age: number | null;
+  profileComplete?: boolean;
+  profileMissingFields?: string[];
   battleRecordVisibility: "PUBLIC" | "FRIENDS" | "PRIVATE";
   winrateVisibility: "PUBLIC" | "FRIENDS" | "PRIVATE";
   defaultShopId: string | null;
@@ -59,6 +65,8 @@ function SettingsContent() {
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const [gender, setGender] = useState("");
+  const [age, setAge] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -98,6 +106,8 @@ function SettingsContent() {
         setUser(data);
         setDisplayName(data.displayName || "");
         setBio(data.bio || "");
+        setGender(data.gender || "");
+        setAge(data.age != null ? String(data.age) : "");
         setBattleRecordVisibility(data.battleRecordVisibility || "PUBLIC");
         setWinrateVisibility(data.winrateVisibility || "PUBLIC");
 
@@ -152,6 +162,8 @@ function SettingsContent() {
       const formData = new FormData();
       formData.append("displayName", displayName);
       formData.append("bio", bio);
+      formData.append("gender", gender);
+      formData.append("age", age);
       if (avatarFile) formData.append("avatar", avatarFile);
       if (bannerFile) formData.append("banner", bannerFile);
 
@@ -313,6 +325,15 @@ function SettingsContent() {
           {activeTab === "account" && (
             <div className="card space-y-6 p-6">
               <h2 className="text-lg font-semibold text-foreground">帳號設定</h2>
+              {user.profileComplete === false ? (
+                <Alert variant="error">
+                  約戰前請完成必填識別資料：
+                  {(user.profileMissingFields ?? []).join("、") || "性別、年齡、大頭貼"}
+                </Alert>
+              ) : null}
+              <p className="text-sm text-muted-foreground">
+                性別（男／女）、確切年齡與大頭貼為約戰必填，方便在實體店辨識對手並提升安全。
+              </p>
 
               <form onSubmit={handleProfileUpdate} className="space-y-5">
                 <label className="block text-sm font-medium text-foreground">
@@ -337,10 +358,51 @@ function SettingsContent() {
                   />
                 </label>
 
-                <div>
-                  <p className="text-sm font-medium text-foreground">大頭貼</p>
+                <label className="block text-sm font-medium text-foreground">
+                  <span className="text-muted-foreground">
+                    性別 <span className="text-red-600">*</span>
+                  </span>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="input-field mt-2"
+                    required
+                  >
+                    <option value="">請選擇</option>
+                    {Object.values(USER_GENDER).map((g) => (
+                      <option key={g} value={g}>
+                        {USER_GENDER_LABELS[g]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-foreground">
+                  <span className="text-muted-foreground">
+                    年齡 <span className="text-red-600">*</span>
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={USER_AGE_MIN}
+                    max={USER_AGE_MAX}
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="input-field mt-2"
+                    placeholder={`${USER_AGE_MIN}–${USER_AGE_MAX}`}
+                    required
+                  />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    支援 JPG、PNG 與 WebP，大小上限 2MB
+                    請填寫實際歲數（{USER_AGE_MIN}–{USER_AGE_MAX} 歲）
+                  </p>
+                </label>
+
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    大頭貼 <span className="text-red-600">*</span>
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    支援 JPG、PNG 與 WebP，大小上限 2MB（實體會面辨識用，必填）
                   </p>
                   <div className="mt-3 flex flex-wrap items-end gap-4">
                     {(avatarPreview || user.avatarUrl) && (

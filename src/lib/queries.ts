@@ -183,6 +183,8 @@ export type MapAnnouncementDTO = {
   userId: number;
   displayName: string;
   avatarUrl: string | null;
+  gender: string;
+  age: number | null;
   bio: string;
   lat: number;
   lng: number;
@@ -207,6 +209,8 @@ type SpotWithUser = {
     id: number;
     displayName: string;
     avatarUrl: string | null;
+    gender: string;
+    age: number | null;
     bio: string;
   };
 };
@@ -217,6 +221,8 @@ function mapSpotToDTO(s: SpotWithUser): MapAnnouncementDTO {
     userId: s.userId,
     displayName: s.user.displayName,
     avatarUrl: s.user.avatarUrl,
+    gender: s.user.gender,
+    age: s.user.age,
     bio: s.user.bio,
     lat: s.lat,
     lng: s.lng,
@@ -230,7 +236,14 @@ function mapSpotToDTO(s: SpotWithUser): MapAnnouncementDTO {
 
 const userInclude = {
   user: {
-    select: { id: true, displayName: true, avatarUrl: true, bio: true },
+    select: {
+      id: true,
+      displayName: true,
+      avatarUrl: true,
+      gender: true,
+      age: true,
+      bio: true,
+    },
   },
 } as const;
 
@@ -360,8 +373,24 @@ export async function getActiveMatchForUser(userId: number) {
     },
     orderBy: { updatedAt: "desc" },
     include: {
-      playerA: { select: { id: true, displayName: true, avatarUrl: true } },
-      playerB: { select: { id: true, displayName: true, avatarUrl: true } },
+      playerA: {
+        select: {
+          id: true,
+          displayName: true,
+          avatarUrl: true,
+          gender: true,
+          age: true,
+        },
+      },
+      playerB: {
+        select: {
+          id: true,
+          displayName: true,
+          avatarUrl: true,
+          gender: true,
+          age: true,
+        },
+      },
       shop: true,
     },
   });

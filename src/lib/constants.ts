@@ -52,3 +52,15 @@ export const BATTLE_OUTCOME = {
   LOSS: "LOSS",
   DRAW: "DRAW",
 } as const;
+
+/** Profile gender — validate with isUserGender in lib/profile.ts */
+export const USER_GENDER = {
+  MALE: "MALE",
+  FEMALE: "FEMALE",
+} as const;
+
+export type UserGender = (typeof USER_GENDER)[keyof typeof USER_GENDER];
+
+/** Profile age bounds (exact years). */
+export const USER_AGE_MIN = 13;
+export const USER_AGE_MAX = 120;

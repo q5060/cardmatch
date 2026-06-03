@@ -88,6 +88,8 @@ export default async function OtherProfilePage({
       bio: true,
       avatarUrl: true,
       bannerUrl: true,
+      gender: true,
+      age: true,
       createdAt: true,
       battleRecordVisibility: true,
       winrateVisibility: true,
@@ -172,6 +174,8 @@ export default async function OtherProfilePage({
           bio: profile.bio,
           avatarUrl: profile.avatarUrl,
           bannerUrl: profile.bannerUrl,
+          gender: profile.gender,
+          age: profile.age,
           createdAt: profile.createdAt.toISOString(),
         }}
         battleStats={battleStats}

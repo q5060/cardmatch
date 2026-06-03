@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import {
+  isProfileIdentificationComplete,
+  parseProfileIdentificationFromFormData,
+  profileIdentificationMissing,
+} from "@/lib/profile";
 
 /**
  * @route POST /api/auth/update-profile
@@ -20,6 +25,16 @@ export async function POST(request: NextRequest) {
     const bio = formData.get("bio") as string;
     const avatarFile = formData.get("avatar") as File | null;
     const bannerFile = formData.get("banner") as File | null;
+
+    let identification: ReturnType<typeof parseProfileIdentificationFromFormData>;
+    try {
+      identification = parseProfileIdentificationFromFormData(formData);
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "識別資料無效" },
+        { status: 400 },
+      );
+    }
 
     // Validate inputs
     if (!displayName || displayName.trim().length === 0) {
@@ -84,12 +99,30 @@ export async function POST(request: NextRequest) {
       bannerUrl = `data:${bannerFile.type};base64,${Buffer.from(buffer).toString("base64")}`;
     }
 
+    const existing = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { avatarUrl: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+
+    const nextAvatarUrl = avatarUrl ?? existing.avatarUrl;
+    if (!nextAvatarUrl?.trim()) {
+      return NextResponse.json(
+        { error: "請上傳大頭貼照片，以便實體會面時辨識" },
+        { status: 400 },
+      );
+    }
+
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: session.userId },
       data: {
         displayName: displayName.trim(),
         bio: bio ? bio.trim() : "",
+        gender: identification.gender,
+        age: identification.age,
         ...(avatarUrl && { avatarUrl }),
         ...(bannerUrl && { bannerUrl }),
       },
@@ -100,12 +133,21 @@ export async function POST(request: NextRequest) {
         bio: true,
         avatarUrl: true,
         bannerUrl: true,
+        gender: true,
+        age: true,
         battleRecordVisibility: true,
         winrateVisibility: true,
       },
     });
 
-    return NextResponse.json(updatedUser);
+    const profileComplete = isProfileIdentificationComplete(updatedUser);
+    return NextResponse.json({
+      ...updatedUser,
+      profileComplete,
+      profileMissingFields: profileComplete
+        ? []
+        : profileIdentificationMissing(updatedUser),
+    });
   } catch (error) {
     console.error("Error updating profile:", error);
     return NextResponse.json(

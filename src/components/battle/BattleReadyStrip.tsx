@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Check, UserRound } from "lucide-react";
 import type { ActiveMatchDTO } from "@/lib/matchDto";
 import { motionClass, prefersReducedMotion } from "@/lib/motion";
+import { ageLabel, genderLabel } from "@/lib/profile";
 
 type PlayerInfo = {
   label: string;
@@ -113,6 +114,18 @@ export function BattleReadyStrip({
         </div>
         <ReadyAvatar player={opponentPlayer} reducedMotion={reducedMotion} />
       </div>
+      {(genderLabel(opponent.gender) || ageLabel(opponent.age)) && (
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            對手識別
+          </p>
+          <p className="mt-1 text-foreground">
+            {[genderLabel(opponent.gender), ageLabel(opponent.age)]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+      )}
       <div className={readyButtonClassName}>{children}</div>
     </div>
   );

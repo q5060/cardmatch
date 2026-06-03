@@ -20,6 +20,8 @@ export type CeremonyState = {
   opponentId: number;
   opponentName: string;
   opponentAvatarUrl: string | null;
+  opponentGender: string;
+  opponentAge: number | null;
   meetLabel: string;
 };
 
@@ -61,6 +63,8 @@ export function useMatchCeremony(
         opponentId: opponent.id,
         opponentName: opponent.displayName,
         opponentAvatarUrl: opponent.avatarUrl ?? null,
+        opponentGender: opponent.gender,
+        opponentAge: opponent.age,
         meetLabel: match.meetLabel,
       });
     },

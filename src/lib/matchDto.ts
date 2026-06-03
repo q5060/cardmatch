@@ -13,8 +13,20 @@ export type ActiveMatchDTO = {
   meetLat: number;
   meetLng: number;
   meetLabel: string;
-  playerA: { id: number; displayName: string; avatarUrl?: string | null };
-  playerB: { id: number; displayName: string; avatarUrl?: string | null };
+  playerA: {
+    id: number;
+    displayName: string;
+    avatarUrl?: string | null;
+    gender: string;
+    age: number | null;
+  };
+  playerB: {
+    id: number;
+    displayName: string;
+    avatarUrl?: string | null;
+    gender: string;
+    age: number | null;
+  };
 };
 
 export type BattleResultDTO = {

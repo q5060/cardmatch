@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { publishNotification } from "@/lib/realtime/publish";
 import { assertNotBlocked } from "@/lib/block";
+import { isUserAge, isUserGender, parseUserAge } from "@/lib/profile";
 
 const AVATAR_PREFIX = "/uploads/avatars/";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -58,10 +59,13 @@ export async function updateProfile(formData: FormData) {
 
   const displayName = String(formData.get("displayName") ?? "").trim();
   const bio = String(formData.get("bio") ?? "").trim();
-
+  const gender = String(formData.get("gender") ?? "").trim();
+  const age = parseUserAge(String(formData.get("age") ?? ""));
   if (!displayName || displayName.length > 40) {
     throw new Error("INVALID_DISPLAY_NAME");
   }
+  if (!isUserGender(gender)) throw new Error("INVALID_GENDER");
+  if (age === null) throw new Error("INVALID_AGE");
 
   const userId = session.userId;
   const existing = await prisma.user.findUnique({
@@ -101,11 +105,16 @@ export async function updateProfile(formData: FormData) {
     nextAvatarUrl = `${AVATAR_PREFIX}${filename}`;
   }
 
+  const finalAvatar = nextAvatarUrl ?? existing.avatarUrl;
+  if (!finalAvatar?.trim()) throw new Error("AVATAR_REQUIRED");
+
   await prisma.user.update({
     where: { id: userId },
     data: {
       displayName,
       bio: bio.slice(0, 500),
+      gender,
+      age,
       ...(nextAvatarUrl !== undefined ? { avatarUrl: nextAvatarUrl } : {}),
     },
   });
@@ -117,23 +126,7 @@ export async function updateProfile(formData: FormData) {
 export async function removeAvatar() {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
-
-  const userId = session.userId;
-  const existing = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { avatarUrl: true },
-  });
-  if (!existing) throw new Error("UNAUTHORIZED");
-
-  await removeLocalAvatarIfOwned(userId, existing.avatarUrl);
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { avatarUrl: null },
-  });
-
-  revalidatePath("/profile");
-  revalidatePath(`/profile/${userId}`);
+  throw new Error("AVATAR_REQUIRED_FOR_MEETUP");
 }
 
 export async function sendFriendRequest(targetUserId: number) {

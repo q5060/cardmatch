@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import {
+  isProfileIdentificationComplete,
+  profileIdentificationMissing,
+} from "@/lib/profile";
 
 export async function GET() {
   try {
@@ -17,6 +21,8 @@ export async function GET() {
         displayName: true,
         bio: true,
         avatarUrl: true,
+        gender: true,
+        age: true,
         battleRecordVisibility: true,
         winrateVisibility: true,
         defaultShopId: true,
@@ -33,12 +39,17 @@ export async function GET() {
     }
 
     const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+    const profileComplete = isProfileIdentificationComplete(user);
     return NextResponse.json({
       id: user.id,
       email: user.email,
       displayName: user.displayName,
       bio: user.bio,
       avatarUrl: user.avatarUrl,
+      gender: user.gender,
+      age: user.age,
+      profileComplete,
+      profileMissingFields: profileComplete ? [] : profileIdentificationMissing(user),
       battleRecordVisibility: user.battleRecordVisibility,
       winrateVisibility: user.winrateVisibility,
       defaultShopId: user.defaultShopId,

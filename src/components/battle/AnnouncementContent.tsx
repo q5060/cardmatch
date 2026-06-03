@@ -1,11 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { UserRound } from "lucide-react";
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { formatExpiresAt } from "@/lib/format";
 import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
+import { PlayerIdentificationBlock } from "@/components/profile/PlayerIdentificationBlock";
 
 type Props = {
   announcement: MapAnnouncementDTO;
@@ -24,27 +23,14 @@ export function AnnouncementContent({
 }: Props) {
   return (
     <div className="flex flex-col h-full space-y-4 p-5">
-      {/* User Info */}
-      <div className="flex items-center gap-3">
-        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-neutral-100">
-          {announcement.avatarUrl ? (
-            <Image
-              src={announcement.avatarUrl}
-              alt=""
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-muted-foreground">
-              <UserRound className="h-7 w-7" strokeWidth={1.5} />
-            </span>
-          )}
-        </div>
-        <div className="min-w-0">
-          <p className="font-semibold text-foreground">{announcement.displayName}</p>
-        </div>
-      </div>
+      <PlayerIdentificationBlock
+        player={{
+          displayName: announcement.displayName,
+          avatarUrl: announcement.avatarUrl,
+          gender: announcement.gender,
+          age: announcement.age,
+        }}
+      />
 
       <LocationNavBlock
         label={announcement.label}

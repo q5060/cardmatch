@@ -79,6 +79,8 @@ export default async function ProfilePage() {
           bio: full.bio,
           avatarUrl: full.avatarUrl,
           bannerUrl: full.bannerUrl,
+          gender: full.gender,
+          age: full.age,
           createdAt: full.createdAt.toISOString(),
         }}
         battleStats={battleStats}

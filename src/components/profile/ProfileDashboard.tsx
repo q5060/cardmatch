@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import type { ProfileBattleStats, ProfileMatchFeedRow, TopOpponent } from "@/lib/queries";
 import { MatchFeedList } from "@/components/profile/MatchFeedList";
+import { ageLabel, genderLabel } from "@/lib/profile";
 import { BattleTimeHistogram } from "@/components/profile/BattleTimeHistogram";
 import { TopOpponentsPanel } from "@/components/profile/TopOpponentsPanel";
 import { PROFILE_RECENT_MATCHES } from "@/lib/constants";
@@ -123,6 +124,8 @@ export type ProfileDashboardProps = {
     bio: string;
     avatarUrl: string | null;
     bannerUrl?: string | null;
+    gender?: string;
+    age?: number | null;
     createdAt: string;
   };
   battleStats: ProfileBattleStats;
@@ -359,6 +362,35 @@ function ProfileDashboardInner({
                     {variant === "other" ? "對方尚未填寫自我介紹" : "尚未填寫自我介紹"}
                   </p>
                 )}
+                {(genderLabel(user.gender) || ageLabel(user.age)) && (
+                  <div className="mt-4 rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      實體會面識別
+                    </p>
+                    <p className="mt-1 text-foreground">
+                      {[genderLabel(user.gender), ageLabel(user.age)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    {variant === "self" ? (
+                      <Link
+                        href="/settings"
+                        className="mt-2 inline-block text-xs text-primary underline-offset-2 hover:underline"
+                      >
+                        編輯識別資料
+                      </Link>
+                    ) : null}
+                  </div>
+                )}
+                {variant === "self" &&
+                (!genderLabel(user.gender) || !ageLabel(user.age)) ? (
+                  <p className="mt-4 text-sm text-amber-800">
+                    <Link href="/settings" className="font-medium underline underline-offset-2">
+                      完成識別資料
+                    </Link>
+                    （性別、年齡、大頭貼）後才能約戰。
+                  </p>
+                ) : null}
               </div>
 
             {/* Friend / moderation */}

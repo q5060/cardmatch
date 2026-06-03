@@ -51,6 +51,8 @@ import { BattleCeremonyOverlay } from "@/components/battle/BattleCeremonyOverlay
 import { BattleReadyStrip } from "@/components/battle/BattleReadyStrip";
 import { BattleResultShareScreen } from "@/components/battle/BattleResultShareScreen";
 import { MatchReportDialog } from "@/components/battle/MatchReportDialog";
+import { PlayerIdentificationBlock } from "@/components/profile/PlayerIdentificationBlock";
+import { Alert } from "@/components/ui/Alert";
 import type { MatchSharePayload } from "@/lib/matchShare";
 import type { RealtimeEvent } from "@/lib/realtime/types";
 
@@ -58,6 +60,7 @@ export type { ActiveMatchDTO, BattleResultDTO };
 
 export function BattleClient({
   userId,
+  profileComplete = true,
   shops,
   announcements: initialAnnouncements,
   myAnnouncement: initialMyAnnouncement,
@@ -70,6 +73,7 @@ export function BattleClient({
   initialShopId = null,
 }: {
   userId: number | null;
+  profileComplete?: boolean;
   shops: MapShopPin[];
   announcements: MapAnnouncementDTO[];
   myAnnouncement: MapAnnouncementDTO | null;
@@ -529,19 +533,22 @@ export function BattleClient({
               </button>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            對手：
-            {otherPlayerId && otherPlayer ? (
-              <Link
-                href={`/profile/${otherPlayerId}`}
-                className="font-medium text-primary underline-offset-2 hover:underline"
-              >
-                {otherPlayer.displayName}
-              </Link>
-            ) : (
-              otherPlayer?.displayName
-            )}
-          </p>
+          {otherPlayer ? (
+            <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                對手識別資訊
+              </p>
+              <PlayerIdentificationBlock player={otherPlayer} />
+              {otherPlayerId ? (
+                <Link
+                  href={`/profile/${otherPlayerId}`}
+                  className="mt-3 inline-block text-xs text-primary underline-offset-2 hover:underline"
+                >
+                  查看完整個人檔案
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
           <LocationNavBlock
             className="mt-3"
             label={activeMatch.meetLabel}
@@ -585,20 +592,13 @@ export function BattleClient({
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                   約戰邀請
                 </p>
-                <p className="text-lg font-semibold text-foreground">
-                  {otherPlayerId && otherPlayer ? (
-                    <Link
-                      href={`/profile/${otherPlayerId}`}
-                      className="text-primary underline-offset-2 hover:underline"
-                    >
-                      {otherPlayer.displayName}
-                    </Link>
-                  ) : (
-                    otherPlayer?.displayName
-                  )}
-                  <span className="font-normal text-foreground"> 邀請你約戰</span>
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1">
+                {otherPlayer ? (
+                  <div className="mt-2 rounded-xl border border-primary/20 bg-white/80 p-4">
+                    <p className="mb-2 text-sm font-medium text-foreground">邀請你約戰</p>
+                    <PlayerIdentificationBlock player={otherPlayer} compact />
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap gap-2 pt-3">
                   {/* {otherPlayerId ? (
                     <Link
                       href={`/profile/${otherPlayerId}`}
@@ -1272,6 +1272,15 @@ export function BattleClient({
 
   return (
     <div className="space-y-4">
+      {!isGuest && !profileComplete ? (
+        <Alert variant="error">
+          發布公告、配對或接受約戰前，請先至{" "}
+          <Link href="/settings" className="font-medium underline underline-offset-2">
+            設定
+          </Link>{" "}
+          填寫性別（男／女）、年齡並上傳大頭貼。
+        </Alert>
+      ) : null}
       {myAnnouncement ? (
         <BattleMyAnnouncementBar
           announcement={myAnnouncement}
