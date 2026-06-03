@@ -40,6 +40,28 @@ const TEST_PROFILE_DEFAULTS = {
   avatarUrl: "/default-avatar.svg",
 } as const;
 
+/** Set identification fields required for battle actions (invite, accept, publish). */
+export async function fillProfileIdentification(
+  userId: number,
+  overrides?: {
+    gender?: string;
+    age?: number;
+    avatarUrl?: string | null;
+  },
+) {
+  return testPrisma.user.update({
+    where: { id: userId },
+    data: {
+      gender: overrides?.gender ?? TEST_PROFILE_DEFAULTS.gender,
+      age: overrides?.age ?? TEST_PROFILE_DEFAULTS.age,
+      avatarUrl:
+        overrides?.avatarUrl === undefined
+          ? TEST_PROFILE_DEFAULTS.avatarUrl
+          : overrides.avatarUrl,
+    },
+  });
+}
+
 export async function createUser(input: {
   email: string;
   password: string;

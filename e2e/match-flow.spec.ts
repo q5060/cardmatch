@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { createLookingMeetSpot, testPrisma } from "../tests/helpers/db";
+import {
+  createLookingMeetSpot,
+  fillProfileIdentification,
+  testPrisma,
+} from "../tests/helpers/db";
 
 test.describe.serial("match flow", () => {
   test("two users invite, accept, and start battle", async ({ browser }) => {
@@ -24,6 +28,7 @@ test.describe.serial("match flow", () => {
       const userA = await testPrisma.user.findUniqueOrThrow({
         where: { email: emailA },
       });
+      await fillProfileIdentification(userA.id);
 
       await createLookingMeetSpot(userA.id, {
         label: "E2E 約戰地點",
@@ -36,6 +41,11 @@ test.describe.serial("match flow", () => {
       await pageB.getByTestId("register-password").fill(password);
       await pageB.getByTestId("register-submit").click();
       await expect(pageB).toHaveURL(/\/profile/);
+
+      const userB = await testPrisma.user.findUniqueOrThrow({
+        where: { email: emailB },
+      });
+      await fillProfileIdentification(userB.id);
 
       await pageB.goto("/battle");
       await pageB
@@ -62,10 +72,6 @@ test.describe.serial("match flow", () => {
         timeout: 20_000,
       });
       await pageB.getByTestId("mark-ready").click();
-
-      const userB = await testPrisma.user.findUniqueOrThrow({
-        where: { email: emailB },
-      });
 
       await expect
         .poll(async () => {
