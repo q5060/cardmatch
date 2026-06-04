@@ -1,16 +1,19 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { formatExpiresAt } from "@/lib/format";
 import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
 import { PlayerIdentificationBlock } from "@/components/profile/PlayerIdentificationBlock";
+import { DeckPickerField } from "@/components/battle/DeckPickerField";
+import { DisclosedDeckViewer } from "@/components/battle/DisclosedDeckViewer";
 
 type Props = {
   announcement: MapAnnouncementDTO;
   isOwn: boolean;
   pending?: boolean;
-  onInvite?: () => void;
+  onInvite?: (inviterDeckId: string | null) => void;
   onClear?: () => void;
 };
 
@@ -21,6 +24,8 @@ export function AnnouncementContent({
   onInvite,
   onClear,
 }: Props) {
+  const [inviteDeckId, setInviteDeckId] = useState<string | null>(null);
+
   return (
     <div className="flex flex-col h-full space-y-4 p-5">
       <PlayerIdentificationBlock
@@ -38,6 +43,20 @@ export function AnnouncementContent({
         lng={announcement.lng}
       />
 
+      {announcement.deck && !isOwn ? (
+        <DisclosedDeckViewer
+          deck={announcement.deck}
+          spotId={announcement.spotId}
+          label="使用牌組"
+        />
+      ) : null}
+      {announcement.deck && isOwn ? (
+        <p className="text-sm text-foreground">
+          <span className="text-muted-foreground">使用牌組：</span>
+          <span className="font-medium">{announcement.deck.title}</span>
+        </p>
+      ) : null}
+
       {announcement.playNote ? (
         <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
           {announcement.playNote}
@@ -51,18 +70,24 @@ export function AnnouncementContent({
         </p>
       ) : null}
 
-      {/* Expires */}
       <p className="text-xs text-muted-foreground">
         公告至 {formatExpiresAt(announcement.expiresAt)}
       </p>
 
       {!isOwn && onInvite ? (
-        <div className="mt-auto border-t border-border pt-4">
+        <div className="mt-auto space-y-3 border-t border-border pt-4">
+          <DeckPickerField
+            value={inviteDeckId}
+            onChange={setInviteDeckId}
+            disabled={pending}
+            label="邀請時使用的牌組（選填）"
+            id="invite-deck-picker"
+          />
           <button
             type="button"
             data-testid="send-invite"
             disabled={pending}
-            onClick={onInvite}
+            onClick={() => onInvite(inviteDeckId)}
             className="btn btn-primary w-full"
           >
             {pending ? "處理中…" : "邀請對戰"}

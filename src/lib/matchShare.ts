@@ -1,10 +1,16 @@
 import prisma from "@/lib/prisma";
 import { MATCH_STATUS } from "@/lib/constants";
+import {
+  getMatchDeckSidesForViewer,
+  matchDeckInclude,
+  type DeckSummaryWithCards,
+} from "@/lib/matchDeck";
 
 export type MatchSharePlayer = {
   id: number;
   displayName: string;
   avatarUrl: string | null;
+  deck: DeckSummaryWithCards | null;
 };
 
 export type MatchSharePayload = {
@@ -36,6 +42,7 @@ export function buildShareUrl(matchId: number, origin?: string): string {
 
 export async function getMatchSharePayload(
   matchId: number,
+  viewerId?: number | null,
 ): Promise<MatchSharePayload | null> {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -43,6 +50,7 @@ export async function getMatchSharePayload(
       playerA: { select: { id: true, displayName: true, avatarUrl: true } },
       playerB: { select: { id: true, displayName: true, avatarUrl: true } },
       battleResults: true,
+      ...matchDeckInclude,
     },
   });
 
@@ -51,13 +59,15 @@ export async function getMatchSharePayload(
   const br = match.battleResults[0];
   if (!br || br.status !== "AGREED") return null;
 
+  const decks = await getMatchDeckSidesForViewer(match, viewerId ?? null);
+
   return {
     matchId: match.id,
     completedAt: match.updatedAt.toISOString(),
     meetLabel: match.meetLabel,
     winnerId: br.winnerId,
-    playerA: match.playerA,
-    playerB: match.playerB,
+    playerA: { ...match.playerA, deck: decks.playerA },
+    playerB: { ...match.playerB, deck: decks.playerB },
   };
 }
 

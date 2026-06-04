@@ -37,6 +37,10 @@ import {
   sendInviteFromSpot,
   setReady,
 } from "@/actions/match";
+import { MatchDeckSelection } from "@/components/battle/MatchDeckSelection";
+import { BattleDeckCardsPanel } from "@/components/battle/BattleDeckCardsPanel";
+import { MatchDeckSummaryLine } from "@/components/battle/MatchDeckSummaryLine";
+import { DisclosedDeckViewer } from "@/components/battle/DisclosedDeckViewer";
 import { clearBattleAnnouncement, refreshShops } from "@/actions/meetSpot";
 import { MATCH_STATUS } from "@/lib/constants";
 import type { ActiveMatchDTO, BattleResultDTO } from "@/lib/matchDto";
@@ -586,7 +590,18 @@ export function BattleClient({
               }`}
           >
             {activeMatch.invitedById === userId ? (
-              <p className="text-foreground">已送出邀請，等待對方回應。</p>
+              <>
+                <p className="text-foreground">已送出邀請，等待對方回應。</p>
+                {activeMatch.myDeck ? (
+                  <DisclosedDeckViewer
+                    deck={activeMatch.myDeck}
+                    matchId={activeMatch.id}
+                    label="你的牌組"
+                  />
+                ) : (
+                  <MatchDeckSummaryLine label="你的牌組" deck={activeMatch.myDeck} />
+                )}
+              </>
             ) : (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">
@@ -612,6 +627,25 @@ export function BattleClient({
                       ) : null}
                     </p>
                     <p className="text-sm text-muted-foreground">邀請你約戰</p>
+                    {activeMatch.theirDeck ? (
+                      <DisclosedDeckViewer
+                        deck={activeMatch.theirDeck}
+                        matchId={activeMatch.id}
+                        label="對方牌組"
+                      />
+                    ) : (
+                      <MatchDeckSummaryLine
+                        label="對方牌組"
+                        deck={activeMatch.theirDeck}
+                      />
+                    )}
+                    {activeMatch.myDeck ? (
+                      <DisclosedDeckViewer
+                        deck={activeMatch.myDeck}
+                        matchId={activeMatch.id}
+                        label="你的牌組"
+                      />
+                    ) : null}
                   </>
                 ) : null}
                 <div className="flex flex-wrap gap-2 pt-3">
@@ -740,6 +774,14 @@ export function BattleClient({
                 </div>
               </>
             ) : (
+              <>
+              <MatchDeckSelection
+                activeMatch={activeMatch}
+                myReady={myReady}
+                disabled={pending}
+                onUpdated={() => void refresh()}
+                onError={setErr}
+              />
               <BattleReadyStrip
                 activeMatch={activeMatch}
                 userId={userId}
@@ -775,12 +817,14 @@ export function BattleClient({
                   請求取消約戰
                 </button>
               </BattleReadyStrip>
+              </>
             )}
           </div>
         )}
 
         {st === MATCH_STATUS.IN_PROGRESS && (
           <div className="card card-hover space-y-4 p-5">
+            <BattleDeckCardsPanel activeMatch={activeMatch} />
             {activeMatch.cancelRequestedBy && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <p className="text-sm text-amber-700 mb-2">
@@ -1148,10 +1192,13 @@ export function BattleClient({
             onInvite={
               isGuest
                 ? undefined
-                : () => {
+                : (inviterDeckId) => {
                     if (!sheetAnnouncement) return;
                     run(async () => {
-                      await sendInviteFromSpot(sheetAnnouncement.spotId);
+                      await sendInviteFromSpot(
+                        sheetAnnouncement.spotId,
+                        inviterDeckId,
+                      );
                       setSheetAnnouncement(null);
                     });
                   }
@@ -1242,10 +1289,13 @@ export function BattleClient({
           onInvite={
             isGuest
               ? undefined
-              : () => {
+              : (inviterDeckId) => {
                   if (!sheetAnnouncement) return;
                   run(async () => {
-                    await sendInviteFromSpot(sheetAnnouncement.spotId);
+                    await sendInviteFromSpot(
+                      sheetAnnouncement.spotId,
+                      inviterDeckId,
+                    );
                     setSheetAnnouncement(null);
                   });
                 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import type { ProfileMatchFeedRow } from "@/lib/queries";
+import { MatchFeedDeckLine } from "@/components/profile/MatchFeedDeckLine";
 
 type Props = {
   feed: ProfileMatchFeedRow[];
@@ -79,6 +80,7 @@ export function MatchFeedList({ feed, emptyMessage = "尚無紀錄。", hiddenRe
                     })}
                   </span>
                 </div>
+                <MatchFeedDeckLine myDeck={row.myDeck} otherDeck={row.otherDeck} />
               </div>
               {row.outcomeLabel ? (
                 <span className="shrink-0 rounded-full bg-primary/12 px-2.5 py-1 text-xs font-semibold text-primary">

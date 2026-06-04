@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { MATCH_STATUS } from "@/lib/constants";
+import { assertUserOwnsDeck } from "@/lib/matchDeck";
 import { assertNotBlocked } from "@/lib/block";
 import {
   acceptInviteForUser,
@@ -30,11 +31,17 @@ function isParticipant(m: { playerAId: number; playerBId: number }, userId: numb
   return m.playerAId === userId || m.playerBId === userId;
 }
 
-export async function sendInviteFromSpot(spotId: string) {
+export async function sendInviteFromSpot(
+  spotId: string,
+  inviterDeckId?: string | null,
+) {
   const userId = await requireUserId();
   const spot = await prisma.meetSpot.findUnique({
     where: { id: spotId },
-    include: { user: { select: { displayName: true } } },
+    include: {
+      user: { select: { displayName: true } },
+      deck: { select: { id: true } },
+    },
   });
   if (
     !spot ||
@@ -50,6 +57,13 @@ export async function sendInviteFromSpot(spotId: string) {
   if (targetUserId === userId) throw new Error("無法邀請自己");
   await assertNotBlocked(userId, targetUserId);
 
+  let deckId = inviterDeckId?.trim() || null;
+  if (deckId) {
+    await assertUserOwnsDeck(userId, deckId);
+  } else {
+    deckId = null;
+  }
+
   await createInviteMatch({
     inviterId: userId,
     targetUserId,
@@ -61,7 +75,39 @@ export async function sendInviteFromSpot(spotId: string) {
     },
     source: "spot",
     spotLabelForNotification: spot.label,
+    publisherId: targetUserId,
+    publisherDeckId: spot.deckId,
+    inviterDeckId: deckId,
   });
+}
+
+export async function setMatchDeck(matchId: string, deckId: string | null) {
+  const userId = await requireUserId();
+  const id = parseInt(matchId, 10);
+  const match = await prisma.match.findUnique({ where: { id } });
+  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
+  if (match.status !== MATCH_STATUS.ACCEPTED) {
+    throw new Error("目前無法變更牌組");
+  }
+
+  const isA = match.playerAId === userId;
+  if (isA && match.playerAReady) throw new Error("已準備，請先取消準備再變更牌組");
+  if (!isA && match.playerBReady) throw new Error("已準備，請先取消準備再變更牌組");
+
+  let nextDeckId: string | null = deckId?.trim() || null;
+  if (nextDeckId) {
+    await assertUserOwnsDeck(userId, nextDeckId);
+  } else {
+    nextDeckId = null;
+  }
+
+  await prisma.match.update({
+    where: { id },
+    data: isA ? { playerADeckId: nextDeckId } : { playerBDeckId: nextDeckId },
+  });
+
+  await publishMatchSnapshot(id);
+  revalidatePath("/battle");
 }
 
 export async function acceptInvite(matchId: string) {
@@ -338,7 +384,7 @@ export async function finishMatch(
 
   if (completed) {
     await publishMatchCompleted(id);
-    const share = await getMatchSharePayload(id);
+    const share = await getMatchSharePayload(id, userId);
     if (share) {
       revalidatePath("/battle");
       revalidatePath("/profile");

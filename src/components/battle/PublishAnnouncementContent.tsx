@@ -4,6 +4,7 @@
 
 import { useState, useTransition } from "react";
 import { publishBattleAnnouncement } from "@/actions/meetSpot";
+import { DeckPickerField } from "@/components/battle/DeckPickerField";
 import {
   ANNOUNCEMENT_TTL_DEFAULT_HOURS,
   ANNOUNCEMENT_TTL_MAX_HOURS,
@@ -27,6 +28,7 @@ type Props = {
 function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }: Props) {
   const [ttlHours, setTtlHours] = useState(ANNOUNCEMENT_TTL_DEFAULT_HOURS);
   const [playNote, setPlayNote] = useState("");
+  const [deckId, setDeckId] = useState<string | null>(null);
   const [label, setLabel] = useState(draft.label);
   const [err, setErr] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -47,6 +49,7 @@ function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }:
           playNote,
           shopId: draft.shopId,
           ttlHours,
+          deckId,
         });
         onPublished({ ...draft, label: trimmed });
         onClose();
@@ -75,6 +78,8 @@ function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }:
           required
         />
       </label>
+
+      <DeckPickerField value={deckId} onChange={setDeckId} disabled={pending} />
 
       {/* Play note */}
       <label className="block text-sm font-medium text-foreground">

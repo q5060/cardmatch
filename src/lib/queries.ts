@@ -3,6 +3,14 @@ import {
   MATCH_ACTIVE_STATUSES,
   MATCH_STATUS,
 } from "./constants";
+import {
+  announcementDeckInclude,
+  matchDeckInclude,
+  toDeckSummary,
+  canViewDeckContent,
+  type DeckSummary,
+  type DeckSummaryWithAccess,
+} from "./matchDeck";
 import { getBlockedUserIds } from "./block";
 import { isShopOpenNow, parseShopHours } from "./shopHours";
 
@@ -193,6 +201,7 @@ export type MapAnnouncementDTO = {
   playNote: string;
   shopId: string | null;
   expiresAt: string;
+  deck: DeckSummaryWithAccess | null;
 };
 
 type SpotWithUser = {
@@ -205,6 +214,7 @@ type SpotWithUser = {
   playNote: string;
   shopId: string | null;
   expiresAt: Date | null;
+  deck?: { id: string; title: string; visibility: string } | null;
   user: {
     id: number;
     displayName: string;
@@ -215,7 +225,20 @@ type SpotWithUser = {
   };
 };
 
-function mapSpotToDTO(s: SpotWithUser): MapAnnouncementDTO {
+async function mapSpotToDTO(
+  s: SpotWithUser,
+  viewerId: number | null,
+): Promise<MapAnnouncementDTO> {
+  const summary = toDeckSummary(s.deck);
+  let deck: DeckSummaryWithAccess | null = null;
+  if (summary && s.deck) {
+    const canViewCards = await canViewDeckContent(
+      { userId: s.userId, visibility: s.deck.visibility },
+      viewerId,
+    );
+    deck = { ...summary, canViewCards };
+  }
+
   return {
     spotId: s.id,
     userId: s.userId,
@@ -231,10 +254,12 @@ function mapSpotToDTO(s: SpotWithUser): MapAnnouncementDTO {
     playNote: s.playNote,
     shopId: s.shopId,
     expiresAt: s.expiresAt!.toISOString(),
+    deck,
   };
 }
 
 const userInclude = {
+  ...announcementDeckInclude,
   user: {
     select: {
       id: true,
@@ -271,7 +296,9 @@ export async function getMapAnnouncements(
     }
   }
 
-  return Array.from(latestByUser.values()).map(mapSpotToDTO);
+  return Promise.all(
+    Array.from(latestByUser.values()).map((s) => mapSpotToDTO(s, viewerId)),
+  );
 }
 
 export type HomeAnnouncementPreview = {
@@ -332,7 +359,7 @@ export async function getAnnouncementsAtShop(
     orderBy: { updatedAt: "desc" },
   });
 
-  return spots.map(mapSpotToDTO);
+  return Promise.all(spots.map((s) => mapSpotToDTO(s, viewerId)));
 }
 
 export async function getMyActiveAnnouncement(
@@ -347,7 +374,7 @@ export async function getMyActiveAnnouncement(
   });
   if (!s || !s.expiresAt) return null;
 
-  return mapSpotToDTO(s);
+  return mapSpotToDTO(s, userId);
 }
 
 /** Active lobby/battle rows involving this user (excludes completed/cancelled). */
@@ -387,6 +414,7 @@ export async function getActiveMatchForUser(userId: number) {
           age: true,
         },
       },
+      ...matchDeckInclude,
       shop: true,
     },
   });
@@ -405,6 +433,7 @@ export async function getMatchHistory(userId: number, take = 15) {
       playerB: { select: { id: true, displayName: true } },
       battleResults: true,
       shop: { select: { id: true, name: true } },
+      ...matchDeckInclude,
     },
   });
 }
@@ -581,6 +610,8 @@ export type ProfileMatchFeedRow = {
   otherDisplayName: string;
   otherUserId: number;
   outcomeLabel: string | null;
+  myDeck: DeckSummary | null;
+  otherDeck: DeckSummary | null;
 };
 
 export async function getProfileMatchFeed(
@@ -640,6 +671,12 @@ export async function getProfileMatchFeed(
       otherDisplayName: otherName,
       otherUserId,
       outcomeLabel,
+      myDeck: toDeckSummary(
+        m.playerAId === userId ? m.playerADeck : m.playerBDeck,
+      ),
+      otherDeck: toDeckSummary(
+        m.playerAId === userId ? m.playerBDeck : m.playerADeck,
+      ),
     };
   });
 }

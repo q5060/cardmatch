@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
 import { MatchResultShareCard } from "@/components/battle/MatchResultShareCard";
 import {
   buildShareUrl,
@@ -47,12 +48,13 @@ export default async function BattleResultSharePage({ params }: Props) {
   const matchId = parseInt(idStr, 10);
   if (Number.isNaN(matchId)) notFound();
 
-  const share = await getMatchSharePayload(matchId);
+  const user = await getCurrentUser();
+  const share = await getMatchSharePayload(matchId, user?.id ?? null);
   if (!share) notFound();
 
   return (
     <div className="mx-auto max-w-lg space-y-6 py-8">
-      <MatchResultShareCard share={share} />
+      <MatchResultShareCard share={share} viewerId={user?.id ?? null} />
       <div className="flex justify-center">
         <Link href="/" className="btn btn-outline text-sm font-semibold">
           前往 CardMatch 首頁

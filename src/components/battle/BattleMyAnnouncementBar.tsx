@@ -32,6 +32,11 @@ export function BattleMyAnnouncementBar({
             {announcement.shopId ? "卡店" : "自訂地點"}
           </span>
         </p>
+        {announcement.deck ? (
+          <p className="mt-1 text-xs text-foreground">
+            牌組：{announcement.deck.title}
+          </p>
+        ) : null}
         {announcement.playNote ? (
           <p className="mt-1 line-clamp-2 text-xs text-foreground">{announcement.playNote}</p>
         ) : null}

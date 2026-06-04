@@ -69,7 +69,11 @@ export default async function BattlePage({
         shops={shops}
         announcements={announcements}
         myAnnouncement={myAnnouncement}
-        activeMatch={activeMatch ? toActiveMatchDTO(activeMatch) : null}
+        activeMatch={
+          activeMatch && viewerId
+            ? await toActiveMatchDTO(activeMatch, viewerId)
+            : null
+        }
         defaultLat={defaultLat}
         defaultLng={defaultLng}
         defaultShopId={userPrefs?.defaultShopId ?? null}

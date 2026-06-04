@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { MATCH_ACTIVE_STATUSES, MATCH_STATUS } from "@/lib/constants";
+import { deckIdsForInviteMatch } from "@/lib/matchDeck";
 import { publishMatchSnapshot, publishNotification } from "@/lib/realtime/publish";
 import { revalidatePath } from "next/cache";
 
@@ -20,6 +21,11 @@ export type CreateInviteParams = {
   source: CreateInviteSource;
   /** Spot invite only: label shown in notification (defaults to meet.label) */
   spotLabelForNotification?: string;
+  /** Spot invite: publisher's deck from announcement */
+  publisherDeckId?: string | null;
+  /** Spot invite: inviter's optional deck */
+  inviterDeckId?: string | null;
+  publisherId?: number;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
@@ -83,6 +89,18 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
 
   const isRandom = source === "random";
 
+  const deckIds =
+    !isRandom && params.publisherId != null
+      ? deckIdsForInviteMatch({
+          playerAId,
+          playerBId,
+          publisherId: params.publisherId,
+          inviterId,
+          publisherDeckId: params.publisherDeckId,
+          inviterDeckId: params.inviterDeckId,
+        })
+      : { playerADeckId: null as string | null, playerBDeckId: null as string | null };
+
   const match = await db.match.create({
     data: {
       playerAId,
@@ -94,6 +112,8 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
       meetLng: meet.lng,
       meetLabel: labelShort,
       shopId: meet.shopId,
+      playerADeckId: deckIds.playerADeckId,
+      playerBDeckId: deckIds.playerBDeckId,
     },
   });
 

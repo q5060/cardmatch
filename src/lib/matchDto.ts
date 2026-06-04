@@ -1,5 +1,13 @@
 import prisma from "@/lib/prisma";
+import { MATCH_STATUS } from "@/lib/constants";
 import { getActiveMatchForUser } from "@/lib/queries";
+import {
+  getMatchDeckSidesForViewer,
+  type DeckCardRow,
+  type DeckSummaryWithCards,
+} from "@/lib/matchDeck";
+
+export type { DeckSummaryWithCards, DeckCardRow };
 
 export type ActiveMatchDTO = {
   id: number;
@@ -27,6 +35,8 @@ export type ActiveMatchDTO = {
     gender: string;
     age: number | null;
   };
+  myDeck: DeckSummaryWithCards | null;
+  theirDeck: DeckSummaryWithCards | null;
 };
 
 export type BattleResultDTO = {
@@ -40,7 +50,15 @@ export type BattleResultDTO = {
 
 type MatchRow = NonNullable<Awaited<ReturnType<typeof getActiveMatchForUser>>>;
 
-export function toActiveMatchDTO(m: MatchRow): ActiveMatchDTO {
+export async function toActiveMatchDTO(
+  m: MatchRow,
+  viewerId: number,
+): Promise<ActiveMatchDTO> {
+  const bypassVisibility = m.status === MATCH_STATUS.IN_PROGRESS;
+  const decks = await getMatchDeckSidesForViewer(m, viewerId, {
+    bypassVisibilityForParticipant: bypassVisibility,
+  });
+
   return {
     id: m.id,
     status: m.status,
@@ -55,6 +73,8 @@ export function toActiveMatchDTO(m: MatchRow): ActiveMatchDTO {
     meetLabel: m.meetLabel,
     playerA: m.playerA,
     playerB: m.playerB,
+    myDeck: decks.myDeck,
+    theirDeck: decks.theirDeck,
   };
 }
 
@@ -72,7 +92,7 @@ export async function fetchActiveMatchPayload(userId: number): Promise<{
   });
 
   return {
-    activeMatch: toActiveMatchDTO(activeMatch),
+    activeMatch: await toActiveMatchDTO(activeMatch, userId),
     battleResult: result
       ? {
           id: result.id,

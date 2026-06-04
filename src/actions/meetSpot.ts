@@ -8,6 +8,7 @@ import {
   ANNOUNCEMENT_TTL_MAX_HOURS,
   ANNOUNCEMENT_TTL_MIN_HOURS,
 } from "@/lib/constants";
+import { assertUserOwnsDeck } from "@/lib/matchDeck";
 import {
   countActiveMatchesForUser,
   getAnnouncementsAtShop,
@@ -47,6 +48,7 @@ export async function publishBattleAnnouncement(input: {
   playNote?: string;
   shopId?: string | null;
   ttlHours?: number;
+  deckId?: string | null;
 }) {
   const userId = await requireUserId();
   if (!Number.isFinite(input.lat) || !Number.isFinite(input.lng)) {
@@ -62,6 +64,12 @@ export async function publishBattleAnnouncement(input: {
   }
 
   const expiresAt = announcementExpiresAt(ttlHours);
+  let deckId: string | null = input.deckId?.trim() || null;
+  if (deckId) {
+    await assertUserOwnsDeck(userId, deckId);
+  } else {
+    deckId = null;
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.meetSpot.updateMany({
@@ -87,6 +95,7 @@ export async function publishBattleAnnouncement(input: {
           looking: true,
           active: true,
           expiresAt,
+          deckId,
         },
       });
     } else {
@@ -102,6 +111,7 @@ export async function publishBattleAnnouncement(input: {
           looking: true,
           active: true,
           expiresAt,
+          deckId,
         },
       });
     }

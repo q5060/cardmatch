@@ -5,6 +5,7 @@ import {
   formatMatchShareDate,
   getWinnerLabelForViewer,
 } from "@/lib/matchShare";
+import { MatchResultDeckBlock } from "@/components/battle/MatchResultDeckBlock";
 
 type Props = {
   share: MatchSharePayload;
@@ -96,6 +97,11 @@ export function MatchResultShareCard({ share, viewerId }: Props) {
           本場為平手
         </p>
       ) : null}
+
+      <div className="grid gap-3 border-t border-black/[0.06] px-5 py-4 sm:grid-cols-2 sm:px-6">
+        <MatchResultDeckBlock deck={share.playerA.deck} playerLabel={share.playerA.displayName} />
+        <MatchResultDeckBlock deck={share.playerB.deck} playerLabel={share.playerB.displayName} />
+      </div>
 
       <div className="flex flex-col items-center gap-2 border-t border-black/[0.06] px-5 py-4 text-center text-sm text-muted-foreground sm:px-6">
         <p className="flex items-center justify-center gap-2">

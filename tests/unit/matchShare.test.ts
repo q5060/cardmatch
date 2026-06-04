@@ -16,8 +16,8 @@ const sampleShare: MatchSharePayload = {
   completedAt: "2026-06-01T12:00:00.000Z",
   meetLabel: "台北卡牌屋",
   winnerId: 10,
-  playerA: { id: 10, displayName: "Alice", avatarUrl: null },
-  playerB: { id: 20, displayName: "Bob", avatarUrl: null },
+  playerA: { id: 10, displayName: "Alice", avatarUrl: null, deck: null },
+  playerB: { id: 20, displayName: "Bob", avatarUrl: null, deck: null },
 };
 
 describe("matchShare", () => {
