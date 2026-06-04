@@ -51,7 +51,7 @@ export async function AppShell({
             >
               Terms
             </Link> */}
-            <div className="flex items-center gap-3 border-l border-black/[0.06] pl-6">
+            {/* <div className="flex items-center gap-3 border-l border-black/[0.06] pl-6">
               <a
                 href="#"
                 className="text-muted-foreground transition hover:text-primary"
@@ -73,7 +73,7 @@ export async function AppShell({
               >
                 <MessageCircle className="h-4 w-4" strokeWidth={1.75} />
               </a>
-            </div>
+            </div> */}
           </div>
         </div>
       </footer>
