@@ -64,8 +64,9 @@ export async function updateProfile(formData: FormData) {
   if (!displayName || displayName.length > 40) {
     throw new Error("INVALID_DISPLAY_NAME");
   }
-  if (!isUserGender(gender)) throw new Error("INVALID_GENDER");
-  if (age === null) throw new Error("INVALID_AGE");
+  if (gender && !isUserGender(gender)) throw new Error("INVALID_GENDER");
+  const ageRaw = String(formData.get("age") ?? "").trim();
+  if (ageRaw && age === null) throw new Error("INVALID_AGE");
 
   const userId = session.userId;
   const existing = await prisma.user.findUnique({
@@ -105,9 +106,6 @@ export async function updateProfile(formData: FormData) {
     nextAvatarUrl = `${AVATAR_PREFIX}${filename}`;
   }
 
-  const finalAvatar = nextAvatarUrl ?? existing.avatarUrl;
-  if (!finalAvatar?.trim()) throw new Error("AVATAR_REQUIRED");
-
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -126,7 +124,23 @@ export async function updateProfile(formData: FormData) {
 export async function removeAvatar() {
   const session = await getSession();
   if (!session.userId) throw new Error("UNAUTHORIZED");
-  throw new Error("AVATAR_REQUIRED_FOR_MEETUP");
+
+  const userId = session.userId;
+  const existing = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { avatarUrl: true },
+  });
+  if (!existing) throw new Error("UNAUTHORIZED");
+
+  await removeLocalAvatarIfOwned(userId, existing.avatarUrl);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { avatarUrl: null },
+  });
+
+  revalidatePath("/profile");
+  revalidatePath(`/profile/${userId}`);
 }
 
 export async function sendFriendRequest(targetUserId: number) {

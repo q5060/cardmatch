@@ -10,7 +10,6 @@ import {
 import { getMyQueueStatus } from "@/actions/matchQueue";
 import { BattleClient } from "@/components/battle/BattleClient";
 import { toActiveMatchDTO } from "@/lib/matchDto";
-import { isProfileIdentificationComplete } from "@/lib/profile";
 
 export const metadata: Metadata = {
   title: "對戰 | CardMatch",
@@ -37,12 +36,7 @@ export default async function BattlePage({
       viewerId
         ? prisma.user.findUnique({
             where: { id: viewerId },
-            select: {
-              defaultShopId: true,
-              gender: true,
-              age: true,
-              avatarUrl: true,
-            },
+            select: { defaultShopId: true },
           })
         : Promise.resolve(null),
       viewerId ? getMyQueueStatus() : Promise.resolve(null),
@@ -68,15 +62,10 @@ export default async function BattlePage({
   const { shop: initialShopId } = await searchParams;
   const defaultLat = myAnnouncement?.lat ?? DEFAULT_LAT;
   const defaultLng = myAnnouncement?.lng ?? DEFAULT_LNG;
-  const profileComplete = userPrefs
-    ? isProfileIdentificationComplete(userPrefs)
-    : true;
-
   return (
     <div className="space-y-4">
       <BattleClient
         userId={viewerId}
-        profileComplete={profileComplete}
         shops={shops}
         announcements={announcements}
         myAnnouncement={myAnnouncement}

@@ -9,7 +9,7 @@ import { SettingsDecksPanel } from "@/components/settings/SettingsDecksPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Alert } from "@/components/ui/Alert";
 import { BlockedUsersList } from "@/components/settings/BlockedUsersList";
-import { USER_AGE_MAX, USER_AGE_MIN, USER_GENDER } from "@/lib/constants";
+import { USER_GENDER } from "@/lib/constants";
 import { USER_GENDER_LABELS } from "@/lib/profile";
 
 interface UserSettings {
@@ -325,14 +325,8 @@ function SettingsContent() {
           {activeTab === "account" && (
             <div className="card space-y-6 p-6">
               <h2 className="text-lg font-semibold text-foreground">帳號設定</h2>
-              {user.profileComplete === false ? (
-                <Alert variant="error">
-                  約戰前請完成必填識別資料：
-                  {(user.profileMissingFields ?? []).join("、") || "性別、年齡、大頭貼"}
-                </Alert>
-              ) : null}
               <p className="text-sm text-muted-foreground">
-                性別（男／女）、確切年齡與大頭貼為約戰必填，方便在實體店辨識對手並提升安全。
+                性別、年齡與大頭貼為選填，填寫後可在實體約戰時幫助對手認出你。
               </p>
 
               <form onSubmit={handleProfileUpdate} className="space-y-5">
@@ -359,16 +353,13 @@ function SettingsContent() {
                 </label>
 
                 <label className="block text-sm font-medium text-foreground">
-                  <span className="text-muted-foreground">
-                    性別 <span className="text-red-600">*</span>
-                  </span>
+                  <span className="text-muted-foreground">性別</span>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                     className="input-field mt-2"
-                    required
                   >
-                    <option value="">請選擇</option>
+                    <option value="">不填</option>
                     {Object.values(USER_GENDER).map((g) => (
                       <option key={g} value={g}>
                         {USER_GENDER_LABELS[g]}
@@ -378,31 +369,25 @@ function SettingsContent() {
                 </label>
 
                 <label className="block text-sm font-medium text-foreground">
-                  <span className="text-muted-foreground">
-                    年齡 <span className="text-red-600">*</span>
-                  </span>
+                  <span className="text-muted-foreground">年齡</span>
                   <input
                     type="number"
                     inputMode="numeric"
-                    min={USER_AGE_MIN}
-                    max={USER_AGE_MAX}
+                    min={1}
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
                     className="input-field mt-2"
-                    placeholder={`${USER_AGE_MIN}–${USER_AGE_MAX}`}
-                    required
+                    placeholder="例：25"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    請填寫實際歲數（{USER_AGE_MIN}–{USER_AGE_MAX} 歲）
+                    請填寫實際歲數（正整數）
                   </p>
                 </label>
 
                 <div>
-                  <p className="text-sm font-medium text-foreground">
-                    大頭貼 <span className="text-red-600">*</span>
-                  </p>
+                  <p className="text-sm font-medium text-foreground">大頭貼</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    支援 JPG、PNG 與 WebP，大小上限 2MB（實體會面辨識用，必填）
+                    支援 JPG、PNG 與 WebP，大小上限 2MB
                   </p>
                   <div className="mt-3 flex flex-wrap items-end gap-4">
                     {(avatarPreview || user.avatarUrl) && (

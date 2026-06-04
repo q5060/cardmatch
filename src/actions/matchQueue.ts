@@ -8,7 +8,6 @@ import { MATCH_QUEUE_TTL_MS } from "@/lib/constants";
 import { countActiveMatchesForUser } from "@/lib/queries";
 import { createInviteMatch } from "@/lib/matchInvite";
 import type { MeetLocation } from "@/lib/matchInvite";
-import { assertProfileIdentificationComplete } from "@/lib/profile";
 
 async function requireUserId() {
   const session = await getSession();
@@ -251,7 +250,6 @@ export async function joinRandomQueue(input?: {
   radiusKm?: number;
 }): Promise<JoinRandomQueueResult> {
   const userId = await requireUserId();
-  await assertProfileIdentificationComplete(userId);
   const shopId = input?.shopId?.trim() || null;
   const playNote = (input?.playNote ?? "").trim().slice(0, 500);
   const lat = input?.lat;

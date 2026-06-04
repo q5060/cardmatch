@@ -20,7 +20,7 @@ model User {
   defaultShopId   String?  // 常去的店家
 
   // 實體會面識別（約戰必填）
-  gender          String   @default("") // MALE | FEMALE
+  gender          String   @default("") // MALE | FEMALE | OTHER
   age             Int?     // 確切歲數
   
   // 隱私設定

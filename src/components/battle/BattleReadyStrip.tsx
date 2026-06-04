@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Check, UserRound } from "lucide-react";
 import type { ActiveMatchDTO } from "@/lib/matchDto";
 import { motionClass, prefersReducedMotion } from "@/lib/motion";
-import { ageLabel, genderLabel } from "@/lib/profile";
+import { profileMetaLine } from "@/lib/profile";
 
 type PlayerInfo = {
   label: string;
@@ -12,6 +12,7 @@ type PlayerInfo = {
   avatarUrl: string | null;
   ready: boolean;
   isSelf: boolean;
+  meta?: string | null;
 };
 
 function ReadyAvatar({ player, reducedMotion }: { player: PlayerInfo; reducedMotion: boolean }) {
@@ -52,6 +53,9 @@ function ReadyAvatar({ player, reducedMotion }: { player: PlayerInfo; reducedMot
         <p className="max-w-[7rem] truncate text-sm font-semibold text-foreground">
           {player.isSelf ? "你" : player.displayName}
         </p>
+        {player.meta ? (
+          <p className="max-w-[7rem] truncate text-xs text-muted-foreground">{player.meta}</p>
+        ) : null}
         <p
           className={`mt-0.5 text-xs font-medium ${
             player.ready ? "text-emerald-600" : "text-muted-foreground"
@@ -100,6 +104,7 @@ export function BattleReadyStrip({
     avatarUrl: opponent.avatarUrl ?? null,
     ready: theirReady,
     isSelf: false,
+    meta: profileMetaLine(opponent.gender, opponent.age),
   };
 
   return (
@@ -114,18 +119,6 @@ export function BattleReadyStrip({
         </div>
         <ReadyAvatar player={opponentPlayer} reducedMotion={reducedMotion} />
       </div>
-      {(genderLabel(opponent.gender) || ageLabel(opponent.age)) && (
-        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            對手識別
-          </p>
-          <p className="mt-1 text-foreground">
-            {[genderLabel(opponent.gender), ageLabel(opponent.age)]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-      )}
       <div className={readyButtonClassName}>{children}</div>
     </div>
   );

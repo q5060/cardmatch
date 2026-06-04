@@ -107,14 +107,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    const nextAvatarUrl = avatarUrl ?? existing.avatarUrl;
-    if (!nextAvatarUrl?.trim()) {
-      return NextResponse.json(
-        { error: "請上傳大頭貼照片，以便實體會面時辨識" },
-        { status: 400 },
-      );
-    }
-
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: session.userId },

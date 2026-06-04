@@ -16,7 +16,6 @@ import {
   type MapAnnouncementDTO,
   type ShopEventDTO,
 } from "@/lib/queries";
-import { assertProfileIdentificationComplete } from "@/lib/profile";
 
 async function requireUserId() {
   const session = await getSession();
@@ -50,8 +49,6 @@ export async function publishBattleAnnouncement(input: {
   ttlHours?: number;
 }) {
   const userId = await requireUserId();
-  await assertProfileIdentificationComplete(userId);
-
   if (!Number.isFinite(input.lat) || !Number.isFinite(input.lng)) {
     throw new Error("請選擇有效的地圖座標");
   }
