@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GlobalMatchCeremony } from "./GlobalMatchCeremony";
 import { NavBar } from "./NavBar";
 import { PageTransition } from "./PageTransition";
 import { RealtimeShell } from "./RealtimeShell";
@@ -27,6 +28,7 @@ export async function AppShell({
 
   return (
     <RealtimeShell enabled={!!user}>
+    {user ? <GlobalMatchCeremony userId={user.id} /> : null}
     <div className="flex min-h-screen flex-col">
       <NavBar user={user} pendingInvites={pendingInvites} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">

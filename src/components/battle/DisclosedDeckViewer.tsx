@@ -26,6 +26,7 @@ export function DisclosedDeckViewer({
   const [cards, setCards] = useState<DeckCardRow[] | null>(null);
 
   const canExpand = deck.canViewCards;
+  const isBattleDisclosure = spotId != null || matchId != null;
 
   const fetchCards = useCallback(async () => {
     if (cards !== null) return;
@@ -63,9 +64,11 @@ export function DisclosedDeckViewer({
       <div className="rounded-xl border border-border bg-black/[0.02] p-3 text-sm">
         <span className="text-muted-foreground">{label}：</span>
         <span className="font-medium text-foreground">{deck.title}</span>
-        <span className="ml-2 inline-block align-middle">
-          <DeckVisibilityBadge visibility={deck.visibility} />
-        </span>
+        {!isBattleDisclosure ? (
+          <span className="ml-2 inline-block align-middle">
+            <DeckVisibilityBadge visibility={deck.visibility} />
+          </span>
+        ) : null}
         <p className="mt-1 text-xs text-muted-foreground">牌組內容未公開</p>
       </div>
     );
@@ -84,9 +87,11 @@ export function DisclosedDeckViewer({
           <span className="font-medium text-primary underline-offset-2 hover:underline">
             {deck.title}
           </span>
-          <span className="ml-2 inline-block align-middle">
-            <DeckVisibilityBadge visibility={deck.visibility} />
-          </span>
+          {!isBattleDisclosure ? (
+            <span className="ml-2 inline-block align-middle">
+              <DeckVisibilityBadge visibility={deck.visibility} />
+            </span>
+          ) : null}
         </span>
         {open ? (
           <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />

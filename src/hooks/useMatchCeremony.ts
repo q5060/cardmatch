@@ -35,11 +35,17 @@ function getOpponent(match: ActiveMatchDTO, userId: number) {
 
 type PrevSnapshot = { matchId: number; status: string } | null;
 
+type UseMatchCeremonyOptions = {
+  skipKinds?: CeremonyKind[];
+};
+
 export function useMatchCeremony(
   activeMatch: ActiveMatchDTO | null,
   userId: number,
   seenInviteMatchIdRef?: MutableRefObject<number | null>,
+  options?: UseMatchCeremonyOptions,
 ) {
+  const skipKinds = options?.skipKinds;
   const [ceremony, setCeremony] = useState<CeremonyState | null>(null);
   const prevRef = useRef<PrevSnapshot>(null);
   const hasHydratedRef = useRef(false);
@@ -47,6 +53,8 @@ export function useMatchCeremony(
 
   const showCeremony = useCallback(
     (kind: CeremonyKind, match: ActiveMatchDTO) => {
+      if (skipKinds?.includes(kind)) return;
+
       const key = ceremonyKey(match.id, kind);
       if (shownKeysRef.current.has(key)) return;
 
@@ -68,7 +76,7 @@ export function useMatchCeremony(
         meetLabel: match.meetLabel,
       });
     },
-    [userId, seenInviteMatchIdRef],
+    [userId, seenInviteMatchIdRef, skipKinds],
   );
 
   const dismissCeremony = useCallback(() => {

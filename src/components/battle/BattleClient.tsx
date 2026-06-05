@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginUrlWithNext } from "@/lib/safeRedirect";
+import { isStaleAnnouncementError } from "@/lib/meetSpotErrors";
 import { UserRound, ArrowLeft } from "lucide-react";
 import {
   MeetMap,
@@ -51,8 +52,6 @@ import {
   useRealtimeConnected,
   useRealtimeEvent,
 } from "@/hooks/useRealtimeEvent";
-import { useMatchCeremony } from "@/hooks/useMatchCeremony";
-import { BattleCeremonyOverlay } from "@/components/battle/BattleCeremonyOverlay";
 import { BattleReadyStrip } from "@/components/battle/BattleReadyStrip";
 import { BattleResultShareScreen } from "@/components/battle/BattleResultShareScreen";
 import { MatchReportDialog } from "@/components/battle/MatchReportDialog";
@@ -125,13 +124,8 @@ export function BattleClient({
   const [randomMatchCircle, setRandomMatchCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
   const [shareScreen, setShareScreen] = useState<MatchSharePayload | null>(null);
   const [matchReportOpen, setMatchReportOpen] = useState(false);
-  const seenInviteMatchIdRef = useRef<number | null>(null);
   const autoCleanedRef = useRef<number | null>(null);
   const isFlyingRef = useRef(false);
-
-  const isIncomingInvite =
-    activeMatch?.status === MATCH_STATUS.INVITE_PENDING &&
-    activeMatch.invitedById !== userId;
 
   const mapPins: MapAnnouncementPin[] = useMemo(() => {
     const pins: MapAnnouncementPin[] = announcements
@@ -236,17 +230,6 @@ export function BattleClient({
     }, ms);
     return () => window.clearInterval(id);
   }, [activeMatch, myAnnouncement, sseConnected, syncMapSnapshot]);
-
-  useEffect(() => {
-    if (!isIncomingInvite) {
-      document.title = "對戰 | CardMatch";
-      return;
-    }
-    document.title = "（新邀請）對戰 | CardMatch";
-    return () => {
-      document.title = "對戰 | CardMatch";
-    };
-  }, [isIncomingInvite]);
 
   /** Open a specific shop on mount (e.g. navigated from search results) */
   useEffect(() => {
@@ -356,6 +339,29 @@ export function BattleClient({
     });
   }
 
+  function runInviteFromSpot(
+    spotId: string,
+    inviterDeckId: string | null,
+    onSuccess?: () => void,
+  ) {
+    setErr(null);
+    startTransition(async () => {
+      try {
+        await sendInviteFromSpot(spotId, inviterDeckId);
+        onSuccess?.();
+        await refresh();
+      } catch (e) {
+        if (isStaleAnnouncementError(e)) {
+          onSuccess?.();
+          await refresh();
+          setSuccessMessage("此公告已結束，地圖已更新");
+          return;
+        }
+        setErr(e instanceof Error ? e.message : "操作失敗");
+      }
+    });
+  }
+
   function confirmBattleResult(winnerId: number | null) {
     if (!activeMatch) return;
     setErr(null);
@@ -455,12 +461,6 @@ export function BattleClient({
       : activeMatch.playerAReady
     : false;
 
-  const { ceremony, dismissCeremony } = useMatchCeremony(
-    activeMatch,
-    userId ?? 0,
-    seenInviteMatchIdRef,
-  );
-
   if (shareScreen && userId !== null) {
     return (
       <BattleResultShareScreen
@@ -476,52 +476,9 @@ export function BattleClient({
 
   if (activeMatch && userId !== null) {
     const st = activeMatch.status;
-    const showCeremony =
-      ceremony !== null && ceremony.matchId === activeMatch.id;
 
     return (
       <div className="space-y-6">
-        {showCeremony ? (
-          <BattleCeremonyOverlay
-            key={`${ceremony.matchId}-${ceremony.kind}`}
-            ceremony={ceremony}
-            onDismiss={dismissCeremony}
-            inviteActions={
-              ceremony.kind === "incoming_invite" ? (
-                <>
-                  <button
-                    type="button"
-                    data-testid="accept-invite"
-                    disabled={pending}
-                    onClick={() =>
-                      run(async () => {
-                        await acceptInvite(activeMatch.id.toString());
-                        dismissCeremony();
-                      })
-                    }
-                    className="btn btn-primary min-w-[7rem]"
-                  >
-                    接受約戰
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() =>
-                      run(async () => {
-                        await rejectInvite(activeMatch.id.toString());
-                        dismissCeremony();
-                      })
-                    }
-                    className="btn btn-outline border-red-200 font-semibold text-red-700 hover:bg-red-50"
-                  >
-                    拒絕
-                  </button>
-                </>
-              ) : undefined
-            }
-          />
-        ) : null}
-
         <div key={st} className="motion-fade-in-up space-y-6">
         <div className="card card-hover p-5">
           <div className="flex items-start justify-between gap-3">
@@ -1197,13 +1154,11 @@ export function BattleClient({
                 ? undefined
                 : (inviterDeckId) => {
                     if (!sheetAnnouncement) return;
-                    run(async () => {
-                      await sendInviteFromSpot(
-                        sheetAnnouncement.spotId,
-                        inviterDeckId,
-                      );
-                      setSheetAnnouncement(null);
-                    });
+                    runInviteFromSpot(
+                      sheetAnnouncement.spotId,
+                      inviterDeckId,
+                      () => setSheetAnnouncement(null),
+                    );
                   }
             }
             onClear={
@@ -1294,13 +1249,11 @@ export function BattleClient({
               ? undefined
               : (inviterDeckId) => {
                   if (!sheetAnnouncement) return;
-                  run(async () => {
-                    await sendInviteFromSpot(
-                      sheetAnnouncement.spotId,
-                      inviterDeckId,
-                    );
-                    setSheetAnnouncement(null);
-                  });
+                  runInviteFromSpot(
+                    sheetAnnouncement.spotId,
+                    inviterDeckId,
+                    () => setSheetAnnouncement(null),
+                  );
                 }
           }
           onClear={

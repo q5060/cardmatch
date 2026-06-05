@@ -7,7 +7,6 @@ import {
   announcementDeckInclude,
   matchDeckInclude,
   toDeckSummary,
-  canViewDeckContent,
   type DeckSummary,
   type DeckSummaryWithAccess,
 } from "./matchDeck";
@@ -234,11 +233,7 @@ async function mapSpotToDTO(
   const summary = toDeckSummary(s.deck);
   let deck: DeckSummaryWithAccess | null = null;
   if (summary && s.deck) {
-    const canViewCards = await canViewDeckContent(
-      { userId: s.userId, visibility: s.deck.visibility },
-      viewerId,
-    );
-    deck = { ...summary, canViewCards };
+    deck = { ...summary, canViewCards: true };
   }
 
   return {

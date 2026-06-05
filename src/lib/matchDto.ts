@@ -1,5 +1,4 @@
 import prisma from "@/lib/prisma";
-import { MATCH_STATUS } from "@/lib/constants";
 import { getActiveMatchForUser } from "@/lib/queries";
 import {
   getMatchDeckSidesForViewer,
@@ -54,9 +53,8 @@ export async function toActiveMatchDTO(
   m: MatchRow,
   viewerId: number,
 ): Promise<ActiveMatchDTO> {
-  const bypassVisibility = m.status === MATCH_STATUS.IN_PROGRESS;
   const decks = await getMatchDeckSidesForViewer(m, viewerId, {
-    bypassVisibilityForParticipant: bypassVisibility,
+    bypassVisibilityForParticipant: true,
   });
 
   return {

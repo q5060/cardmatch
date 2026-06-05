@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { MATCH_STATUS } from "@/lib/constants";
 import { assertUserOwnsDeck } from "@/lib/matchDeck";
 import { assertNotBlocked } from "@/lib/block";
+import { STALE_ANNOUNCEMENT_ERROR } from "@/lib/meetSpotErrors";
 import {
   acceptInviteForUser,
   setReadyForUser,
@@ -43,26 +44,6 @@ export async function sendInviteFromSpot(
   inviterDeckId?: string | null,
 ) {
   const userId = await requireUserId();
-  const spot = await prisma.meetSpot.findUnique({
-    where: { id: spotId },
-    include: {
-      user: { select: { displayName: true } },
-      deck: { select: { id: true } },
-    },
-  });
-  if (
-    !spot ||
-    !spot.looking ||
-    !spot.active ||
-    !spot.expiresAt ||
-    spot.expiresAt <= new Date()
-  ) {
-    throw new Error("此公告已失效或不存在");
-  }
-
-  const targetUserId = spot.userId;
-  if (targetUserId === userId) throw new Error("無法邀請自己");
-  await assertNotBlocked(userId, targetUserId);
 
   let deckId = inviterDeckId?.trim() || null;
   if (deckId) {
@@ -71,20 +52,51 @@ export async function sendInviteFromSpot(
     deckId = null;
   }
 
-  await createInviteMatch({
-    inviterId: userId,
-    targetUserId,
-    meet: {
-      lat: spot.lat,
-      lng: spot.lng,
-      label: spot.label,
-      shopId: spot.shopId,
-    },
-    source: "spot",
-    spotLabelForNotification: spot.label,
-    publisherId: targetUserId,
-    publisherDeckId: spot.deckId,
-    inviterDeckId: deckId,
+  await prisma.$transaction(async (tx) => {
+    const now = new Date();
+    const claimed = await tx.meetSpot.updateMany({
+      where: {
+        id: spotId,
+        looking: true,
+        active: true,
+        expiresAt: { gt: now },
+      },
+      data: { looking: false },
+    });
+    if (claimed.count === 0) {
+      throw new Error(STALE_ANNOUNCEMENT_ERROR);
+    }
+
+    const spot = await tx.meetSpot.findUnique({
+      where: { id: spotId },
+      include: {
+        deck: { select: { id: true } },
+      },
+    });
+    if (!spot) throw new Error(STALE_ANNOUNCEMENT_ERROR);
+
+    const targetUserId = spot.userId;
+    if (targetUserId === userId) throw new Error("無法邀請自己");
+    await assertNotBlocked(userId, targetUserId);
+
+    await createInviteMatch(
+      {
+        inviterId: userId,
+        targetUserId,
+        meet: {
+          lat: spot.lat,
+          lng: spot.lng,
+          label: spot.label,
+          shopId: spot.shopId,
+        },
+        source: "spot",
+        spotLabelForNotification: spot.label,
+        publisherId: targetUserId,
+        publisherDeckId: spot.deckId,
+        inviterDeckId: deckId,
+      },
+      tx,
+    );
   });
 }
 

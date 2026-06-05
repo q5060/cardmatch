@@ -1,10 +1,6 @@
 import prisma from "@/lib/prisma";
 import { MATCH_ACTIVE_STATUSES } from "@/lib/constants";
-import {
-  canViewDeckContent,
-  parseDeckCards,
-  type DeckCardRow,
-} from "@/lib/matchDeck";
+import { parseDeckCards, type DeckCardRow } from "@/lib/matchDeck";
 
 export type DisclosedDeckPreview = {
   id: string;
@@ -22,19 +18,17 @@ async function buildPreview(
     visibility: string;
     deckJson: string | null;
   },
-  viewerId: number,
 ): Promise<DisclosedDeckPreview> {
-  const canViewCards = await canViewDeckContent(deck, viewerId);
   return {
     id: deck.id,
     title: deck.title,
     visibility: deck.visibility,
-    canViewCards,
-    cards: canViewCards ? (parseDeckCards(deck.deckJson) ?? []) : [],
+    canViewCards: true,
+    cards: parseDeckCards(deck.deckJson) ?? [],
   };
 }
 
-/** Deck on an active announcement — name always visible; cards per visibility. */
+/** Deck on an active announcement — attaching a deck discloses its cards publicly. */
 export async function getDeckDisclosedViaSpot(
   deckId: string,
   spotId: string,
@@ -61,10 +55,10 @@ export async function getDeckDisclosedViaSpot(
     },
   });
   if (!spot?.deck) return null;
-  return buildPreview(spot.deck, viewerId);
+  return buildPreview(spot.deck);
 }
 
-/** Deck on an active match — name always visible to opponent; cards per visibility. */
+/** Deck on an active match — attached decks are disclosed to the opponent. */
 export async function getDeckDisclosedViaMatch(
   deckId: string,
   matchId: number,
@@ -107,5 +101,5 @@ export async function getDeckDisclosedViaMatch(
         : null;
   if (!deck) return null;
 
-  return buildPreview(deck, viewerId);
+  return buildPreview(deck);
 }
