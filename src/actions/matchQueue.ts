@@ -4,7 +4,8 @@ import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
-import { MATCH_QUEUE_TTL_MS } from "@/lib/constants";
+import { MATCH_QUEUE_TTL_MS, type PlayFormat } from "@/lib/constants";
+import { parsePlayFormat, playFormatsCompatible } from "@/lib/playFormat";
 import { countActiveMatchesForUser } from "@/lib/queries";
 import { createInviteMatch } from "@/lib/matchInvite";
 import type { MeetLocation } from "@/lib/matchInvite";
@@ -162,6 +163,7 @@ async function findPartnerByOverlap(
   joinerLat: number,
   joinerLng: number,
   joinerRadiusKm: number,
+  joinerPlayFormat: PlayFormat,
 ) {
   // Get all other players in queue
   const candidates = await tx.matchQueueEntry.findMany({
@@ -191,6 +193,10 @@ async function findPartnerByOverlap(
       },
     });
     if (blocked) {
+      continue;
+    }
+
+    if (!playFormatsCompatible(joinerPlayFormat, parsePlayFormat(candidate.playFormat))) {
       continue;
     }
 
@@ -245,6 +251,7 @@ export type JoinRandomQueueResult =
 export async function joinRandomQueue(input?: {
   shopId?: string | null;
   playNote?: string;
+  playFormat?: PlayFormat;
   lat?: number;
   lng?: number;
   radiusKm?: number;
@@ -252,6 +259,7 @@ export async function joinRandomQueue(input?: {
   const userId = await requireUserId();
   const shopId = input?.shopId?.trim() || null;
   const playNote = (input?.playNote ?? "").trim().slice(0, 500);
+  const playFormat = parsePlayFormat(input?.playFormat);
   const lat = input?.lat;
   const lng = input?.lng;
   const radiusKm = input?.radiusKm;
@@ -275,7 +283,7 @@ export async function joinRandomQueue(input?: {
       throw new Error("已在配對佇列中，請先取消");
     }
 
-    const partner = await findPartnerByOverlap(tx, userId, lat!, lng!, radiusKm!);
+    const partner = await findPartnerByOverlap(tx, userId, lat!, lng!, radiusKm!, playFormat);
 
     if (partner) {
       await tx.matchQueueEntry.delete({ where: { id: partner.id } });
@@ -288,6 +296,7 @@ export async function joinRandomQueue(input?: {
         userId,
         shopId,
         playNote,
+        playFormat,
         lat,
         lng,
         radiusKm,
@@ -369,6 +378,7 @@ export type QueueStatus =
     lat: number | null;
     lng: number | null;
     radiusKm: number | null;
+    playFormat: PlayFormat;
   };
 
 export async function getMyQueueStatus(): Promise<QueueStatus> {
@@ -390,5 +400,6 @@ export async function getMyQueueStatus(): Promise<QueueStatus> {
     lat: row.lat,
     lng: row.lng,
     radiusKm: row.radiusKm,
+    playFormat: parsePlayFormat(row.playFormat),
   };
 }

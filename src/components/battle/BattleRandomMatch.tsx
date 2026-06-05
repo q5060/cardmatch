@@ -6,6 +6,8 @@ import { Loader2, Shuffle } from "lucide-react";
 import { joinRandomQueue, leaveRandomQueue } from "@/actions/matchQueue";
 import type { QueueStatus } from "@/actions/matchQueue";
 import type { MapShopPin } from "@/components/map/MeetMap";
+import { PLAY_FORMAT, type PlayFormat } from "@/lib/constants";
+import { PLAY_FORMAT_LABELS, PLAY_FORMAT_OPTIONS } from "@/lib/playFormat";
 
 type Props = {
   shops: MapShopPin[];
@@ -32,6 +34,9 @@ export function BattleRandomMatch({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [queueStatus, setQueueStatus] = useState<QueueStatus | null>(initialQueueStatus);
+  const [playFormat, setPlayFormat] = useState<PlayFormat>(
+    initialQueueStatus?.inQueue ? initialQueueStatus.playFormat : PLAY_FORMAT.ANY,
+  );
   const [err, setErr] = useState<string | null>(null);
 
   const inQueue = queueStatus?.inQueue === true;
@@ -97,6 +102,7 @@ export function BattleRandomMatch({
           lat: mapCenter.lat,
           lng: mapCenter.lng,
           radiusKm,
+          playFormat,
         });
         if (result.status === "matched") {
           setQueueStatus(null);
@@ -113,6 +119,7 @@ export function BattleRandomMatch({
           lat: mapCenter.lat,
           lng: mapCenter.lng,
           radiusKm,
+          playFormat,
         });
         onQueueJoin?.(mapCenter, radiusKm);
         router.refresh();
@@ -148,6 +155,9 @@ export function BattleRandomMatch({
           <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" aria-hidden />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-foreground">搜尋對手中…</p>
+            <p className="text-xs text-muted-foreground">
+              賽制：{PLAY_FORMAT_LABELS[queueStatus?.playFormat ?? playFormat]}
+            </p>
           </div>
           <button
             type="button"
@@ -173,6 +183,25 @@ export function BattleRandomMatch({
       <p className="mt-2 text-sm text-muted-foreground">
         在目前的篩選範圍內隨機配對對手
       </p>
+
+      <fieldset className="mt-4 space-y-2">
+        <legend className="text-xs font-medium text-muted-foreground">賽制</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {PLAY_FORMAT_OPTIONS.map((format) => (
+            <button
+              key={format}
+              type="button"
+              aria-pressed={playFormat === format}
+              onClick={() => setPlayFormat(format)}
+              className={`btn btn-sm rounded-xl px-2 text-xs font-medium ${
+                playFormat === format ? "btn-primary" : "btn-outline"
+              }`}
+            >
+              {PLAY_FORMAT_LABELS[format]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       <button
         type="button"

@@ -271,8 +271,9 @@ model MatchQueueEntry {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   shopId   String?
   shop     Shop?    @relation(fields: [shopId], references: [id], onDelete: SetNull)
-  playNote String   @default("")
-  lat      Float?   // Map center latitude for random matching
+  playNote   String   @default("")
+  playFormat String   @default("ANY") // OPEN | STANDARD | ANY
+  lat        Float?   // Map center latitude for random matching
   lng      Float?   // Map center longitude for random matching
   radiusKm Float?   // Search radius in km for random matching
   joinedAt DateTime @default(now())
