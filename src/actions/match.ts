@@ -14,7 +14,14 @@ import {
 import {
   getMatchSharePayload,
   type FinishMatchResult,
+  type MatchSharePayload,
 } from "@/lib/matchShare";
+import {
+  battleResultNoteUpdateData,
+  getBattleResultNoteFields,
+  isValidNoteVisibility,
+  MATCH_NOTE_MAX_LENGTH,
+} from "@/lib/matchNotes";
 import {
   publishMatchCompleted,
   publishMatchSnapshot,
@@ -448,4 +455,47 @@ export async function requestFriendAfterMatch(matchId: string) {
 
   revalidatePath("/friends");
   revalidatePath("/battle");
+}
+
+export async function updateMatchNotes(
+  matchId: string,
+  notes: string,
+  visibility: string,
+): Promise<MatchSharePayload> {
+  const userId = await requireUserId();
+  const id = parseInt(matchId, 10);
+  if (Number.isNaN(id)) throw new Error("無效的對戰編號");
+
+  const match = await prisma.match.findUnique({
+    where: { id },
+    include: { battleResults: true },
+  });
+  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
+  if (match.status !== MATCH_STATUS.COMPLETED) throw new Error("約戰尚未完成");
+
+  const br = match.battleResults[0];
+  if (!br || br.status !== "AGREED") throw new Error("對戰結果尚未確認");
+
+  if (!isValidNoteVisibility(visibility)) throw new Error("無效的公開設定");
+
+  const trimmed = notes.trim().slice(0, MATCH_NOTE_MAX_LENGTH);
+  const { field } = getBattleResultNoteFields(
+    br,
+    match.playerAId,
+    match.playerBId,
+    userId,
+  );
+
+  await prisma.battleResult.update({
+    where: { matchId: id },
+    data: battleResultNoteUpdateData(field, trimmed, visibility),
+  });
+
+  const share = await getMatchSharePayload(id, userId);
+  if (!share) throw new Error("找不到對戰結果");
+
+  revalidatePath("/battle");
+  revalidatePath("/profile");
+  revalidatePath(`/battle/result/${id}`);
+  return share;
 }

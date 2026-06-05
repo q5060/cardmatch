@@ -5,12 +5,19 @@ import {
   matchDeckInclude,
   type DeckSummaryWithCards,
 } from "@/lib/matchDeck";
+import {
+  resolveMatchPlayerNote,
+  type MatchSharePlayerNote,
+} from "@/lib/matchNotes";
+
+export type { MatchSharePlayerNote };
 
 export type MatchSharePlayer = {
   id: number;
   displayName: string;
   avatarUrl: string | null;
   deck: DeckSummaryWithCards | null;
+  note?: MatchSharePlayerNote | null;
 };
 
 export type MatchSharePayload = {
@@ -60,14 +67,35 @@ export async function getMatchSharePayload(
   if (!br || br.status !== "AGREED") return null;
 
   const decks = await getMatchDeckSidesForViewer(match, viewerId ?? null);
+  const viewerCanEditA =
+    viewerId !== null && viewerId !== undefined && match.playerAId === viewerId;
+  const viewerCanEditB =
+    viewerId !== null && viewerId !== undefined && match.playerBId === viewerId;
+
+  const [noteA, noteB] = await Promise.all([
+    resolveMatchPlayerNote({
+      ownerId: match.playerAId,
+      viewerId: viewerId ?? null,
+      notes: br.playerANotes,
+      visibility: br.playerANotesVisibility,
+      canEdit: viewerCanEditA,
+    }),
+    resolveMatchPlayerNote({
+      ownerId: match.playerBId,
+      viewerId: viewerId ?? null,
+      notes: br.playerBNotes,
+      visibility: br.playerBNotesVisibility,
+      canEdit: viewerCanEditB,
+    }),
+  ]);
 
   return {
     matchId: match.id,
     completedAt: match.updatedAt.toISOString(),
     meetLabel: match.meetLabel,
     winnerId: br.winnerId,
-    playerA: { ...match.playerA, deck: decks.playerA },
-    playerB: { ...match.playerB, deck: decks.playerB },
+    playerA: { ...match.playerA, deck: decks.playerA, note: noteA },
+    playerB: { ...match.playerB, deck: decks.playerB, note: noteB },
   };
 }
 

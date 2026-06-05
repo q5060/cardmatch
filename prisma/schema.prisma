@@ -230,6 +230,10 @@ model BattleResult {
   playerAAgreed Boolean  @default(false)
   playerBAgreed Boolean  @default(false)
   status        String   @default("PENDING") // PENDING | AGREED
+  playerANotes           String @default("")
+  playerANotesVisibility String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
+  playerBNotes           String @default("")
+  playerBNotesVisibility String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
   createdAt     DateTime @default(now())
 }
 

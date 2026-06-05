@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { MatchResultShareCard } from "@/components/battle/MatchResultShareCard";
+import { MatchResultNotesPanel } from "@/components/battle/MatchResultNotesPanel";
 import {
   buildShareUrl,
   getMatchSharePayload,
@@ -55,6 +56,7 @@ export default async function BattleResultSharePage({ params }: Props) {
   return (
     <div className="mx-auto max-w-lg space-y-6 py-8">
       <MatchResultShareCard share={share} viewerId={user?.id ?? null} />
+      <MatchResultNotesPanel share={share} viewerId={user?.id ?? null} />
       <div className="flex justify-center">
         <Link href="/" className="btn btn-outline text-sm font-semibold">
           前往 CardMatch 首頁
