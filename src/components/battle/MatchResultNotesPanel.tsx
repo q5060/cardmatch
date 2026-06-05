@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
 import { updateMatchNotes } from "@/actions/match";
@@ -74,12 +74,6 @@ export function MatchResultNotesPanel({ share, viewerId, onShareUpdate }: Props)
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (!myNote?.canEdit) return;
-    setNotes(myNote.text ?? "");
-    setVisibility(myNote.visibility);
-  }, [myNote?.canEdit, myNote?.text, myNote?.visibility]);
-
   const isDirty = useMemo(() => {
     if (!myNote?.canEdit) return false;
     return notes !== (myNote.text ?? "") || visibility !== myNote.visibility;
@@ -106,11 +100,12 @@ export function MatchResultNotesPanel({ share, viewerId, onShareUpdate }: Props)
     });
   }, [myNote?.canEdit, notes, onShareUpdate, router, share.matchId, visibility]);
 
-  const readablePlayers = myPlayer && opponentPlayer
-    ? [opponentPlayer]
-    : [share.playerA, share.playerB];
-
   const otherNotes = useMemo(() => {
+    const readablePlayers =
+      myPlayer && opponentPlayer
+        ? [opponentPlayer]
+        : [share.playerA, share.playerB];
+
     const blocks = readablePlayers
       .filter((player) => player.note !== null && player.note !== undefined)
       .map((player) => (
@@ -123,7 +118,7 @@ export function MatchResultNotesPanel({ share, viewerId, onShareUpdate }: Props)
 
     if (blocks.length === 0) return null;
     return <div className="space-y-3">{blocks}</div>;
-  }, [readablePlayers]);
+  }, [myPlayer, opponentPlayer, share.playerA, share.playerB]);
 
   if (!myNote?.canEdit && !otherNotes) return null;
 

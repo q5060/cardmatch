@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { Check, Link2 } from "lucide-react";
 import {
   buildFacebookShareUrl,
@@ -51,10 +51,6 @@ export function BattleResultShareScreen({ share, viewerId, onDone }: Props) {
   const [shareState, setShareState] = useState(share);
   const [linkCopied, setLinkCopied] = useState(false);
   const [fbCopied, setFbCopied] = useState(false);
-
-  useEffect(() => {
-    setShareState(share);
-  }, [share]);
 
   const shareUrl = useMemo(() => {
     const origin =
