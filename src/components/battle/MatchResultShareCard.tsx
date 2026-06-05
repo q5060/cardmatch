@@ -65,7 +65,7 @@ function PlayerColumn({
   );
 }
 
-export function MatchResultShareCard({ share, viewerId }: Props) {
+export function MatchResultShareCard({ share }: Props) {
   const isDraw = share.winnerId === null;
   const aWins = share.winnerId === share.playerA.id;
   const bWins = share.winnerId === share.playerB.id;
@@ -78,7 +78,7 @@ export function MatchResultShareCard({ share, viewerId }: Props) {
         </p>
         <p className="mt-1 text-lg font-bold text-foreground sm:text-xl">對戰結果</p>
         <p className="mt-2 text-sm font-semibold text-primary">
-          {getWinnerLabelForViewer(share, viewerId)}
+          {getWinnerLabelForViewer(share)}
         </p>
       </div>
 

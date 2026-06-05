@@ -14,9 +14,6 @@ import {
   UserCircle,
   Users,
   Settings,
-  Plus,
-  Mail,
-  Users2,
   Menu,
 } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";

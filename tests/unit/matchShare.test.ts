@@ -39,9 +39,7 @@ describe("matchShare", () => {
   });
 
   it("getWinnerLabelForViewer shows winner display name", () => {
-    expect(getWinnerLabelForViewer(sampleShare, 10)).toBe("Alice 獲勝");
-    expect(getWinnerLabelForViewer(sampleShare, 20)).toBe("Alice 獲勝");
-    expect(getWinnerLabelForViewer(sampleShare, null)).toBe("Alice 獲勝");
+    expect(getWinnerLabelForViewer(sampleShare)).toBe("Alice 獲勝");
   });
 
   it("buildSharePostText includes players and location", () => {

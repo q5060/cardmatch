@@ -56,7 +56,7 @@ describe("match deck selection", () => {
     const ann = announcements.find((a) => a.spotId === spot.id);
     expect(ann?.deck?.canViewCards).toBe(true);
 
-    const preview = await getDeckDisclosedViaSpot(deck.id, spot.id, viewer.id);
+    const preview = await getDeckDisclosedViaSpot(deck.id, spot.id);
     expect(preview?.canViewCards).toBe(true);
     expect(preview?.cards).toHaveLength(1);
   });
@@ -84,7 +84,7 @@ describe("match deck selection", () => {
       },
     });
 
-    const match = await createInviteMatch({
+    await createInviteMatch({
       inviterId: inviter.id,
       targetUserId: publisher.id,
       meet,

@@ -152,6 +152,7 @@ export function MapLocationSearch({
                   key={shop.id}
                   type="button"
                   role="option"
+                  aria-selected={false}
                   className="flex w-full flex-col rounded-lg px-3 py-2 text-left text-sm transition hover:bg-black/[0.04]"
                   onClick={() => handleSelectShop(shop)}
                 >
@@ -181,6 +182,7 @@ export function MapLocationSearch({
                     key={`${place.lat}-${place.lng}-${i}`}
                     type="button"
                     role="option"
+                  aria-selected={false}
                     className="flex w-full flex-col rounded-lg px-3 py-2 text-left text-sm transition hover:bg-black/[0.04]"
                     onClick={() => handleSelectPlace(place)}
                   >

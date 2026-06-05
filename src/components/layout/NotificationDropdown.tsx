@@ -128,7 +128,7 @@ export function NotificationDropdown({
                 <Link
                   key={notification.id}
                   href={getNotificationLink(notification)}
-                  onClick={async (e) => {
+                  onClick={async () => {
                     onClose();
                     // Mark as read
                     try {

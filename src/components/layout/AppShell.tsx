@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { GlobalMatchCeremony } from "./GlobalMatchCeremony";
 import { NavBar } from "./NavBar";
 import { PageTransition } from "./PageTransition";
 import { RealtimeShell } from "./RealtimeShell";
 import prisma from "@/lib/prisma";
-import { ExternalLink, MessageCircle, Share2 } from "lucide-react";
+import { fetchActiveMatchPayload, type ActiveMatchDTO } from "@/lib/matchDto";
 
 type UserBrief = { id: number; displayName: string; avatarUrl: string | null };
 
@@ -16,19 +15,29 @@ export async function AppShell({
   children: React.ReactNode;
 }) {
   let pendingInvites = 0;
+  let initialActiveMatch: ActiveMatchDTO | null = null;
   if (user) {
-    // Get count of unread notifications instead of pending matches
-    pendingInvites = await prisma.notification.count({
-      where: {
-        userId: user.id,
-        read: false,
-      },
-    });
+    const [notificationCount, matchPayload] = await Promise.all([
+      prisma.notification.count({
+        where: {
+          userId: user.id,
+          read: false,
+        },
+      }),
+      fetchActiveMatchPayload(user.id),
+    ]);
+    pendingInvites = notificationCount;
+    initialActiveMatch = matchPayload.activeMatch;
   }
 
   return (
     <RealtimeShell enabled={!!user}>
-    {user ? <GlobalMatchCeremony userId={user.id} /> : null}
+    {user ? (
+      <GlobalMatchCeremony
+        userId={user.id}
+        initialActiveMatch={initialActiveMatch}
+      />
+    ) : null}
     <div className="flex min-h-screen flex-col">
       <NavBar user={user} pendingInvites={pendingInvites} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-10">

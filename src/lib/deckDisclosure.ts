@@ -32,7 +32,6 @@ async function buildPreview(
 export async function getDeckDisclosedViaSpot(
   deckId: string,
   spotId: string,
-  viewerId: number,
 ): Promise<DisclosedDeckPreview | null> {
   const spot = await prisma.meetSpot.findFirst({
     where: {

@@ -17,7 +17,7 @@ describe("sendInviteFromSpot", () => {
   });
 
   it("clears the announcement pin when someone invites", async () => {
-    const [publisher, inviter] = await Promise.all([
+    const [publisher] = await Promise.all([
       createUser({
         email: "pub@example.com",
         password: "password12",

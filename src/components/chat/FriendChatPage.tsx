@@ -182,7 +182,7 @@ export function FriendChatPage({
       setMessages([...data.messages, ...messages]);
       setOffset(newOffset);
       setHasMore(data.hasMore);
-    } catch (e) {
+    } catch {
       setFetchErr("無法載入更多訊息");
     } finally {
       setIsLoadingMore(false);

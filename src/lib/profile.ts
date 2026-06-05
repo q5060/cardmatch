@@ -1,4 +1,3 @@
-import prisma from "@/lib/prisma";
 import { USER_GENDER, type UserGender } from "@/lib/constants";
 
 const GENDER_VALUES = new Set<string>(Object.values(USER_GENDER));

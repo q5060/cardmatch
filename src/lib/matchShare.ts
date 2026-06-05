@@ -115,10 +115,7 @@ export function getWinnerDisplayName(share: MatchSharePayload): string {
 }
 
 /** Winner line on result card: always「{displayName} 獲勝」or 平手. */
-export function getWinnerLabelForViewer(
-  share: MatchSharePayload,
-  _viewerId?: number | null,
-): string {
+export function getWinnerLabelForViewer(share: MatchSharePayload): string {
   return getWinnerDisplayName(share);
 }
 

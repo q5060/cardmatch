@@ -6,7 +6,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft,
   Calendar,
   Layers,
   Swords,
@@ -156,19 +155,15 @@ function ProfileDashboardInner({
   friendshipStatus,
   user,
   battleStats,
-  battleRecordVisibility,
-  winrateVisibility,
   battleRecordsHiddenReason,
   winrateHiddenReason,
   deckCount,
-  publicDeckCount,
   recentFeed,
   allMatches,
   topOpponents,
   allMatchesHref,
   blockedByViewer = false,
   interactionBlocked = false,
-  isAdmin = false,
   decksSlot,
 }: ProfileDashboardProps) {
   const router = useRouter();
@@ -266,7 +261,7 @@ function ProfileDashboardInner({
     ];
 
     return base;
-  }, [variant, battleStats, deckCount, publicDeckCount, winrateHiddenReason]);
+  }, [battleStats, deckCount, winrateHiddenReason]);
 
   // const headerBlock =
   //   variant === "other" ? (

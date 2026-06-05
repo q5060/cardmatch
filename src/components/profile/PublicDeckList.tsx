@@ -254,6 +254,7 @@ export function PublicDeckList({
                         {/* Card image */}
                         <div className="relative mb-1">
                           {card.imageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- external TCG card CDN URLs
                             <img
                               src={card.imageUrl}
                               alt={card.name}

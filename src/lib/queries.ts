@@ -226,10 +226,7 @@ type SpotWithUser = {
   };
 };
 
-async function mapSpotToDTO(
-  s: SpotWithUser,
-  viewerId: number | null,
-): Promise<MapAnnouncementDTO> {
+async function mapSpotToDTO(s: SpotWithUser): Promise<MapAnnouncementDTO> {
   const summary = toDeckSummary(s.deck);
   let deck: DeckSummaryWithAccess | null = null;
   if (summary && s.deck) {
@@ -295,7 +292,7 @@ export async function getMapAnnouncements(
   }
 
   return Promise.all(
-    Array.from(latestByUser.values()).map((s) => mapSpotToDTO(s, viewerId)),
+    Array.from(latestByUser.values()).map((s) => mapSpotToDTO(s)),
   );
 }
 
@@ -357,7 +354,7 @@ export async function getAnnouncementsAtShop(
     orderBy: { updatedAt: "desc" },
   });
 
-  return Promise.all(spots.map((s) => mapSpotToDTO(s, viewerId)));
+  return Promise.all(spots.map((s) => mapSpotToDTO(s)));
 }
 
 export async function getMyActiveAnnouncement(
@@ -372,7 +369,7 @@ export async function getMyActiveAnnouncement(
   });
   if (!s || !s.expiresAt) return null;
 
-  return mapSpotToDTO(s, userId);
+  return mapSpotToDTO(s);
 }
 
 /** Active lobby/battle rows involving this user (excludes completed/cancelled). */

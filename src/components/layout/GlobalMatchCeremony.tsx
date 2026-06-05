@@ -39,29 +39,35 @@ function buildIncomingInviteCeremony(
   };
 }
 
-export function GlobalMatchCeremony({ userId }: { userId: number }) {
+function initialIncomingCeremony(
+  match: ActiveMatchDTO | null,
+  userId: number,
+): CeremonyState | null {
+  if (
+    match?.status === MATCH_STATUS.INVITE_PENDING &&
+    match.invitedById !== userId
+  ) {
+    return buildIncomingInviteCeremony(match, userId);
+  }
+  return null;
+}
+
+export function GlobalMatchCeremony({
+  userId,
+  initialActiveMatch = null,
+}: {
+  userId: number;
+  initialActiveMatch?: ActiveMatchDTO | null;
+}) {
   const router = useRouter();
-  const [activeMatch, setActiveMatch] = useState<ActiveMatchDTO | null>(null);
-  const [incomingCeremony, setIncomingCeremony] =
-    useState<CeremonyState | null>(null);
-  const prevMatchIdRef = useRef<number | null>(null);
+  const [activeMatch, setActiveMatch] = useState<ActiveMatchDTO | null>(
+    initialActiveMatch,
+  );
+  const [incomingCeremony, setIncomingCeremony] = useState<CeremonyState | null>(
+    () => initialIncomingCeremony(initialActiveMatch, userId),
+  );
+  const prevMatchIdRef = useRef<number | null>(initialActiveMatch?.id ?? null);
   const [pending, startTransition] = useTransition();
-
-  const syncActiveMatch = useCallback(async () => {
-    try {
-      const res = await fetch("/api/matches/active");
-      if (!res.ok) return;
-      const data = (await res.json()) as { activeMatch: ActiveMatchDTO | null };
-      setActiveMatch(data.activeMatch);
-      prevMatchIdRef.current = data.activeMatch?.id ?? null;
-    } catch {
-      // silent
-    }
-  }, []);
-
-  useEffect(() => {
-    void syncActiveMatch();
-  }, [syncActiveMatch]);
 
   const onMatchUpdated = useCallback(
     (e: RealtimeEvent) => {

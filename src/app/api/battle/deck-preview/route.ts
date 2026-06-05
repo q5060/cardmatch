@@ -28,11 +28,7 @@ export async function GET(request: NextRequest) {
 
     let preview = null;
     if (spotId) {
-      preview = await getDeckDisclosedViaSpot(
-        deckId,
-        spotId,
-        session.userId,
-      );
+      preview = await getDeckDisclosedViaSpot(deckId, spotId);
     } else if (matchIdRaw) {
       const matchId = parseInt(matchIdRaw, 10);
       if (Number.isNaN(matchId)) {
