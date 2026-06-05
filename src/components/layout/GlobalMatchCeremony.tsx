@@ -7,7 +7,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { acceptInvite, rejectInvite } from "@/actions/match";
 import { BattleCeremonyOverlay } from "@/components/battle/BattleCeremonyOverlay";
 import {
@@ -60,6 +60,7 @@ export function GlobalMatchCeremony({
   initialActiveMatch?: ActiveMatchDTO | null;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [activeMatch, setActiveMatch] = useState<ActiveMatchDTO | null>(
     initialActiveMatch,
   );
@@ -124,7 +125,12 @@ export function GlobalMatchCeremony({
     };
   }, [ceremony?.kind]);
 
-  if (!ceremony || !activeMatch || ceremony.matchId !== activeMatch.id) {
+  if (
+    !ceremony ||
+    !activeMatch ||
+    ceremony.matchId !== activeMatch.id ||
+    (pathname === "/battle" && ceremony.kind === "incoming_invite")
+  ) {
     return null;
   }
 

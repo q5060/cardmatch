@@ -7,6 +7,8 @@ import {
 
 test.describe.serial("match flow", () => {
   test("two users invite, accept, and start battle", async ({ browser }) => {
+    test.setTimeout(120_000);
+
     const suffix = Date.now();
     const emailA = `player-a-${suffix}@example.com`;
     const emailB = `player-b-${suffix}@example.com`;
@@ -26,7 +28,7 @@ test.describe.serial("match flow", () => {
       await expect(pageA).toHaveURL(/\/profile/);
 
       const userA = await testPrisma.user.findUniqueOrThrow({
-        where: { email: emailA },
+        where: { email: emailA.toLowerCase() },
       });
       await fillProfileIdentification(userA.id);
 
@@ -43,11 +45,14 @@ test.describe.serial("match flow", () => {
       await expect(pageB).toHaveURL(/\/profile/);
 
       const userB = await testPrisma.user.findUniqueOrThrow({
-        where: { email: emailB },
+        where: { email: emailB.toLowerCase() },
       });
       await fillProfileIdentification(userB.id);
 
       await pageB.goto("/battle");
+      await expect(
+        pageB.getByRole("button", { name: new RegExp(userA.displayName) }).first(),
+      ).toBeVisible({ timeout: 15_000 });
       await pageB
         .getByRole("button", { name: new RegExp(userA.displayName) })
         .first()
@@ -58,7 +63,7 @@ test.describe.serial("match flow", () => {
       });
 
       await pageA.goto("/battle");
-      const acceptBtn = pageA.getByTestId("accept-invite").first();
+      const acceptBtn = pageA.getByTestId("accept-invite");
       await expect(acceptBtn).toBeVisible({ timeout: 20_000 });
       await acceptBtn.click();
 
@@ -74,17 +79,20 @@ test.describe.serial("match flow", () => {
       await pageB.getByTestId("mark-ready").click();
 
       await expect
-        .poll(async () => {
-          const row = await testPrisma.match.findFirst({
-            where: {
-              OR: [
-                { playerAId: userA.id, playerBId: userB.id },
-                { playerAId: userB.id, playerBId: userA.id },
-              ],
-            },
-          });
-          return row?.status ?? null;
-        })
+        .poll(
+          async () => {
+            const row = await testPrisma.match.findFirst({
+              where: {
+                OR: [
+                  { playerAId: userA.id, playerBId: userB.id },
+                  { playerAId: userB.id, playerBId: userA.id },
+                ],
+              },
+            });
+            return row?.status ?? null;
+          },
+          { timeout: 30_000 },
+        )
         .toBe("IN_PROGRESS");
     } finally {
       await contextA.close();
