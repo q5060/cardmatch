@@ -199,6 +199,7 @@ export type MapAnnouncementDTO = {
   label: string;
   timeNote: string;
   playNote: string;
+  playFormat: string;
   shopId: string | null;
   expiresAt: string;
   deck: DeckSummaryWithAccess | null;
@@ -212,6 +213,7 @@ type SpotWithUser = {
   label: string;
   timeNote: string;
   playNote: string;
+  playFormat: string;
   shopId: string | null;
   expiresAt: Date | null;
   deck?: { id: string; title: string; visibility: string } | null;
@@ -252,6 +254,7 @@ async function mapSpotToDTO(
     label: s.label,
     timeNote: s.timeNote,
     playNote: s.playNote,
+    playFormat: s.playFormat,
     shopId: s.shopId,
     expiresAt: s.expiresAt!.toISOString(),
     deck,

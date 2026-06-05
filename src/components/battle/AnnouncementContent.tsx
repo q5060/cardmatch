@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { formatExpiresAt } from "@/lib/format";
+import { parsePlayFormat, PLAY_FORMAT_LABELS } from "@/lib/playFormat";
 import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
 import { PlayerIdentificationBlock } from "@/components/profile/PlayerIdentificationBlock";
 import { DeckPickerField } from "@/components/battle/DeckPickerField";
@@ -56,6 +57,13 @@ export function AnnouncementContent({
           <span className="font-medium">{announcement.deck.title}</span>
         </p>
       ) : null}
+
+      <p className="text-sm text-foreground">
+        <span className="text-muted-foreground">賽制：</span>
+        <span className="font-medium">
+          {PLAY_FORMAT_LABELS[parsePlayFormat(announcement.playFormat)]}
+        </span>
+      </p>
 
       {announcement.playNote ? (
         <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">

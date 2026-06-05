@@ -101,7 +101,8 @@ model MeetSpot {
   lng       Float
   label     String
   timeNote  String    @default("")
-  playNote  String    @default("") // 約戰說明：格式、程度等
+  playNote    String    @default("") // 約戰說明：程度等
+  playFormat  String    @default("ANY") // OPEN | STANDARD | ANY
   active    Boolean   @default(true)
   looking   Boolean   @default(false)
   shopId    String?

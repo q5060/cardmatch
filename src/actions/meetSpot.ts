@@ -7,7 +7,9 @@ import {
   ANNOUNCEMENT_TTL_DEFAULT_HOURS,
   ANNOUNCEMENT_TTL_MAX_HOURS,
   ANNOUNCEMENT_TTL_MIN_HOURS,
+  type PlayFormat,
 } from "@/lib/constants";
+import { isPlayFormat } from "@/lib/playFormat";
 import { assertUserOwnsDeck } from "@/lib/matchDeck";
 import {
   countActiveMatchesForUser,
@@ -46,6 +48,7 @@ export async function publishBattleAnnouncement(input: {
   lng: number;
   label: string;
   playNote?: string;
+  playFormat: PlayFormat;
   shopId?: string | null;
   ttlHours?: number;
   deckId?: string | null;
@@ -57,6 +60,10 @@ export async function publishBattleAnnouncement(input: {
   const label = input.label.trim();
   if (!label) throw new Error("請輸入地點名稱");
   const playNote = (input.playNote ?? "").trim().slice(0, 500);
+  if (!isPlayFormat(input.playFormat)) {
+    throw new Error("請選擇賽制");
+  }
+  const playFormat = input.playFormat;
   const ttlHours = normalizeTtlHours(input.ttlHours);
 
   if ((await countActiveMatchesForUser(userId)) > 0) {
@@ -91,6 +98,7 @@ export async function publishBattleAnnouncement(input: {
           label: label.slice(0, 120),
           timeNote: "",
           playNote,
+          playFormat,
           shopId: input.shopId ?? null,
           looking: true,
           active: true,
@@ -107,6 +115,7 @@ export async function publishBattleAnnouncement(input: {
           label: label.slice(0, 120),
           timeNote: "",
           playNote,
+          playFormat,
           shopId: input.shopId ?? null,
           looking: true,
           active: true,

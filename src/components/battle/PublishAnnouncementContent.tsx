@@ -9,7 +9,9 @@ import {
   ANNOUNCEMENT_TTL_DEFAULT_HOURS,
   ANNOUNCEMENT_TTL_MAX_HOURS,
   ANNOUNCEMENT_TTL_MIN_HOURS,
+  type PlayFormat,
 } from "@/lib/constants";
+import { isPlayFormat, PLAY_FORMAT_LABELS, PLAY_FORMAT_OPTIONS } from "@/lib/playFormat";
 
 export type PublishDraft = {
   lat: number;
@@ -27,6 +29,7 @@ type Props = {
 
 function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }: Props) {
   const [ttlHours, setTtlHours] = useState(ANNOUNCEMENT_TTL_DEFAULT_HOURS);
+  const [playFormat, setPlayFormat] = useState<PlayFormat | "">("");
   const [playNote, setPlayNote] = useState("");
   const [deckId, setDeckId] = useState<string | null>(null);
   const [label, setLabel] = useState(draft.label);
@@ -39,6 +42,10 @@ function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }:
       setErr("請輸入地點名稱");
       return;
     }
+    if (!isPlayFormat(playFormat)) {
+      setErr("請選擇賽制");
+      return;
+    }
     setErr(null);
     startTransition(async () => {
       try {
@@ -47,6 +54,7 @@ function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }:
           lng: draft.lng,
           label: trimmed,
           playNote,
+          playFormat,
           shopId: draft.shopId,
           ttlHours,
           deckId,
@@ -81,13 +89,32 @@ function PublishAnnouncementForm({ draft, onClose, onPublished, onBrowseShops }:
 
       <DeckPickerField value={deckId} onChange={setDeckId} disabled={pending} />
 
+      <label className="block text-sm font-medium text-foreground">
+        <span className="text-muted-foreground">賽制</span>
+        <select
+          value={playFormat}
+          onChange={(e) => setPlayFormat(e.target.value as PlayFormat | "")}
+          className="input-field mt-2"
+          required
+        >
+          <option value="" disabled>
+            請選擇賽制
+          </option>
+          {PLAY_FORMAT_OPTIONS.map((format) => (
+            <option key={format} value={format}>
+              {PLAY_FORMAT_LABELS[format]}
+            </option>
+          ))}
+        </select>
+      </label>
+
       {/* Play note */}
       <label className="block text-sm font-medium text-foreground">
         <span className="text-muted-foreground">說明（選填）</span>
         <textarea
           value={playNote}
           onChange={(e) => setPlayNote(e.target.value)}
-          placeholder="例：休閒友好、標準環境、新手可、可借牌練習"
+          placeholder="例：休閒友好、新手可、可借牌練習"
           className="input-field mt-2 min-h-[88px] resize-y"
           maxLength={500}
           rows={3}

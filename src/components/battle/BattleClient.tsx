@@ -45,6 +45,7 @@ import { clearBattleAnnouncement, refreshShops } from "@/actions/meetSpot";
 import { MATCH_STATUS } from "@/lib/constants";
 import type { ActiveMatchDTO, BattleResultDTO } from "@/lib/matchDto";
 import type { MapAnnouncementDTO } from "@/lib/queries";
+import { parsePlayFormat, PLAY_FORMAT_LABELS } from "@/lib/playFormat";
 import type { QueueStatus } from "@/actions/matchQueue";
 import {
   useRealtimeConnected,
@@ -144,6 +145,7 @@ export function BattleClient({
         lng: a.lng,
         label: a.label,
         playNote: a.playNote || undefined,
+        playFormatLabel: PLAY_FORMAT_LABELS[parsePlayFormat(a.playFormat)],
         expiresAt: a.expiresAt,
         isOwn: false,
       }));
@@ -157,6 +159,7 @@ export function BattleClient({
         lng: myAnnouncement.lng,
         label: myAnnouncement.label,
         playNote: myAnnouncement.playNote || undefined,
+        playFormatLabel: PLAY_FORMAT_LABELS[parsePlayFormat(myAnnouncement.playFormat)],
         expiresAt: myAnnouncement.expiresAt,
         isOwn: true,
       });

@@ -92,6 +92,7 @@ export async function createLookingMeetSpot(
     lng?: number;
     label?: string;
     playNote?: string;
+    playFormat?: string;
     shopId?: string | null;
   },
 ) {
@@ -103,6 +104,7 @@ export async function createLookingMeetSpot(
       lng: overrides?.lng ?? 121.565,
       label: overrides?.label ?? "測試約戰地點",
       playNote: overrides?.playNote ?? "週末練習",
+      playFormat: overrides?.playFormat ?? "ANY",
       active: true,
       looking: true,
       shopId: overrides?.shopId ?? null,
