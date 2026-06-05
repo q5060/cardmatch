@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Settings, Search, Plus, Minus } from "lucide-react";
+import { ArrowLeft, Save, Settings, Search, Plus, Minus, Check } from "lucide-react";
 
 interface Deck {
   id: string;
@@ -37,6 +37,15 @@ type CardFilters = {
   search: string;
 };
 
+type AddToDeckResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+type FeedbackMessage = {
+  type: "error" | "success";
+  text: string;
+};
+
 export default function DeckCompositionEditor() {
   const router = useRouter();
   const { id } = useParams();
@@ -55,6 +64,8 @@ export default function DeckCompositionEditor() {
     stage: "",
     search: "",
   });
+  const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
 
   const fetchLibrary = useCallback(
     async (targetPage: number, append = false) => {
@@ -120,61 +131,81 @@ export default function DeckCompositionEditor() {
     void fetchLibrary(1, false);
   }, [fetchLibrary]);
 
+  useEffect(() => {
+    if (recentlyAddedId === null) return;
+    const id = window.setTimeout(() => setRecentlyAddedId(null), 1200);
+    return () => window.clearTimeout(id);
+  }, [recentlyAddedId]);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const id = window.setTimeout(() => setFeedback(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [feedback]);
+
   const handleLoadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
     void fetchLibrary(nextPage, true);
   };
 
-  const addToDeck = (card: LibraryCard) => {
-    // 1. 計算目前總牌數
+  const getDeckCount = (cardId: number) =>
+    cards.find((c) => c.id === cardId)?.count ?? 0;
+
+  const addToDeck = (card: LibraryCard): AddToDeckResult => {
     const totalCount = cards.reduce((acc, curr) => acc + curr.count, 0);
-    
-    // 限制總數不能超過 60
+
     if (totalCount >= 60) {
-      alert("牌組已達 60 張上限！");
-      return;
+      return { ok: false, message: "牌組已達 60 張上限！" };
+    }
+
+    const existingCard = cards.find((c) => c.id === card.id);
+
+    if (existingCard) {
+      const isBasicEnergy = card.category === "ENERGY" && card.subType === "Basic";
+      if (!isBasicEnergy && existingCard.count >= 4) {
+        return { ok: false, message: "同名卡片（除基本能量外）最多只能放入 4 張！" };
+      }
+
+      if (card.isAceSpec && existingCard.count >= 1) {
+        return { ok: false, message: "AceSpec 最多只能放入 1 張！" };
+      }
     }
 
     setCards((prevCards) => {
-      // 2. 檢查這張卡片是否已經在牌組裡
       const existingCardIndex = prevCards.findIndex((c) => c.id === card.id);
 
       if (existingCardIndex > -1) {
-        // 3. 如果已存在，檢查是否超過 4 張限制 (能量卡通常不限，這裡可依需求調整)
-        const isBasicEnergy = card.category === "ENERGY" && card.subType === "Basic";
-        if (!isBasicEnergy && prevCards[existingCardIndex].count >= 4) {
-          alert("同名卡片（除基本能量外）最多只能放入 4 張！");
-          return prevCards;
-        }
-
-        if (card.isAceSpec && prevCards[existingCardIndex].count >= 1) {
-          alert("AceSpec 最多只能放入 1 張！");
-          return prevCards;
-        }
-
-        // 複製陣列並更新特定卡片的數量
         const newCards = [...prevCards];
         newCards[existingCardIndex] = {
           ...newCards[existingCardIndex],
           count: newCards[existingCardIndex].count + 1,
         };
         return newCards;
-      } else {
-        // 4. 如果是新卡片，新增一個物件，初始 count 為 1
-        // 只存入必要的資訊，避免 deckJson 過於龐大
-        return [
-          ...prevCards,
-          {
-            id: card.id,
-            name: card.name,
-            imageUrl: card.imageUrl, // 建議存入圖片 URL 方便左側清單顯示
-            count: 1,
-            category: card.category,
-          },
-        ];
       }
+
+      return [
+        ...prevCards,
+        {
+          id: card.id,
+          name: card.name,
+          imageUrl: card.imageUrl,
+          count: 1,
+          category: card.category,
+        },
+      ];
     });
+
+    return { ok: true };
+  };
+
+  const handleAddToDeck = (card: LibraryCard) => {
+    const result = addToDeck(card);
+    if (result.ok) {
+      setRecentlyAddedId(card.id);
+    } else {
+      setFeedback({ type: "error", text: result.message });
+    }
   };
 
   const removeFromDeck = (cardId: number) => {
@@ -257,6 +288,25 @@ export default function DeckCompositionEditor() {
           </div>
         </div>
 
+        {feedback ? (
+          <div
+            className={`mb-6 motion-toast-in flex items-start justify-between gap-3 ${
+              feedback.type === "error" ? "alert-error" : "alert-success"
+            }`}
+            role={feedback.type === "error" ? "alert" : "status"}
+          >
+            <p>{feedback.text}</p>
+            <button
+              type="button"
+              className="shrink-0 underline-offset-2 hover:underline"
+              onClick={() => setFeedback(null)}
+              aria-label="關閉提示"
+            >
+              關閉
+            </button>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* 左側：目前牌組內容 (1-60張) */}
           <div className="lg:col-span-4 space-y-4">
@@ -276,7 +326,7 @@ export default function DeckCompositionEditor() {
                       </div>
                       <div className="flex items-center gap-1">
                       <button 
-                        onClick={() => addToDeck(card)}
+                        onClick={() => handleAddToDeck(card)}
                         className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-primary transition-colors"
                         title="增加數量"
                       >
@@ -366,9 +416,18 @@ export default function DeckCompositionEditor() {
 
             {/* 卡片網格展示區域 */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {allCards.map((card) => (
+              {allCards.map((card) => {
+                const deckCount = getDeckCount(card.id);
+                const justAdded = recentlyAddedId === card.id;
+
+                return (
                 <div key={card.id} className="bg-white rounded-xl border p-2 hover:shadow-md group">
-                  <div className="aspect-[3/4] mb-2 bg-neutral-100 rounded overflow-hidden">
+                  <div className="aspect-[3/4] mb-2 bg-neutral-100 rounded overflow-hidden relative">
+                    {deckCount > 0 ? (
+                      <span className="absolute top-1 right-1 z-10 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                        x{deckCount}
+                      </span>
+                    ) : null}
                     {card.imageUrl ? (
                       <img 
                         src={card.imageUrl} 
@@ -386,15 +445,28 @@ export default function DeckCompositionEditor() {
                   </div>
                   <p className="text-xs font-bold truncate">{card.name}</p>
                   <p className="text-[10px] text-muted-foreground">{card.type} / {card.regulationMark}</p>
-                  {/* 卡片加入卡組的按鈕 */}
                   <button 
-                    onClick={() => addToDeck(card)} 
-                    className="mt-2 w-full flex items-center justify-center gap-1 bg-primary text-white py-1 rounded-md hover:bg-primary/90 transition-colors text-xs"
+                    onClick={() => handleAddToDeck(card)} 
+                    className={`mt-2 w-full flex items-center justify-center gap-1 py-1 rounded-md transition-all text-xs ${
+                      justAdded
+                        ? "bg-emerald-600 text-white scale-[0.98]"
+                        : "bg-primary text-white hover:bg-primary/90 active:scale-[0.98]"
+                    }`}
                   >
-                    <Plus className="w-3 h-3" /> 加入
+                    {justAdded ? (
+                      <>
+                        <Check className="w-3 h-3" aria-hidden /> 已加入
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3 h-3" aria-hidden />
+                        {deckCount > 0 ? `加入 (${deckCount})` : "加入"}
+                      </>
+                    )}
                   </button>
                 </div>
-              ))}
+              );
+              })}
             </div>
             {hasMore && (
               <div className="mt-8 flex justify-center">
