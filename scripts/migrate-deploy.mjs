@@ -1,15 +1,17 @@
 import { spawnSync } from "node:child_process";
-import { config } from "dotenv";
-
-config();
 
 /**
  * Run `prisma migrate deploy` with retries.
- * Vercel can start multiple builds at once; only one migration can hold the
- * Postgres advisory lock, so the others need to wait and retry.
+ * Use via `npm run db:deploy` — not during Vercel build (concurrent deploys
+ * fight for the Postgres advisory lock and cause P1002 timeouts).
  */
 if (!process.env.DIRECT_DATABASE_URL && process.env.DATABASE_URL) {
   process.env.DIRECT_DATABASE_URL = process.env.DATABASE_URL;
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error("[migrate-deploy] DATABASE_URL is not set");
+  process.exit(1);
 }
 
 const maxAttempts = 6;

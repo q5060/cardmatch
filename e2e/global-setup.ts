@@ -14,6 +14,7 @@ export default async function globalSetup() {
   if (!process.env.DATABASE_URL) {
     process.env.DATABASE_URL = DEFAULT_DATABASE_URL;
   }
+  process.env.DIRECT_DATABASE_URL ??= process.env.DATABASE_URL;
   process.env.SESSION_SECRET ??=
     "test-session-secret-at-least-32-chars-long";
   process.env.REALTIME_BUS ??= "memory";

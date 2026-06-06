@@ -197,7 +197,8 @@ GitHub Actions 會在 push / pull request 時自動執行 lint、unit、integrat
 | 指令 | 說明 |
 |------|------|
 | `npm run dev` | 開發模式 |
-| `npm run build` | 正式建置（`prisma migrate deploy` + `generate` + `next build`） |
+| `npm run build` | 正式建置（`prisma generate` + `next build`） |
+| `npm run db:deploy` | 對正式／遠端 DB 執行 `prisma migrate deploy`（含重試） |
 | `npm run start` | 以正式模式啟動（需先 `build`） |
 | `npm run lint` | ESLint |
 | `npm run db:migrate` | Prisma migrate dev |
@@ -262,7 +263,9 @@ REDIS_URL=redis://127.0.0.1:6379
 
 ## 部署到 Vercel
 
-專案已設定為 **PostgreSQL + Redis 即時 bus**，建置時會自動執行 `prisma migrate deploy`（見 `package.json` 的 `build` script）。`vercel.json` 預設區域為東京（`hnd1`）。
+專案已設定為 **PostgreSQL + Redis 即時 bus**。`vercel.json` 預設區域為東京（`hnd1`）。
+
+**Vercel build 不跑 migration**（避免多個 deploy 同時搶 Postgres advisory lock 而 P1002 失敗）。Schema 有變更時請用下方「資料庫 migration」其中一種方式套用。
 
 ### 1. 建立 PostgreSQL
 
@@ -288,9 +291,19 @@ REDIS_URL=redis://127.0.0.1:6379
 | `REALTIME_BUS` | `redis` |
 | `REDIS_URL` | Upstash 的 `rediss://...` |
 
-若使用 Vercel Postgres 整合，通常只需 `DATABASE_URL`（建置腳本會在未設定時 fallback 成同一 URL）。
+若使用 Vercel Postgres 整合，通常只需 `DATABASE_URL`（本機 `db:deploy` 會在未設定時 fallback 成同一 URL）。
 
-**P1002 / advisory lock timeout**：常見原因是 (1) Neon 用 pooler URL 跑 migration、(2) 多個 Vercel build 同時 deploy。請確認 `DIRECT_DATABASE_URL` 為直連；建置腳本已內建重試，稍後 Redeploy 通常即可。
+### 資料庫 migration（Production）
+
+`npm run build` **不會** migrate。Schema 有更新時，擇一：
+
+1. **GitHub Actions（建議）** — 在 repo **Settings → Secrets and variables → Actions** 新增 `DATABASE_URL`、`DIRECT_DATABASE_URL`（Neon 直連 URL）。push 到 `main` 且 `prisma/` 有變更時，`.github/workflows/migrate-production.yml` 會自動 `npm run db:deploy`。
+2. **本機手動** — 對正式庫執行一次：
+   ```bash
+   DATABASE_URL="postgresql://..." DIRECT_DATABASE_URL="postgresql://...(Neon Direct)..." npm run db:deploy
+   ```
+
+若只是改程式、沒有新的 migration 檔，**不必**跑 migrate，直接 Vercel Deploy 即可。
 
 ### 4. 匯入 GitHub 並部署
 
