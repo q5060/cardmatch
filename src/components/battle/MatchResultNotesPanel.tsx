@@ -29,18 +29,7 @@ function NoteReadBlock({
   label: string;
 }) {
   const note = player.note;
-  if (!note) return null;
-
-  if (note.isHidden) {
-    return (
-      <div className="rounded-xl border border-border bg-black/[0.02] px-4 py-3">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="mt-1 text-sm text-muted-foreground">已撰寫備註但未公開</p>
-      </div>
-    );
-  }
-
-  if (!note.text?.trim()) return null;
+  if (!note || note.isHidden || !note.text?.trim()) return null;
 
   return (
     <div className="rounded-xl border border-border bg-black/[0.02] px-4 py-3">

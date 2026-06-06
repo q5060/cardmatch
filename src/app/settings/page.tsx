@@ -83,6 +83,9 @@ function SettingsContent() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+
   const [decks, setDecks] = useState<Deck[]>([]);
   const [decksLoading, setDecksLoading] = useState(false);
 
@@ -255,6 +258,38 @@ function SettingsContent() {
     }
   };
 
+  const handleChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      setMessage({ type: "error", text: "Email 格式不正確" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newEmail, currentPassword: emailPassword }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Email 更改失敗");
+      }
+      setUser((prev) => (prev ? { ...prev, email: newEmail } : prev));
+      setMessage({ type: "success", text: "Email 已成功更改" });
+      setNewEmail("");
+      setEmailPassword("");
+    } catch (error: unknown) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Email 更改失敗",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -328,6 +363,45 @@ function SettingsContent() {
               <p className="text-sm text-muted-foreground">
                 性別、年齡與大頭貼為選填，填寫後可在實體約戰時幫助對手認出你。
               </p>
+
+              {/* Email change section */}
+              <div className="rounded-xl border border-border bg-neutral-50/60 p-4">
+                <p className="mb-3 text-sm font-medium text-foreground">變更 Email</p>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  目前 Email：<span className="font-medium text-foreground">{user.email}</span>
+                </p>
+                <form onSubmit={handleChangeEmail} className="space-y-3">
+                  <label className="block text-sm font-medium text-foreground">
+                    <span className="text-muted-foreground">新 Email</span>
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="input-field mt-2"
+                      placeholder="輸入新的 Email 地址"
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-foreground">
+                    <span className="text-muted-foreground">確認目前密碼</span>
+                    <input
+                      type="password"
+                      value={emailPassword}
+                      onChange={(e) => setEmailPassword(e.target.value)}
+                      className="input-field mt-2"
+                      placeholder="輸入目前密碼以確認身份"
+                      autoComplete="current-password"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={loading || !newEmail || !emailPassword}
+                    className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading ? "更新中..." : "更改 Email"}
+                  </button>
+                </form>
+              </div>
 
               <form onSubmit={handleProfileUpdate} className="space-y-5">
                 <label className="block text-sm font-medium text-foreground">

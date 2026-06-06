@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Calendar, MapPin, Trophy, UserRound } from "lucide-react";
 import type { MatchSharePayload, MatchSharePlayer } from "@/lib/matchShare";
 import {
@@ -52,7 +53,14 @@ function PlayerColumn({
         ) : null}
       </div>
       <div className="w-full text-center">
-        <p className="text-base font-bold text-foreground sm:text-lg">{player.displayName}</p>
+        <Link
+          href={`/profile/${player.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-base font-bold text-foreground underline-offset-2 hover:underline sm:text-lg"
+        >
+          {player.displayName}
+        </Link>
         {isDraw ? (
           <p className="mt-1 text-xs text-muted-foreground">平手</p>
         ) : isWinner ? (
