@@ -347,13 +347,17 @@ export function BattleClient({
         onSuccess?.();
         await refresh();
       } catch (e) {
-        if (isStaleAnnouncementError(e)) {
-          onSuccess?.();
-          await refresh();
-          setSuccessMessage("此公告已結束，地圖已更新");
-          return;
+        try {
+          if (isStaleAnnouncementError(e)) {
+            onSuccess?.();
+            await refresh();
+            setErr("該約戰公告不存在");
+            return;
+          }
+          setErr(e instanceof Error ? e.message : "操作失敗");
+        } catch {
+          setErr("該約戰公告不存在");
         }
-        setErr(e instanceof Error ? e.message : "操作失敗");
       }
     });
   }
