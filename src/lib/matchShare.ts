@@ -66,7 +66,9 @@ export async function getMatchSharePayload(
   const br = match.battleResults[0];
   if (!br || br.status !== "AGREED") return null;
 
-  const decks = await getMatchDeckSidesForViewer(match, viewerId ?? null);
+  const decks = await getMatchDeckSidesForViewer(match, viewerId ?? null, {
+    bypassVisibilityForParticipant: true,
+  });
   const viewerCanEditA =
     viewerId !== null && viewerId !== undefined && match.playerAId === viewerId;
   const viewerCanEditB =

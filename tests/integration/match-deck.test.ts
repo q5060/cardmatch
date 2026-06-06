@@ -4,6 +4,7 @@ import { acceptInviteForUser, setReadyForUser } from "@/lib/matchLifecycle";
 import { setMatchDeck } from "@/actions/match";
 import { getDeckDisclosedViaSpot } from "@/lib/deckDisclosure";
 import { fetchActiveMatchPayload } from "@/lib/matchDto";
+import { getMatchSharePayload } from "@/lib/matchShare";
 import { getMapAnnouncements } from "@/lib/queries";
 import { clearTestCookies } from "../helpers/auth";
 import { createLookingMeetSpot, createUser, resetTables, testPrisma } from "../helpers/db";
@@ -96,6 +97,82 @@ describe("match deck selection", () => {
     const payload = await fetchActiveMatchPayload(publisher.id);
     expect(payload.activeMatch?.theirDeck?.canViewCards).toBe(true);
     expect(payload.activeMatch?.theirDeck?.cards).toHaveLength(1);
+  });
+
+  it("discloses private decks to participants on the result page", async () => {
+    const [publisher, inviter, outsider] = await Promise.all([
+      createUser({
+        email: "pub3@example.com",
+        password: "password12",
+        displayName: "Pub3",
+      }),
+      createUser({
+        email: "inv3@example.com",
+        password: "password12",
+        displayName: "Inv3",
+      }),
+      createUser({
+        email: "out3@example.com",
+        password: "password12",
+        displayName: "Out3",
+      }),
+    ]);
+
+    const invDeck = await testPrisma.deck.create({
+      data: {
+        userId: inviter.id,
+        title: "Result Private Deck",
+        visibility: "PRIVATE",
+        deckJson: JSON.stringify([{ id: 3, name: "Secret", count: 2 }]),
+      },
+    });
+
+    const match = await createInviteMatch({
+      inviterId: inviter.id,
+      targetUserId: publisher.id,
+      meet,
+      source: "spot",
+      publisherId: publisher.id,
+      inviterDeckId: invDeck.id,
+    });
+
+    await testPrisma.match.update({
+      where: { id: match.id },
+      data: { status: MATCH_STATUS.COMPLETED },
+    });
+    await testPrisma.battleResult.create({
+      data: {
+        matchId: match.id,
+        winnerId: inviter.id,
+        playerAAgreed: true,
+        playerBAgreed: true,
+        status: "AGREED",
+      },
+    });
+
+    const publisherShare = await getMatchSharePayload(match.id, publisher.id);
+    const inviterShare = await getMatchSharePayload(match.id, inviter.id);
+    const outsiderShare = await getMatchSharePayload(match.id, outsider.id);
+
+    const inviterDeckOnPublisherView =
+      publisherShare?.playerA.id === inviter.id
+        ? publisherShare.playerA.deck
+        : publisherShare?.playerB.deck;
+    expect(inviterDeckOnPublisherView?.canViewCards).toBe(true);
+    expect(inviterDeckOnPublisherView?.cards).toHaveLength(1);
+
+    const inviterDeckOnInviterView =
+      inviterShare?.playerA.id === inviter.id
+        ? inviterShare.playerA.deck
+        : inviterShare?.playerB.deck;
+    expect(inviterDeckOnInviterView?.canViewCards).toBe(true);
+
+    const inviterDeckOnOutsiderView =
+      outsiderShare?.playerA.id === inviter.id
+        ? outsiderShare.playerA.deck
+        : outsiderShare?.playerB.deck;
+    expect(inviterDeckOnOutsiderView?.canViewCards).toBe(false);
+    expect(inviterDeckOnOutsiderView?.cards).toBeNull();
   });
 
   it("copies announcement deck to publisher and inviter deck on invite", async () => {
