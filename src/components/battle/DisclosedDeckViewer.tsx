@@ -99,9 +99,9 @@ export function DisclosedDeckViewer({
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         )}
       </button>
-      <p className="mt-1 text-xs text-muted-foreground">
+      {/* <p className="mt-1 text-xs text-muted-foreground">
         {open ? "點擊收合" : "點擊查看卡牌"}
-      </p>
+      </p> */}
 
       {open ? (
         <div className="mt-3 border-t border-border pt-3">

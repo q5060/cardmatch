@@ -185,7 +185,6 @@ export function BattleRandomMatch({
       </p>
 
       <fieldset className="mt-4 space-y-2">
-        <legend className="text-xs font-medium text-muted-foreground">賽制</legend>
         <div className="grid grid-cols-3 gap-2">
           {PLAY_FORMAT_OPTIONS.map((format) => (
             <button

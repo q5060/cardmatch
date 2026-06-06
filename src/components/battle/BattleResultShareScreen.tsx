@@ -100,10 +100,7 @@ export function BattleResultShareScreen({ share, viewerId, onDone }: Props) {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">對戰完成</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          分享這場對戰的結果連結，好友可在 X、Facebook、Threads 等平台看到預覽圖。
-        </p>
+        <h1 className="text-2xl font-bold text-foreground">對戰結束</h1>
       </div>
 
       <MatchResultShareCard share={shareState} viewerId={viewerId} />

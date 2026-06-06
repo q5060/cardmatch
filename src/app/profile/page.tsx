@@ -89,7 +89,7 @@ export default async function ProfilePage() {
         recentFeed={recentFeed}
         allMatches={allMatches}
         topOpponents={topOpponents}
-        allMatchesHref="/profile/matches"
+        allMatchesHref="/profile?tab=matches"
         decksSlot={<DeckSection decks={full.decks} readOnly />}
       />
     </Suspense>
