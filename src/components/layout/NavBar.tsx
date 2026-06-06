@@ -243,12 +243,16 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
               <div className="relative md:hidden" ref={mobileMenuRef}>
                 <button
                   onClick={() => setShowMobileMenu(!showMobileMenu)}
-                  className="btn btn-ghost text-foreground cursor-pointer"
+                  className="btn btn-ghost text-foreground cursor-pointer relative"
                   title="菜單"
                   aria-label="菜單"
                 >
                   <Menu className="h-5 w-5" strokeWidth={1.75} />
+                  {unreadCount > 0 && (
+                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-white" />
+                  )}
                 </button>
+
 
                 {showMobileMenu && (
                   <div className="menu-panel motion-menu-in absolute right-0 top-full z-50 mt-2 w-56">

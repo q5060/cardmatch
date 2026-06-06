@@ -42,7 +42,7 @@ function isParticipant(m: { playerAId: number; playerBId: number }, userId: numb
 export async function sendInviteFromSpot(
   spotId: string,
   inviterDeckId?: string | null,
-) {
+): Promise<{ error: "STALE_ANNOUNCEMENT" | null }> {
   const userId = await requireUserId();
 
   let deckId = inviterDeckId?.trim() || null;
@@ -53,53 +53,61 @@ export async function sendInviteFromSpot(
   }
 
   let inviteeId: number;
-  const match = await prisma.$transaction(async (tx) => {
-    const now = new Date();
-    const claimed = await tx.meetSpot.updateMany({
-      where: {
-        id: spotId,
-        looking: true,
-        active: true,
-        expiresAt: { gt: now },
-      },
-      data: { looking: false },
-    });
-    if (claimed.count === 0) {
-      throw new Error(STALE_ANNOUNCEMENT_ERROR);
-    }
-
-    const spot = await tx.meetSpot.findUnique({
-      where: { id: spotId },
-      include: {
-        deck: { select: { id: true } },
-      },
-    });
-    if (!spot) throw new Error(STALE_ANNOUNCEMENT_ERROR);
-
-    inviteeId = spot.userId;
-    if (inviteeId === userId) throw new Error("無法邀請自己");
-    await assertNotBlocked(userId, inviteeId);
-
-    return createInviteMatch(
-      {
-        inviterId: userId,
-        targetUserId: inviteeId,
-        meet: {
-          lat: spot.lat,
-          lng: spot.lng,
-          label: spot.label,
-          shopId: spot.shopId,
+  let match: Awaited<ReturnType<typeof createInviteMatch>>;
+  try {
+    match = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const claimed = await tx.meetSpot.updateMany({
+        where: {
+          id: spotId,
+          looking: true,
+          active: true,
+          expiresAt: { gt: now },
         },
-        source: "spot",
-        spotLabelForNotification: spot.label,
-        publisherId: inviteeId,
-        publisherDeckId: spot.deckId,
-        inviterDeckId: deckId,
-      },
-      tx,
-      { deferPublish: true },
-    );
-  });
+        data: { looking: false },
+      });
+      if (claimed.count === 0) {
+        throw new Error(STALE_ANNOUNCEMENT_ERROR);
+      }
+
+      const spot = await tx.meetSpot.findUnique({
+        where: { id: spotId },
+        include: {
+          deck: { select: { id: true } },
+        },
+      });
+      if (!spot) throw new Error(STALE_ANNOUNCEMENT_ERROR);
+
+      inviteeId = spot.userId;
+      if (inviteeId === userId) throw new Error("無法邀請自己");
+      await assertNotBlocked(userId, inviteeId);
+
+      return createInviteMatch(
+        {
+          inviterId: userId,
+          targetUserId: inviteeId,
+          meet: {
+            lat: spot.lat,
+            lng: spot.lng,
+            label: spot.label,
+            shopId: spot.shopId,
+          },
+          source: "spot",
+          spotLabelForNotification: spot.label,
+          publisherId: inviteeId,
+          publisherDeckId: spot.deckId,
+          inviterDeckId: deckId,
+        },
+        tx,
+        { deferPublish: true },
+      );
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === STALE_ANNOUNCEMENT_ERROR) {
+      return { error: "STALE_ANNOUNCEMENT" };
+    }
+    throw e;
+  }
 
   await publishInviteMatchRealtime(
     match.id,
@@ -108,6 +116,8 @@ export async function sendInviteFromSpot(
     match.playerAId,
     match.playerBId,
   );
+
+  return { error: null };
 }
 
 export async function setMatchDeck(matchId: string, deckId: string | null) {

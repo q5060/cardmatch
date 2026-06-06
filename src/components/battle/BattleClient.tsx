@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginUrlWithNext } from "@/lib/safeRedirect";
-import { isStaleAnnouncementError } from "@/lib/meetSpotErrors";
 import { UserRound, ArrowLeft } from "lucide-react";
 import {
   MeetMap,
@@ -343,21 +342,17 @@ export function BattleClient({
     setErr(null);
     startTransition(async () => {
       try {
-        await sendInviteFromSpot(spotId, inviterDeckId);
+        const result = await sendInviteFromSpot(spotId, inviterDeckId);
+        if (result && result.error === "STALE_ANNOUNCEMENT") {
+          onSuccess?.();
+          await refresh();
+          setErr("該約戰公告不存在");
+          return;
+        }
         onSuccess?.();
         await refresh();
       } catch (e) {
-        try {
-          if (isStaleAnnouncementError(e)) {
-            onSuccess?.();
-            await refresh();
-            setErr("該約戰公告不存在");
-            return;
-          }
-          setErr(e instanceof Error ? e.message : "操作失敗");
-        } catch {
-          setErr("該約戰公告不存在");
-        }
+        setErr(e instanceof Error ? e.message : "操作失敗");
       }
     });
   }
