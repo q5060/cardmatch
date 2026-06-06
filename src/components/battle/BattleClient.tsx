@@ -229,7 +229,7 @@ export function BattleClient({
       if (document.visibilityState === "visible") void syncMapSnapshot();
     }, ms);
     return () => window.clearInterval(id);
-  }, [activeMatch, myAnnouncement, sseConnected, syncMapSnapshot]);
+  }, [Boolean(activeMatch), Boolean(myAnnouncement), sseConnected, syncMapSnapshot]);
 
   /** Open a specific shop on mount (e.g. navigated from search results) */
   useEffect(() => {
@@ -297,16 +297,17 @@ export function BattleClient({
   }
 
   /** Match state fallback when SSE is disconnected. */
+  const hasActiveMatch = activeMatch != null;
   useEffect(() => {
     if (sseConnected || isGuest) return;
 
-    const pollMs = activeMatch ? 30_000 : 15_000;
+    const pollMs = hasActiveMatch ? 30_000 : 15_000;
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") void syncActiveMatch();
     }, pollMs);
 
     return () => window.clearInterval(id);
-  }, [activeMatch, isGuest, sseConnected, syncActiveMatch]);
+  }, [hasActiveMatch, isGuest, sseConnected, syncActiveMatch]);
 
   // Periodically refresh shop counts (every 10 seconds)
   useEffect(() => {
