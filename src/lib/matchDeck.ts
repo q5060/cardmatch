@@ -77,6 +77,12 @@ export function parseDeckCards(deckJson: string | null | undefined): DeckCardRow
   }
 }
 
+export function countDeckCards(deckJson: string | null | undefined): number {
+  const cards = parseDeckCards(deckJson);
+  if (!cards) return 0;
+  return cards.reduce((sum, card) => sum + (card.count ?? 1), 0);
+}
+
 export async function resolveDeckForViewer(input: {
   deck: {
     id: string;

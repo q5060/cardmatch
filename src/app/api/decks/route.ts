@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { countDeckCards } from "@/lib/matchDeck";
 
 /**
  * @route GET /api/decks
@@ -25,21 +26,9 @@ export async function GET() {
       orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
     });
 
-    // Transform to include cardCount (parsed from deckJson)
     const result = decks.map((deck) => {
-      let cardCount = 0;
-      if (deck.deckJson) {
-        try {
-          const parsed = JSON.parse(deck.deckJson);
-          // Assuming deckJson has a 'cards' array or similar structure
-          cardCount = Array.isArray(parsed) ? parsed.length : 
-                     parsed.cards ? parsed.cards.length : 0;
-        } catch (_e) {
-          // If parsing fails, try counting lines
-          cardCount = deck.deckJson.split('\n').filter(line => line.trim()).length;
-        }
-      }
-      
+      const cardCount = countDeckCards(deck.deckJson);
+
       return {
         id: deck.id,
         name: deck.title,
