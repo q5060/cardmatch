@@ -17,6 +17,8 @@ type DeckCard = {
   imageUrl?: string | null;
   count: number;
   category?: string;
+  subType?: string | null;
+  isAceSpec?: boolean;
 };
 
 type LibraryCard = {
@@ -192,6 +194,8 @@ export default function DeckCompositionEditor() {
           imageUrl: card.imageUrl,
           count: 1,
           category: card.category,
+          subType: card.subType,
+          isAceSpec: card.isAceSpec,
         },
       ];
     });
@@ -265,6 +269,8 @@ export default function DeckCompositionEditor() {
           imageUrl: card.imageUrl,
           count: newCount,
           category: card.category,
+          subType: card.subType,
+          isAceSpec: card.isAceSpec,
         },
       ];
     });
@@ -372,14 +378,19 @@ export default function DeckCompositionEditor() {
                       </div>
                       <div className="flex items-center gap-1">
                       <button 
-                        onClick={() => handleAddToDeck(card)}
-                        className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-primary transition-colors"
+                        onClick={() => handleSetDeckCount(card as any, card.count + 1)}
+                        className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-primary transition-colors disabled:opacity-50"
                         title="增加數量"
+                        disabled={
+                          cards.reduce((acc, c) => acc + c.count, 0) >= 60 || 
+                          (!((card.category === "ENERGY" && card.subType === "Basic")) && card.count >= 4) ||
+                          (card.isAceSpec && card.count >= 1)
+                        }
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => removeFromDeck(card.id)}
+                        onClick={() => handleSetDeckCount(card as any, card.count - 1)}
                         className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-red-600 transition-colors"
                         title="減少數量"
                       >

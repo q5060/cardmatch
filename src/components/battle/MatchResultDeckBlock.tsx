@@ -2,7 +2,6 @@
 
 import type { DeckSummaryWithCards } from "@/lib/matchDeck";
 import { DeckCardStrip } from "@/components/battle/DeckCardStrip";
-import { DeckVisibilityBadge } from "@/components/battle/DeckVisibilityBadge";
 import { formatDeckLabel } from "@/components/battle/MatchDeckSummaryLine";
 
 type Props = {
@@ -26,9 +25,6 @@ export function MatchResultDeckBlock({ deck, playerLabel }: Props) {
       </p>
       <p className="text-center text-sm font-semibold text-foreground">
         {formatDeckLabel(deck)}
-        <span className="ml-2 inline-block align-middle">
-          <DeckVisibilityBadge visibility={deck.visibility} />
-        </span>
       </p>
       {deck.canViewCards && deck.cards && deck.cards.length > 0 ? (
         <DeckCardStrip title="" cards={deck.cards} />
