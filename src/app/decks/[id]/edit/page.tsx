@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Settings, Search, Plus, Minus, Check } from "lucide-react";
+import { ArrowLeft, Save, Settings, Search, Plus, Minus } from "lucide-react";
 
 interface Deck {
   id: string;
@@ -154,81 +154,7 @@ export default function DeckCompositionEditor() {
   const getDeckCount = (cardId: number) =>
     cards.find((c) => c.id === cardId)?.count ?? 0;
 
-  const addToDeck = (card: LibraryCard): AddToDeckResult => {
-    const totalCount = cards.reduce((acc, curr) => acc + curr.count, 0);
-
-    if (totalCount >= 60) {
-      return { ok: false, message: "牌組已達 60 張上限！" };
-    }
-
-    const existingCard = cards.find((c) => c.id === card.id);
-
-    if (existingCard) {
-      const isBasicEnergy = card.category === "ENERGY" && card.subType === "Basic";
-      if (!isBasicEnergy && existingCard.count >= 4) {
-        return { ok: false, message: "同名卡片（除基本能量外）最多只能放入 4 張！" };
-      }
-
-      if (card.isAceSpec && existingCard.count >= 1) {
-        return { ok: false, message: "AceSpec 最多只能放入 1 張！" };
-      }
-    }
-
-    setCards((prevCards) => {
-      const existingCardIndex = prevCards.findIndex((c) => c.id === card.id);
-
-      if (existingCardIndex > -1) {
-        const newCards = [...prevCards];
-        newCards[existingCardIndex] = {
-          ...newCards[existingCardIndex],
-          count: newCards[existingCardIndex].count + 1,
-        };
-        return newCards;
-      }
-
-      return [
-        ...prevCards,
-        {
-          id: card.id,
-          name: card.name,
-          imageUrl: card.imageUrl,
-          count: 1,
-          category: card.category,
-          subType: card.subType,
-          isAceSpec: card.isAceSpec,
-        },
-      ];
-    });
-
-    return { ok: true };
-  };
-
-  const handleAddToDeck = (card: LibraryCard) => {
-    const result = addToDeck(card);
-    if (result.ok) {
-      setRecentlyAddedId(card.id);
-    } else {
-      setFeedback({ type: "error", text: result.message });
-    }
-  };
-
-  const removeFromDeck = (cardId: number) => {
-    setCards((prevCards) => {
-      const existingCard = prevCards.find((c) => c.id === cardId);
-      
-      if (existingCard && existingCard.count > 1) {
-        // 數量大於 1，則減 1
-        return prevCards.map((c) =>
-          c.id === cardId ? { ...c, count: c.count - 1 } : c
-        );
-      } else {
-        // 數量為 1，直接從陣列移除
-        return prevCards.filter((c) => c.id !== cardId);
-      }
-    });
-  };
-
-  const handleSetDeckCount = (card: LibraryCard, targetCount: number) => {
+  const handleSetDeckCount = (card: LibraryCard | DeckCard, targetCount: number) => {
     if (targetCount < 0) return;
     
     let maxAllowed = 4;
@@ -378,7 +304,7 @@ export default function DeckCompositionEditor() {
                       </div>
                       <div className="flex items-center gap-1">
                       <button 
-                        onClick={() => handleSetDeckCount(card as any, card.count + 1)}
+                        onClick={() => handleSetDeckCount(card, card.count + 1)}
                         className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-primary transition-colors disabled:opacity-50"
                         title="增加數量"
                         disabled={
@@ -390,7 +316,7 @@ export default function DeckCompositionEditor() {
                         <Plus className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => handleSetDeckCount(card as any, card.count - 1)}
+                        onClick={() => handleSetDeckCount(card, card.count - 1)}
                         className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-red-600 transition-colors"
                         title="減少數量"
                       >
@@ -475,7 +401,6 @@ export default function DeckCompositionEditor() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {allCards.map((card) => {
                 const deckCount = getDeckCount(card.id);
-                const justAdded = recentlyAddedId === card.id;
 
                 return (
                 <div key={card.id} className="bg-white rounded-xl border p-2 hover:shadow-md group">
