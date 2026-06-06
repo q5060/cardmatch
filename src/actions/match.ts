@@ -398,12 +398,17 @@ export async function finishMatch(
     }
   });
 
-  await publishMatchSnapshot(id);
-  await publishNotification(otherId);
-
   if (completed) {
-    await publishMatchCompleted(id);
-    const share = await getMatchSharePayload(id, userId);
+    const published = await publishMatchCompleted(id);
+    void publishMatchSnapshot(id);
+    void publishNotification(otherId);
+
+    const share =
+      published
+        ? userId === published.playerAId
+          ? published.shareA
+          : published.shareB
+        : await getMatchSharePayload(id, userId);
     if (share) {
       revalidatePath("/battle");
       revalidatePath("/profile");
@@ -411,6 +416,9 @@ export async function finishMatch(
       revalidatePath(`/battle/result/${id}`);
       return { completed: true, share };
     }
+  } else {
+    await publishMatchSnapshot(id);
+    await publishNotification(otherId);
   }
 
   revalidatePath("/battle");
