@@ -158,7 +158,9 @@ export default function DeckCompositionEditor() {
     if (targetCount < 0) return;
     
     let maxAllowed = 4;
-    const isBasicEnergy = card.category === "ENERGY" && card.subType === "Basic";
+    const isBasicEnergy = 
+      (card.category === "ENERGY" && card.subType === "Basic") || 
+      (card.name.includes("基本") && card.name.includes("能量"));
     if (isBasicEnergy) maxAllowed = 60;
     if (card.isAceSpec) maxAllowed = 1;
     
@@ -309,7 +311,10 @@ export default function DeckCompositionEditor() {
                         title="增加數量"
                         disabled={
                           cards.reduce((acc, c) => acc + c.count, 0) >= 60 || 
-                          (!((card.category === "ENERGY" && card.subType === "Basic")) && card.count >= 4) ||
+                          (!(
+                            (card.category === "ENERGY" && card.subType === "Basic") || 
+                            (card.name.includes("基本") && card.name.includes("能量"))
+                          ) && card.count >= 4) ||
                           (card.isAceSpec && card.count >= 1)
                         }
                       >

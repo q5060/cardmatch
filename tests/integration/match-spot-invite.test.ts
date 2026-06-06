@@ -67,7 +67,8 @@ describe("sendInviteFromSpot", () => {
 
     clearTestCookies();
     await loginAsUser("inv-b@example.com");
-    await expect(sendInviteFromSpot(spot.id)).rejects.toThrow(STALE_ANNOUNCEMENT_ERROR);
+    const result = await sendInviteFromSpot(spot.id);
+    expect(result).toEqual({ error: "STALE_ANNOUNCEMENT" });
 
     const matches = await testPrisma.match.findMany({
       where: { invitedById: { in: [inviterA.id, inviterB.id] } },
