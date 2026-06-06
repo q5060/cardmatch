@@ -300,12 +300,13 @@ export function BattleClient({
   useEffect(() => {
     if (sseConnected || isGuest) return;
 
+    const pollMs = activeMatch ? 30_000 : 15_000;
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") void syncActiveMatch();
-    }, activeMatch ? 30_000 : 15_000);
+    }, pollMs);
 
     return () => window.clearInterval(id);
-  }, [activeMatch?.id, activeMatch?.status, isGuest, sseConnected, syncActiveMatch]);
+  }, [activeMatch, isGuest, sseConnected, syncActiveMatch]);
 
   // Periodically refresh shop counts (every 10 seconds)
   useEffect(() => {

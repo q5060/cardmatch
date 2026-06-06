@@ -176,7 +176,7 @@ export function GlobalMatchCeremony({
     }
     setIncomingCeremony(null);
     dismissCeremony();
-  }, [dismissCeremony, incomingCeremony?.matchId]);
+  }, [dismissCeremony, incomingCeremony]);
 
   useEffect(() => {
     if (ceremony?.kind !== "incoming_invite") return;
