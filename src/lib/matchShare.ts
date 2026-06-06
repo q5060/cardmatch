@@ -9,6 +9,8 @@ import {
   resolveMatchPlayerNote,
   type MatchSharePlayerNote,
 } from "@/lib/matchNotes";
+import { readFile } from "fs/promises";
+import path from "path";
 
 export type { MatchSharePlayerNote };
 
@@ -160,6 +162,27 @@ export async function fetchAvatarDataUrl(
   siteOrigin: string,
 ): Promise<string | null> {
   if (!avatarUrl) return null;
+
+  if (avatarUrl.startsWith("/api/avatar/")) {
+    try {
+      const match = avatarUrl.match(/\/api\/avatar\/(\d+)/);
+      if (match) {
+        const userId = parseInt(match[1], 10);
+        const avatar = await prisma.avatar.findUnique({
+          where: { userId },
+          select: { data: true, mimeType: true },
+        });
+        if (avatar) {
+          const base64 = avatar.data.toString("base64");
+          return `data:${avatar.mimeType};base64,${base64}`;
+        }
+      }
+    } catch {
+      // fallback to fetch
+    }
+  }
+
+
   const url = avatarUrl.startsWith("http")
     ? avatarUrl
     : `${siteOrigin}${avatarUrl.startsWith("/") ? "" : "/"}${avatarUrl}`;

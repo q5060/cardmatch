@@ -1,7 +1,5 @@
 "use server";
 
-import { mkdir, unlink, writeFile } from "fs/promises";
-import path from "path";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -9,7 +7,6 @@ import { publishNotification } from "@/lib/realtime/publish";
 import { assertNotBlocked } from "@/lib/block";
 import { isUserAge, isUserGender, parseUserAge } from "@/lib/profile";
 
-const AVATAR_PREFIX = "/uploads/avatars/";
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
 const MIME_TO_EXT: Record<string, string> = {
@@ -17,41 +14,6 @@ const MIME_TO_EXT: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
 };
-
-function avatarsDir(): string {
-  return path.join(process.cwd(), "public", "uploads", "avatars");
-}
-
-/** Resolve a DB avatar URL to an absolute path only if it is this user's upload under avatars/. */
-function safeLocalAvatarAbsolutePath(
-  avatarUrl: string | null | undefined,
-  userId: number,
-): string | null {
-  if (!avatarUrl?.startsWith(AVATAR_PREFIX)) return null;
-  const rest = avatarUrl.slice(AVATAR_PREFIX.length);
-  if (!rest || rest.includes("/") || rest.includes("..")) return null;
-  const dot = rest.lastIndexOf(".");
-  if (dot <= 0) return null;
-  const base = rest.slice(0, dot);
-  const ext = rest.slice(dot + 1).toLowerCase();
-  if (base !== userId.toString()) return null;
-  if (!["jpg", "jpeg", "png", "webp"].includes(ext)) return null;
-
-  const root = path.resolve(avatarsDir());
-  const abs = path.resolve(path.join(avatarsDir(), rest));
-  if (!abs.startsWith(root + path.sep) && abs !== root) return null;
-  return abs;
-}
-
-async function removeLocalAvatarIfOwned(userId: number, avatarUrl: string | null | undefined) {
-  const abs = safeLocalAvatarAbsolutePath(avatarUrl, userId);
-  if (!abs) return;
-  try {
-    await unlink(abs);
-  } catch {
-    /* ignore missing file */
-  }
-}
 
 export async function updateProfile(formData: FormData) {
   const session = await getSession();
@@ -94,16 +56,14 @@ export async function updateProfile(formData: FormData) {
       throw new Error("AVATAR_INVALID_TYPE");
     }
 
-    await removeLocalAvatarIfOwned(userId, existing.avatarUrl);
-
-    const dir = avatarsDir();
-    await mkdir(dir, { recursive: true });
-
-    const filename = ext === "jpg" ? `${userId}.jpg` : `${userId}.${ext}`;
     const buf = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(dir, filename), buf);
+    await prisma.avatar.upsert({
+      where: { userId },
+      update: { data: buf, mimeType: file.type },
+      create: { userId, data: buf, mimeType: file.type },
+    });
 
-    nextAvatarUrl = `${AVATAR_PREFIX}${filename}`;
+    nextAvatarUrl = `/api/avatar/${userId}?v=${Date.now()}`;
   }
 
   await prisma.user.update({
@@ -132,7 +92,11 @@ export async function removeAvatar() {
   });
   if (!existing) throw new Error("UNAUTHORIZED");
 
-  await removeLocalAvatarIfOwned(userId, existing.avatarUrl);
+  if (existing.avatarUrl?.startsWith("/api/avatar/")) {
+    await prisma.avatar.deleteMany({
+      where: { userId },
+    });
+  }
 
   await prisma.user.update({
     where: { id: userId },

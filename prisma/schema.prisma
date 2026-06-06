@@ -48,7 +48,15 @@ model User {
   reportsReceived    UserReport[]     @relation("ReportsReceived")
   blocksMade         UserBlock[]      @relation("BlocksMade")
   blocksReceived     UserBlock[]      @relation("BlocksReceived")
+  avatar             Avatar?
   shopReports        ShopReport[]
+}
+
+model Avatar {
+  userId   Int    @id
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data     Bytes
+  mimeType String
 }
 
 model UserReport {
