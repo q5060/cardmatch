@@ -347,38 +347,6 @@ export default function DeckCompositionEditor() {
             </div>
           </div>
 
-                {cards.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-10">尚未加入卡片</p>
-                ) : (
-                  cards.map((card) => (
-                    <div key={card.id} className="flex items-center justify-between p-2 hover:bg-neutral-50 rounded-lg border border-transparent hover:border-neutral-200">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold w-6 text-primary">x{card.count}</span>
-                        <span className="text-sm truncate max-w-[150px]">{card.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                      <button 
-                        onClick={() => handleAddToDeck(card)}
-                        className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-primary transition-colors"
-                        title="增加數量"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => removeFromDeck(card.id)}
-                        className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-red-600 transition-colors"
-                        title="減少數量"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                    </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* 右側：卡片資料庫搜尋 [cite: 26, 27, 28, 29, 30, 31] */}
           <div className="lg:col-span-8 space-y-4">
             <div className="space-y-4 mb-6">
