@@ -14,7 +14,10 @@ import {
   useMatchCeremony,
   type CeremonyState,
 } from "@/hooks/useMatchCeremony";
-import { useRealtimeEvent } from "@/hooks/useRealtimeEvent";
+import {
+  useRealtimeConnected,
+  useRealtimeEvent,
+} from "@/hooks/useRealtimeEvent";
 import type { RealtimeEvent } from "@/lib/realtime/types";
 import type { ActiveMatchDTO } from "@/lib/matchDto";
 import { MATCH_STATUS } from "@/lib/constants";
@@ -52,6 +55,17 @@ function initialIncomingCeremony(
   return null;
 }
 
+async function fetchActiveMatch(): Promise<ActiveMatchDTO | null> {
+  try {
+    const res = await fetch("/api/matches/active");
+    if (!res.ok) return null;
+    const data = (await res.json()) as { activeMatch: ActiveMatchDTO | null };
+    return data.activeMatch;
+  } catch {
+    return null;
+  }
+}
+
 export function GlobalMatchCeremony({
   userId,
   initialActiveMatch = null,
@@ -68,12 +82,12 @@ export function GlobalMatchCeremony({
     () => initialIncomingCeremony(initialActiveMatch, userId),
   );
   const prevMatchIdRef = useRef<number | null>(initialActiveMatch?.id ?? null);
+  const dismissedInviteIdsRef = useRef(new Set<number>());
   const [pending, startTransition] = useTransition();
+  const sseConnected = useRealtimeConnected();
 
-  const onMatchUpdated = useCallback(
-    (e: RealtimeEvent) => {
-      if (e.type !== "match.updated") return;
-      const next = e.activeMatch;
+  const applyActiveMatch = useCallback(
+    (next: ActiveMatchDTO | null) => {
       const prevId = prevMatchIdRef.current;
       prevMatchIdRef.current = next?.id ?? null;
       setActiveMatch(next);
@@ -81,7 +95,8 @@ export function GlobalMatchCeremony({
       if (
         next?.status === MATCH_STATUS.INVITE_PENDING &&
         next.invitedById !== userId &&
-        prevId !== next.id
+        prevId !== next.id &&
+        !dismissedInviteIdsRef.current.has(next.id)
       ) {
         setIncomingCeremony(buildIncomingInviteCeremony(next, userId));
       }
@@ -93,15 +108,58 @@ export function GlobalMatchCeremony({
     [userId],
   );
 
-  const onMatchCompleted = useCallback((e: RealtimeEvent) => {
-    if (e.type !== "match.completed") return;
-    prevMatchIdRef.current = null;
-    setActiveMatch(null);
-    setIncomingCeremony(null);
-  }, []);
+  const syncActiveMatch = useCallback(async () => {
+    if (document.visibilityState !== "visible") return;
+    const next = await fetchActiveMatch();
+    applyActiveMatch(next);
+  }, [applyActiveMatch]);
+
+  const onMatchUpdated = useCallback(
+    (e: RealtimeEvent) => {
+      if (e.type !== "match.updated") return;
+      applyActiveMatch(e.activeMatch);
+    },
+    [applyActiveMatch],
+  );
+
+  const onMatchCompleted = useCallback(
+    (e: RealtimeEvent) => {
+      if (e.type !== "match.completed") return;
+      prevMatchIdRef.current = null;
+      setActiveMatch(null);
+      setIncomingCeremony(null);
+    },
+    [],
+  );
+
+  const onNotification = useCallback(
+    (e: RealtimeEvent) => {
+      if (e.type !== "notification.new") return;
+      void syncActiveMatch();
+    },
+    [syncActiveMatch],
+  );
 
   useRealtimeEvent((ev) => ev.type === "match.updated", onMatchUpdated);
   useRealtimeEvent((ev) => ev.type === "match.completed", onMatchCompleted);
+  useRealtimeEvent((e) => e.type === "notification.new", onNotification);
+
+  /** Poll active match when SSE is disconnected (invite popup fallback). */
+  useEffect(() => {
+    if (sseConnected) return;
+    const id = window.setInterval(() => {
+      void syncActiveMatch();
+    }, 15_000);
+    return () => window.clearInterval(id);
+  }, [sseConnected, syncActiveMatch]);
+
+  useEffect(() => {
+    function onVisibility() {
+      if (document.visibilityState === "visible") void syncActiveMatch();
+    }
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, [syncActiveMatch]);
 
   const { ceremony: transitionCeremony, dismissCeremony } = useMatchCeremony(
     activeMatch,
@@ -113,9 +171,12 @@ export function GlobalMatchCeremony({
   const ceremony = incomingCeremony ?? transitionCeremony;
 
   const dismiss = useCallback(() => {
+    if (incomingCeremony?.matchId != null) {
+      dismissedInviteIdsRef.current.add(incomingCeremony.matchId);
+    }
     setIncomingCeremony(null);
     dismissCeremony();
-  }, [dismissCeremony]);
+  }, [dismissCeremony, incomingCeremony?.matchId]);
 
   useEffect(() => {
     if (ceremony?.kind !== "incoming_invite") return;

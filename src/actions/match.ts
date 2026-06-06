@@ -1,6 +1,6 @@
 "use server";
 
-import { createInviteMatch } from "@/lib/matchInvite";
+import { createInviteMatch, publishInviteMatchRealtime } from "@/lib/matchInvite";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
@@ -52,7 +52,8 @@ export async function sendInviteFromSpot(
     deckId = null;
   }
 
-  await prisma.$transaction(async (tx) => {
+  let inviteeId: number;
+  const match = await prisma.$transaction(async (tx) => {
     const now = new Date();
     const claimed = await tx.meetSpot.updateMany({
       where: {
@@ -75,14 +76,14 @@ export async function sendInviteFromSpot(
     });
     if (!spot) throw new Error(STALE_ANNOUNCEMENT_ERROR);
 
-    const targetUserId = spot.userId;
-    if (targetUserId === userId) throw new Error("無法邀請自己");
-    await assertNotBlocked(userId, targetUserId);
+    inviteeId = spot.userId;
+    if (inviteeId === userId) throw new Error("無法邀請自己");
+    await assertNotBlocked(userId, inviteeId);
 
-    await createInviteMatch(
+    return createInviteMatch(
       {
         inviterId: userId,
-        targetUserId,
+        targetUserId: inviteeId,
         meet: {
           lat: spot.lat,
           lng: spot.lng,
@@ -91,13 +92,22 @@ export async function sendInviteFromSpot(
         },
         source: "spot",
         spotLabelForNotification: spot.label,
-        publisherId: targetUserId,
+        publisherId: inviteeId,
         publisherDeckId: spot.deckId,
         inviterDeckId: deckId,
       },
       tx,
+      { deferPublish: true },
     );
   });
+
+  await publishInviteMatchRealtime(
+    match.id,
+    "spot",
+    inviteeId!,
+    match.playerAId,
+    match.playerBId,
+  );
 }
 
 export async function setMatchDeck(matchId: string, deckId: string | null) {

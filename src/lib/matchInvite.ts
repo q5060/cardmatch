@@ -30,6 +30,29 @@ export type CreateInviteParams = {
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
+export type CreateInviteOptions = {
+  /** Defer SSE publish until after an enclosing transaction commits. */
+  deferPublish?: boolean;
+};
+
+export async function publishInviteMatchRealtime(
+  matchId: number,
+  source: CreateInviteSource,
+  targetUserId: number,
+  playerAId: number,
+  playerBId: number,
+) {
+  const isRandom = source === "random";
+  await publishMatchSnapshot(matchId);
+  if (isRandom) {
+    await publishNotification(playerAId);
+    await publishNotification(playerBId);
+  } else {
+    await publishNotification(targetUserId);
+  }
+  revalidatePath("/battle");
+}
+
 async function assertCanCreateInvite(
   db: Db,
   inviterId: number,
@@ -76,7 +99,11 @@ async function assertCanCreateInvite(
 
 /** Create a match. For random matches, status is ACCEPTED immediately (no invite step).
  *  For spot invites, status is INVITE_PENDING and only the invitee is notified. */
-export async function createInviteMatch(params: CreateInviteParams, db: Db = prisma) {
+export async function createInviteMatch(
+  params: CreateInviteParams,
+  db: Db = prisma,
+  options?: CreateInviteOptions,
+) {
   const { inviterId, targetUserId, meet, source } = params;
   const { playerAId, playerBId } = await assertCanCreateInvite(db, inviterId, targetUserId);
 
@@ -145,9 +172,6 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
         },
       ],
     });
-    await publishMatchSnapshot(match.id);
-    await publishNotification(playerAId);
-    await publishNotification(playerBId);
   } else {
     // Spot invite — only notify the invitee
     const spotLabel = params.spotLabelForNotification ?? meet.label;
@@ -167,10 +191,17 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
         read: false,
       },
     });
-    await publishMatchSnapshot(match.id);
-    await publishNotification(targetUserId);
   }
 
-  revalidatePath("/battle");
+  if (!options?.deferPublish) {
+    await publishInviteMatchRealtime(
+      match.id,
+      source,
+      targetUserId,
+      playerAId,
+      playerBId,
+    );
+  }
+
   return match;
 }

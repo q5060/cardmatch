@@ -298,20 +298,14 @@ export function BattleClient({
 
   /** Match state fallback when SSE is disconnected. */
   useEffect(() => {
-    if (!activeMatch || sseConnected) return;
-    const syncStatuses = new Set<string>([
-      MATCH_STATUS.ACCEPTED,
-      MATCH_STATUS.INVITE_PENDING,
-      MATCH_STATUS.IN_PROGRESS,
-    ]);
-    if (!syncStatuses.has(activeMatch.status)) return;
+    if (sseConnected || isGuest) return;
 
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") void syncActiveMatch();
-    }, 30_000);
+    }, activeMatch ? 30_000 : 15_000);
 
     return () => window.clearInterval(id);
-  }, [activeMatch?.id, activeMatch?.status, sseConnected, syncActiveMatch]);
+  }, [activeMatch?.id, activeMatch?.status, isGuest, sseConnected, syncActiveMatch]);
 
   // Periodically refresh shop counts (every 10 seconds)
   useEffect(() => {
