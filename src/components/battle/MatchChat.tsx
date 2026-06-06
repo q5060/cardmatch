@@ -150,13 +150,13 @@ export function MatchChat({
   }
 
   return (
-    <div className="card flex h-full min-h-[280px] flex-col overflow-hidden p-0">
-      <div className="border-b border-border bg-gray-50/80 px-4 py-3 text-sm font-semibold text-foreground backdrop-blur-sm">
+    <div className="card flex h-[280px] flex-col overflow-hidden p-0">
+      <div className="shrink-0 border-b border-border bg-gray-50/80 px-4 py-3 text-sm font-semibold text-foreground backdrop-blur-sm">
         約戰聊天
       </div>
       <div
         dir="ltr"
-        className="flex min-w-0 flex-1 flex-col space-y-2 overflow-y-auto px-3 py-3 text-sm"
+        className="flex min-h-0 min-w-0 flex-1 flex-col space-y-2 overflow-y-auto px-3 py-3 text-sm"
       >
         {fetchErr ? (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950" role="status">
@@ -179,7 +179,7 @@ export function MatchChat({
       </div>
       <form
         onSubmit={(e) => void send(e)}
-        className="flex flex-col gap-2 border-t border-border bg-card p-2"
+        className="flex shrink-0 flex-col gap-2 border-t border-border bg-card p-2"
       >
         {sendErr ? (
           <p className="text-xs text-red-700" role="alert">

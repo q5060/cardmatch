@@ -659,7 +659,7 @@ export function BattleClient({
         ) : null}
 
         {(st === MATCH_STATUS.ACCEPTED || st === MATCH_STATUS.IN_PROGRESS) && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
             <MeetMap
               shops={shopsData}
               announcements={[]}
