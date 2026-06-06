@@ -224,6 +224,52 @@ export default function DeckCompositionEditor() {
     });
   };
 
+  const handleSetDeckCount = (card: LibraryCard, targetCount: number) => {
+    if (targetCount < 0) return;
+    
+    let maxAllowed = 4;
+    const isBasicEnergy = card.category === "ENERGY" && card.subType === "Basic";
+    if (isBasicEnergy) maxAllowed = 60;
+    if (card.isAceSpec) maxAllowed = 1;
+    
+    setCards((prevCards) => {
+      const existingCard = prevCards.find((c) => c.id === card.id);
+      
+      let newCount = targetCount;
+      if (newCount > maxAllowed) {
+        setFeedback({ type: "error", text: `此卡片最多只能放入 ${maxAllowed} 張！` });
+        newCount = maxAllowed;
+      }
+      
+      const otherCardsCount = prevCards.reduce((acc, c) => acc + (c.id === card.id ? 0 : c.count), 0);
+      if (otherCardsCount + newCount > 60) {
+        newCount = 60 - otherCardsCount;
+        if (newCount !== targetCount) {
+          setFeedback({ type: "error", text: "牌組已達 60 張上限！" });
+        }
+      }
+
+      if (newCount === 0) {
+        return prevCards.filter((c) => c.id !== card.id);
+      }
+
+      if (existingCard) {
+        return prevCards.map((c) => c.id === card.id ? { ...c, count: newCount } : c);
+      }
+
+      return [
+        ...prevCards,
+        {
+          id: card.id,
+          name: card.name,
+          imageUrl: card.imageUrl,
+          count: newCount,
+          category: card.category,
+        },
+      ];
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -445,25 +491,38 @@ export default function DeckCompositionEditor() {
                   </div>
                   <p className="text-xs font-bold truncate">{card.name}</p>
                   <p className="text-[10px] text-muted-foreground">{card.type} / {card.regulationMark}</p>
-                  <button 
-                    onClick={() => handleAddToDeck(card)} 
-                    className={`mt-2 w-full flex items-center justify-center gap-1 py-1 rounded-md transition-all text-xs ${
-                      justAdded
-                        ? "bg-emerald-600 text-white scale-[0.98]"
-                        : "bg-primary text-white hover:bg-primary/90 active:scale-[0.98]"
-                    }`}
-                  >
-                    {justAdded ? (
-                      <>
-                        <Check className="w-3 h-3" aria-hidden /> 已加入
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-3 h-3" aria-hidden />
-                        {deckCount > 0 ? `加入 (${deckCount})` : "加入"}
-                      </>
-                    )}
-                  </button>
+                  
+                  <div className="mt-2 flex items-center justify-between border rounded-md overflow-hidden bg-neutral-50 h-8">
+                    <button 
+                      onClick={() => handleSetDeckCount(card, deckCount - 1)}
+                      className="w-8 h-full flex items-center justify-center hover:bg-neutral-200 text-neutral-600 transition-colors disabled:opacity-50"
+                      disabled={deckCount === 0}
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <input 
+                      type="number" 
+                      className="w-full text-center bg-transparent text-xs font-bold text-foreground focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={deckCount === 0 ? "" : deckCount}
+                      placeholder="0"
+                      min={0}
+                      onChange={(e) => {
+                         const val = parseInt(e.target.value);
+                         handleSetDeckCount(card, isNaN(val) ? 0 : val);
+                      }}
+                    />
+                    <button 
+                      onClick={() => handleSetDeckCount(card, deckCount + 1)} 
+                      className="w-8 h-full flex items-center justify-center hover:bg-primary/10 text-primary transition-colors disabled:opacity-50"
+                      disabled={
+                        deckCount >= 60 || 
+                        (!((card.category === "ENERGY" && card.subType === "Basic")) && deckCount >= 4) ||
+                        (card.isAceSpec && deckCount >= 1)
+                      }
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
               );
               })}
