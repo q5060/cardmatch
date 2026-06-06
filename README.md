@@ -282,10 +282,15 @@ REDIS_URL=redis://127.0.0.1:6379
 
 | 變數 | 值 |
 |------|-----|
-| `DATABASE_URL` | Postgres 連線字串（Vercel 整合會自動注入） |
+| `DATABASE_URL` | Postgres 連線字串（Neon 建議用 **Pooled** / `-pooler` 主機名，給 runtime 用） |
+| `DIRECT_DATABASE_URL` | **Neon 必填**：Dashboard → Connect → **Direct connection**（非 `-pooler`）。Migration 需直連，否則可能 P1002 advisory lock timeout |
 | `SESSION_SECRET` | 至少 32 字元的強隨機字串 |
 | `REALTIME_BUS` | `redis` |
 | `REDIS_URL` | Upstash 的 `rediss://...` |
+
+若使用 Vercel Postgres 整合，通常只需 `DATABASE_URL`（建置腳本會在未設定時 fallback 成同一 URL）。
+
+**P1002 / advisory lock timeout**：常見原因是 (1) Neon 用 pooler URL 跑 migration、(2) 多個 Vercel build 同時 deploy。請確認 `DIRECT_DATABASE_URL` 為直連；建置腳本已內建重試，稍後 Redeploy 通常即可。
 
 ### 4. 匯入 GitHub 並部署
 
