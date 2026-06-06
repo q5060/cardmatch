@@ -217,10 +217,47 @@ export async function cancelMatch(matchId: string) {
     if (match.invitedById !== userId) {
       throw new Error("只有邀請者可以取消邀請");
     }
-    await prisma.match.update({
-      where: { id },
-      data: { status: MATCH_STATUS.CANCELLED },
+
+    // The invitee is the player who is NOT the inviter
+    const inviteeId = match.invitedById === match.playerAId ? match.playerBId : match.playerAId;
+
+    await prisma.$transaction(async (tx) => {
+      // Cancel the match
+      await tx.match.update({
+        where: { id },
+        data: { status: MATCH_STATUS.CANCELLED },
+      });
+
+      // Restore the invitee's battle announcement (set looking: true)
+      // so it reappears on the map for others to see
+      await tx.meetSpot.updateMany({
+        where: {
+          userId: inviteeId,
+          active: true,
+          looking: false,
+          expiresAt: { gt: new Date() },
+        },
+        data: { looking: true },
+      });
+
+      // Notify the invitee that the invite was cancelled
+      await tx.notification.create({
+        data: {
+          userId: inviteeId,
+          type: "SPOT_INVITE",
+          referenceId: id.toString(),
+          senderId: userId,
+          data: JSON.stringify({
+            kind: "invite_cancelled",
+            title: "約戰邀請已取消",
+            body: "對方已取消邀請，您的約戰公告已重新上線",
+          }),
+          read: false,
+        },
+      });
     });
+
+    await publishNotification(inviteeId);
   } else if (match.status === MATCH_STATUS.ACCEPTED || match.status === MATCH_STATUS.IN_PROGRESS) {
     // Both players need to agree to cancel
     const otherPlayerId = match.playerAId === userId ? match.playerBId : match.playerAId;

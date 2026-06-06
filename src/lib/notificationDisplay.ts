@@ -98,3 +98,17 @@ export function getNotificationBody(
       return typeof payload === "string" ? payload : undefined;
   }
 }
+
+/**
+ * Returns true only for real incoming spot invites (kind === "spot_invite" or unset).
+ * Returns false for cancellation notices (kind === "invite_cancelled").
+ */
+export function isActiveSpotInvite(
+  type: string,
+  data: string | Record<string, unknown> | null | undefined,
+): boolean {
+  if (type !== "SPOT_INVITE") return false;
+  const payload = parseNotificationData(data);
+  if (typeof payload === "object" && payload?.kind === "invite_cancelled") return false;
+  return true;
+}
