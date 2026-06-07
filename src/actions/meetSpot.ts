@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import {
   ANNOUNCEMENT_TTL_DEFAULT_HOURS,
   ANNOUNCEMENT_TTL_MAX_HOURS,
@@ -127,6 +127,7 @@ export async function publishBattleAnnouncement(input: {
   });
 
   revalidatePath("/battle");
+  revalidateTag("shops", "max");
 }
 
 export async function clearBattleAnnouncement() {
@@ -138,6 +139,7 @@ export async function clearBattleAnnouncement() {
   });
 
   revalidatePath("/battle");
+  revalidateTag("shops", "max");
 }
 
 export async function fetchShopLobby(shopId: string): Promise<{

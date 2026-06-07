@@ -10,7 +10,6 @@ import {
 import type { RealtimeEvent } from "@/lib/realtime/types";
 
 type Props = {
-  initialUnreadCount: number;
   className?: string;
   onCountChange?: (count: number) => void;
 };
@@ -23,12 +22,10 @@ async function fetchUnreadCount(): Promise<number> {
 }
 
 export function NotificationBell({
-  initialUnreadCount,
   className = "",
   onCountChange,
 }: Props) {
-  const [overrideCount, setOverrideCount] = useState<number | null>(null);
-  const unreadCount = overrideCount ?? initialUnreadCount;
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const sseConnected = useRealtimeConnected();
@@ -40,12 +37,22 @@ export function NotificationBell({
   const refreshCount = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
     const count = await fetchUnreadCount();
-    setOverrideCount(count);
+    setUnreadCount(count);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchUnreadCount().then((count) => {
+      if (!cancelled) setUnreadCount(count);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const onNotification = useCallback((e: RealtimeEvent) => {
     if (e.type !== "notification.new") return;
-    setOverrideCount(e.unreadCount);
+    setUnreadCount(e.unreadCount);
   }, []);
 
   useRealtimeEvent((e) => e.type === "notification.new", onNotification);
@@ -96,7 +103,7 @@ export function NotificationBell({
       <NotificationDropdown
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        onUnreadCountChange={setOverrideCount}
+        onUnreadCountChange={setUnreadCount}
       />
     </div>
   );

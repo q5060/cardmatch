@@ -47,15 +47,12 @@ function subscribeReducedMotion(cb: () => void) {
 
 type Props = {
   user?: { id: number; displayName: string; avatarUrl: string | null } | null;
-  pendingInvites?: number;
 };
 
-export function NavBar({ user, pendingInvites = 0 }: Props) {
+export function NavBar({ user }: Props) {
   const pathname = usePathname();
-  const [notificationUnread, setNotificationUnread] = useState<number | null>(
-    null,
-  );
-  const unreadCount = notificationUnread ?? pendingInvites;
+  const [notificationUnread, setNotificationUnread] = useState(0);
+  const unreadCount = notificationUnread;
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -178,7 +175,6 @@ export function NavBar({ user, pendingInvites = 0 }: Props) {
           {user ? (
             <>
               <NotificationBell
-                initialUnreadCount={pendingInvites}
                 onCountChange={setNotificationUnread}
                 className="hidden md:block"
               />

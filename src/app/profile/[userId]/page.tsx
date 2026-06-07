@@ -5,8 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { ProfileDashboard } from "@/components/profile/ProfileDashboard";
 import { PublicDeckList } from "@/components/profile/PublicDeckList";
-import { getProfileBattleStats, getProfileMatchFeed, getPrivacyHiddenReason, getTopOpponents } from "@/lib/queries";
-import { DECK_VISIBILITY, PROFILE_RECENT_MATCHES, PROFILE_ALL_MATCHES } from "@/lib/constants";
+import { getPrivacyHiddenReason, getProfileDashboardData } from "@/lib/queries";
+import { DECK_VISIBILITY, PROFILE_ALL_MATCHES } from "@/lib/constants";
 import { isBlockedBetween } from "@/lib/block";
 import { viewerHasBlocked } from "@/actions/moderation";
 
@@ -73,10 +73,13 @@ function ProfilePageSkeleton() {
 
 export default async function OtherProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ userId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { userId: userIdStr } = await params;
+  const { tab } = await searchParams;
   const userId = parseInt(userIdStr);
   const viewer = await getCurrentUser();
   if (viewer?.id === userId) redirect("/profile");
@@ -146,15 +149,14 @@ export default async function OtherProfilePage({
   const friendshipForUi = blockedEither ? null : friendship;
   const viewerId = viewer?.id ?? null;
 
-  const [battleStats, recentFeed, allMatches, battleRecordsHiddenReason, winrateHiddenReason, topOpponents] =
+  const [profileData, battleRecordsHiddenReason, winrateHiddenReason] =
     await Promise.all([
-    getProfileBattleStats(userId, viewerId ?? undefined),
-    getProfileMatchFeed(userId, PROFILE_RECENT_MATCHES, viewerId ?? undefined),
-    getProfileMatchFeed(userId, PROFILE_ALL_MATCHES, viewerId ?? undefined),
-    getPrivacyHiddenReason(userId, viewerId, profile.battleRecordVisibility),
-    getPrivacyHiddenReason(userId, viewerId, profile.winrateVisibility),
-    getTopOpponents(userId, 5, viewerId ?? undefined),
-  ]);
+      getProfileDashboardData(userId, viewerId, {
+        allMatchesTake: tab === "matches" ? PROFILE_ALL_MATCHES : 0,
+      }),
+      getPrivacyHiddenReason(userId, viewerId, profile.battleRecordVisibility),
+      getPrivacyHiddenReason(userId, viewerId, profile.winrateVisibility),
+    ]);
 
   const deckCount = decks.length;
   const publicDeckCount = deckCount;
@@ -178,16 +180,16 @@ export default async function OtherProfilePage({
           age: profile.age,
           createdAt: profile.createdAt.toISOString(),
         }}
-        battleStats={battleStats}
+        battleStats={profileData.battleStats}
         battleRecordVisibility={profile.battleRecordVisibility as "PUBLIC" | "FRIENDS" | "PRIVATE"}
         winrateVisibility={profile.winrateVisibility as "PUBLIC" | "FRIENDS" | "PRIVATE"}
         battleRecordsHiddenReason={battleRecordsHiddenReason}
         winrateHiddenReason={winrateHiddenReason}
         deckCount={deckCount}
         publicDeckCount={publicDeckCount}
-        recentFeed={recentFeed}
-        allMatches={allMatches}
-        topOpponents={topOpponents}
+        recentFeed={profileData.recentFeed}
+        allMatches={profileData.allMatches}
+        topOpponents={profileData.topOpponents}
         allMatchesHref={`/profile/${userId}/matches`}
         decksSlot={
           <PublicDeckList

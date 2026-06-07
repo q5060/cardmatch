@@ -1,8 +1,10 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import prisma from "./prisma";
 import {
   MATCH_ACTIVE_STATUSES,
   MATCH_STATUS,
+  PROFILE_RECENT_MATCHES,
 } from "./constants";
 import {
   announcementDeckInclude,
@@ -105,7 +107,7 @@ export type ShopEventDTO = {
   endsAt: string | null;
 };
 
-export async function getShops(viewerId: number | null) {
+async function getShopsUncached(viewerId: number | null) {
   try {
     const blockedArray =
       viewerId === null ? [] : Array.from(await getBlockedUserIds(viewerId));
@@ -116,7 +118,7 @@ export async function getShops(viewerId: number | null) {
         where: {
           ...activeAnnouncementWhere(),
           shopId: { not: null },
-          userId: { notIn: blockedArray },  // Only exclude blocked users, include self
+          userId: { notIn: blockedArray },
         },
         _count: { _all: true },
       }),
@@ -149,6 +151,15 @@ export async function getShops(viewerId: number | null) {
     console.error("Error in getShops:", err);
     return [];
   }
+}
+
+export async function getShops(viewerId: number | null) {
+  const viewerKey = viewerId ?? 0;
+  return unstable_cache(
+    () => getShopsUncached(viewerId),
+    ["shops", String(viewerKey)],
+    { revalidate: 30, tags: ["shops"] },
+  )();
 }
 
 export async function getShopRecentEvents(
@@ -304,7 +315,7 @@ export type HomeAnnouncementPreview = {
 };
 
 /** Distinct players with an active announcement + up to `limit` most recently updated. */
-export async function getHomeAnnouncementStats(limit = 3): Promise<{
+async function getHomeAnnouncementStatsUncached(limit: number): Promise<{
   playerCount: number;
   recent: HomeAnnouncementPreview[];
 }> {
@@ -333,6 +344,17 @@ export async function getHomeAnnouncementStats(limit = 3): Promise<{
       label: s.label,
     })),
   };
+}
+
+export async function getHomeAnnouncementStats(limit = 3): Promise<{
+  playerCount: number;
+  recent: HomeAnnouncementPreview[];
+}> {
+  return unstable_cache(
+    () => getHomeAnnouncementStatsUncached(limit),
+    ["home-announcement-stats", String(limit)],
+    { revalidate: 20, tags: ["shops"] },
+  )();
 }
 
 export async function getAnnouncementsAtShop(
@@ -767,4 +789,246 @@ export async function getTopOpponents(
   return Object.values(opponentStats)
     .sort((a, b) => b.total - a.total)
     .slice(0, limit);
+}
+
+const getProfilePrivacyContext = cache(
+  async (userId: number, viewerId: number | null | undefined) => {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        battleRecordVisibility: true,
+        winrateVisibility: true,
+      },
+    });
+    if (!user) return null;
+
+    const effectiveViewerId = viewerId ?? null;
+    const [canSeeBattleRecords, canSeeWinrate] = await Promise.all([
+      shouldShowPrivateData(
+        userId,
+        effectiveViewerId,
+        user.battleRecordVisibility,
+      ),
+      shouldShowPrivateData(userId, effectiveViewerId, user.winrateVisibility),
+    ]);
+
+    return { canSeeBattleRecords, canSeeWinrate };
+  },
+);
+
+const getCompletedMatchesForProfile = cache(async (userId: number) => {
+  return prisma.match.findMany({
+    where: {
+      OR: [{ playerAId: userId }, { playerBId: userId }],
+      status: MATCH_STATUS.COMPLETED,
+    },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      playerA: { select: { id: true, displayName: true } },
+      playerB: { select: { id: true, displayName: true } },
+      battleResults: true,
+      shop: { select: { id: true, name: true } },
+      ...matchDeckInclude,
+    },
+  });
+});
+
+type CompletedProfileMatch = Awaited<
+  ReturnType<typeof getCompletedMatchesForProfile>
+>[number];
+
+function matchRowToFeedRow(
+  m: CompletedProfileMatch,
+  userId: number,
+): ProfileMatchFeedRow {
+  const otherName =
+    m.playerAId === userId ? m.playerB.displayName : m.playerA.displayName;
+  const otherUserId =
+    m.playerAId === userId ? m.playerB.id : m.playerA.id;
+  const br = m.battleResults[0];
+  let outcomeLabel: string | null = null;
+  if (br && br.status === "AGREED") {
+    if (br.winnerId === userId) outcomeLabel = "勝";
+    else if (br.winnerId === null) outcomeLabel = "平";
+    else outcomeLabel = "敗";
+  }
+  return {
+    id: m.id,
+    updatedAt: m.updatedAt.toISOString(),
+    meetLabel: m.meetLabel,
+    meetLat: m.meetLat,
+    meetLng: m.meetLng,
+    shopId: m.shopId,
+    shopName: m.shop?.name ?? null,
+    otherDisplayName: otherName,
+    otherUserId,
+    outcomeLabel,
+    myDeck: toDeckSummary(
+      m.playerAId === userId ? m.playerADeck : m.playerBDeck,
+    ),
+    otherDeck: toDeckSummary(
+      m.playerAId === userId ? m.playerBDeck : m.playerADeck,
+    ),
+  };
+}
+
+function battleStatsFromMatches(
+  matches: CompletedProfileMatch[],
+  userId: number,
+  canSeeBattleRecords: boolean,
+  canSeeWinrate: boolean,
+): ProfileBattleStats {
+  let wins = 0;
+  let losses = 0;
+  let draws = 0;
+  let recordedTotal = 0;
+  const activityByDay: Record<string, number> = {};
+  const activityByHour: Record<number, number> = {};
+
+  if (canSeeBattleRecords) {
+    for (const m of matches) {
+      const day = m.updatedAt.toISOString().slice(0, 10);
+      activityByDay[day] = (activityByDay[day] ?? 0) + 1;
+      const utc8Date = new Date(m.updatedAt.getTime() + 8 * 60 * 60 * 1000);
+      const hour = utc8Date.getUTCHours();
+      activityByHour[hour] = (activityByHour[hour] ?? 0) + 1;
+    }
+  }
+
+  for (const m of matches) {
+    const br = m.battleResults[0];
+    if (!br || br.status !== "AGREED") continue;
+    recordedTotal++;
+    if (br.winnerId === userId) wins++;
+    else if (br.winnerId === null) draws++;
+    else losses++;
+  }
+
+  if (!canSeeWinrate) {
+    wins = 0;
+    losses = 0;
+    draws = 0;
+    recordedTotal = 0;
+  }
+
+  let maxWinStreak = 0;
+  if (canSeeWinrate) {
+    maxWinStreak = calculateMaxWinStreak(matches, userId);
+  }
+
+  return {
+    completedTotal: matches.length,
+    recordedTotal,
+    wins,
+    losses,
+    draws,
+    maxWinStreak,
+    completedWithoutResult: matches.length - recordedTotal,
+    activityByDay,
+    activityByHour,
+  };
+}
+
+function topOpponentsFromMatches(
+  matches: CompletedProfileMatch[],
+  userId: number,
+  limit: number,
+): TopOpponent[] {
+  const opponentStats: Record<number, TopOpponent> = {};
+
+  for (const m of matches) {
+    const br = m.battleResults[0];
+    if (!br || br.status !== "AGREED") continue;
+
+    const opponentId = m.playerAId === userId ? m.playerBId : m.playerAId;
+    const opponentName =
+      m.playerAId === userId ? m.playerB.displayName : m.playerA.displayName;
+
+    if (!opponentStats[opponentId]) {
+      opponentStats[opponentId] = {
+        opponentId,
+        displayName: opponentName,
+        total: 0,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+      };
+    }
+
+    opponentStats[opponentId].total++;
+    if (br.winnerId === userId) opponentStats[opponentId].wins++;
+    else if (br.winnerId === null) opponentStats[opponentId].draws++;
+    else opponentStats[opponentId].losses++;
+  }
+
+  return Object.values(opponentStats)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, limit);
+}
+
+const EMPTY_PROFILE_BATTLE_STATS: ProfileBattleStats = {
+  completedTotal: 0,
+  recordedTotal: 0,
+  wins: 0,
+  losses: 0,
+  draws: 0,
+  maxWinStreak: 0,
+  completedWithoutResult: 0,
+  activityByDay: {},
+  activityByHour: {},
+};
+
+export type ProfileDashboardData = {
+  battleStats: ProfileBattleStats;
+  recentFeed: ProfileMatchFeedRow[];
+  allMatches: ProfileMatchFeedRow[];
+  topOpponents: TopOpponent[];
+};
+
+/** Single DB pass for profile overview (stats, recent feed, optional full feed, top opponents). */
+export async function getProfileDashboardData(
+  userId: number,
+  viewerId: number | null | undefined,
+  options: { allMatchesTake?: number } = {},
+): Promise<ProfileDashboardData> {
+  const allMatchesTake = options.allMatchesTake ?? 0;
+  const privacy = await getProfilePrivacyContext(userId, viewerId);
+  if (!privacy) {
+    return {
+      battleStats: EMPTY_PROFILE_BATTLE_STATS,
+      recentFeed: [],
+      allMatches: [],
+      topOpponents: [],
+    };
+  }
+
+  const matches = await getCompletedMatchesForProfile(userId);
+  const battleStats = battleStatsFromMatches(
+    matches,
+    userId,
+    privacy.canSeeBattleRecords,
+    privacy.canSeeWinrate,
+  );
+
+  if (!privacy.canSeeBattleRecords) {
+    return {
+      battleStats,
+      recentFeed: [],
+      allMatches: [],
+      topOpponents: [],
+    };
+  }
+
+  const recentFeed = matches
+    .slice(0, PROFILE_RECENT_MATCHES)
+    .map((m) => matchRowToFeedRow(m, userId));
+  const allMatches =
+    allMatchesTake > 0
+      ? matches
+          .slice(0, allMatchesTake)
+          .map((m) => matchRowToFeedRow(m, userId))
+      : [];
+  const topOpponents = topOpponentsFromMatches(matches, userId, 5);
+
+  return { battleStats, recentFeed, allMatches, topOpponents };
 }

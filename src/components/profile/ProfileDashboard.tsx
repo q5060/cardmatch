@@ -1,10 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Calendar,
   Layers,
@@ -166,7 +166,6 @@ function ProfileDashboardInner({
   interactionBlocked = false,
   decksSlot,
 }: ProfileDashboardProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const tab = normalizeTab(searchParams.get("tab"), variant);
   const tabs = variant === "other" ? TABS_OTHER : TABS_SELF;
@@ -187,18 +186,6 @@ function ProfileDashboardInner({
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [moreMenuOpen]);
-
-  const setTab = useCallback(
-    (next: ProfileTabId) => {
-      const q = new URLSearchParams(searchParams.toString());
-      if (next === "overview") q.delete("tab");
-      else q.set("tab", next);
-      const s = q.toString();
-      const path = s ? `${profileBasePath}?${s}` : profileBasePath;
-      router.replace(path, { scroll: false });
-    },
-    [router, searchParams, profileBasePath],
-  );
 
   const joined = useMemo(
     () =>
@@ -594,11 +581,16 @@ function ProfileDashboardInner({
           >
             {tabs.map((t) => {
               const active = tab === t.id;
+              const q = new URLSearchParams(searchParams.toString());
+              if (t.id === "overview") q.delete("tab");
+              else q.set("tab", t.id);
+              const qs = q.toString();
+              const href = qs ? `${profileBasePath}?${qs}` : profileBasePath;
               return (
-                <button
+                <Link
                   key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
+                  href={href}
+                  scroll={false}
                   className={`shrink-0 border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors sm:px-4 ${
                     active
                       ? "border-primary text-primary"
@@ -606,7 +598,7 @@ function ProfileDashboardInner({
                   }`}
                 >
                   {t.label}
-                </button>
+                </Link>
               );
             })}
           </nav>

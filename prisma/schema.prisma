@@ -121,6 +121,9 @@ model MeetSpot {
   expiresAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([active, looking, expiresAt])
+  @@index([shopId])
 }
 
 model Shop {
@@ -195,6 +198,9 @@ model Match {
   messages      Message[]
   battleResults BattleResult[]
   reports       UserReport[]
+
+  @@index([playerAId, status])
+  @@index([playerBId, status])
 }
 
 model Message {
@@ -257,6 +263,8 @@ model Notification {
   data        String?  // JSON string for additional data like notification message
   read        Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  @@index([userId, read])
 }
 
 model Card {
