@@ -1,3 +1,4 @@
+import { cache } from "react";
 import prisma from "@/lib/prisma";
 import { getActiveMatchForUser } from "@/lib/queries";
 import {
@@ -49,14 +50,7 @@ export type BattleResultDTO = {
 
 type MatchRow = NonNullable<Awaited<ReturnType<typeof getActiveMatchForUser>>>;
 
-export async function toActiveMatchDTO(
-  m: MatchRow,
-  viewerId: number,
-): Promise<ActiveMatchDTO> {
-  const decks = await getMatchDeckSidesForViewer(m, viewerId, {
-    bypassVisibilityForParticipant: true,
-  });
-
+function matchRowToActiveMatchSummary(m: MatchRow): ActiveMatchDTO {
   return {
     id: m.id,
     status: m.status,
@@ -71,35 +65,66 @@ export async function toActiveMatchDTO(
     meetLabel: m.meetLabel,
     playerA: m.playerA,
     playerB: m.playerB,
+    myDeck: null,
+    theirDeck: null,
+  };
+}
+
+export async function toActiveMatchDTO(
+  m: MatchRow,
+  viewerId: number,
+): Promise<ActiveMatchDTO> {
+  const decks = await getMatchDeckSidesForViewer(m, viewerId, {
+    bypassVisibilityForParticipant: true,
+  });
+
+  return {
+    ...matchRowToActiveMatchSummary(m),
     myDeck: decks.myDeck,
     theirDeck: decks.theirDeck,
   };
 }
 
-export async function fetchActiveMatchPayload(userId: number): Promise<{
-  activeMatch: ActiveMatchDTO | null;
-  battleResult: BattleResultDTO;
-}> {
-  const activeMatch = await getActiveMatchForUser(userId);
-  if (!activeMatch) {
-    return { activeMatch: null, battleResult: null };
-  }
+/** Lightweight active match for GlobalMatchCeremony (no deck resolution). */
+export const fetchActiveMatchSummaryForShell = cache(
+  async (userId: number): Promise<ActiveMatchDTO | null> => {
+    const activeMatch = await getActiveMatchForUser(userId);
+    if (!activeMatch) return null;
+    return matchRowToActiveMatchSummary(activeMatch);
+  },
+);
 
-  const result = await prisma.battleResult.findUnique({
-    where: { matchId: activeMatch.id },
-  });
+export const fetchActiveMatchPayload = cache(
+  async (
+    userId: number,
+  ): Promise<{
+    activeMatch: ActiveMatchDTO | null;
+    battleResult: BattleResultDTO;
+  }> => {
+    const activeMatch = await getActiveMatchForUser(userId);
+    if (!activeMatch) {
+      return { activeMatch: null, battleResult: null };
+    }
 
-  return {
-    activeMatch: await toActiveMatchDTO(activeMatch, userId),
-    battleResult: result
-      ? {
-          id: result.id,
-          matchId: result.matchId,
-          winnerId: result.winnerId,
-          playerAAgreed: result.playerAAgreed,
-          playerBAgreed: result.playerBAgreed,
-          status: result.status,
-        }
-      : null,
-  };
-}
+    const [dto, result] = await Promise.all([
+      toActiveMatchDTO(activeMatch, userId),
+      prisma.battleResult.findUnique({
+        where: { matchId: activeMatch.id },
+      }),
+    ]);
+
+    return {
+      activeMatch: dto,
+      battleResult: result
+        ? {
+            id: result.id,
+            matchId: result.matchId,
+            winnerId: result.winnerId,
+            playerAAgreed: result.playerAAgreed,
+            playerBAgreed: result.playerBAgreed,
+            status: result.status,
+          }
+        : null,
+    };
+  },
+);

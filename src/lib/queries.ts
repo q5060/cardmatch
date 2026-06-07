@@ -1,3 +1,4 @@
+import { cache } from "react";
 import prisma from "./prisma";
 import {
   MATCH_ACTIVE_STATUSES,
@@ -383,7 +384,7 @@ export async function countActiveMatchesForUser(userId: number, excludeMatchId?:
   });
 }
 
-export async function getActiveMatchForUser(userId: number) {
+export const getActiveMatchForUser = cache(async (userId: number) => {
   return prisma.match.findFirst({
     where: {
       OR: [{ playerAId: userId }, { playerBId: userId }],
@@ -413,7 +414,7 @@ export async function getActiveMatchForUser(userId: number) {
       shop: true,
     },
   });
-}
+});
 
 export async function getMatchHistory(userId: number, take = 15) {
   return prisma.match.findMany({

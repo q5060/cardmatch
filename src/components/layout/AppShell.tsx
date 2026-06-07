@@ -3,7 +3,7 @@ import { NavBar } from "./NavBar";
 import { PageTransition } from "./PageTransition";
 import { RealtimeShell } from "./RealtimeShell";
 import prisma from "@/lib/prisma";
-import { fetchActiveMatchPayload, type ActiveMatchDTO } from "@/lib/matchDto";
+import { fetchActiveMatchSummaryForShell } from "@/lib/matchDto";
 
 type UserBrief = { id: number; displayName: string; avatarUrl: string | null };
 
@@ -15,19 +15,19 @@ export async function AppShell({
   children: React.ReactNode;
 }) {
   let pendingInvites = 0;
-  let initialActiveMatch: ActiveMatchDTO | null = null;
+  let initialActiveMatch = null;
   if (user) {
-    const [notificationCount, matchPayload] = await Promise.all([
+    const [notificationCount, activeMatchSummary] = await Promise.all([
       prisma.notification.count({
         where: {
           userId: user.id,
           read: false,
         },
       }),
-      fetchActiveMatchPayload(user.id),
+      fetchActiveMatchSummaryForShell(user.id),
     ]);
     pendingInvites = notificationCount;
-    initialActiveMatch = matchPayload.activeMatch;
+    initialActiveMatch = activeMatchSummary;
   }
 
   return (
