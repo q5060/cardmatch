@@ -25,6 +25,9 @@ const testCookieStore = vi.hoisted(() => {
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  /** In tests, run the fetcher immediately without cross-request caching. */
+  unstable_cache: <T>(fn: () => T | Promise<T>) => () => fn(),
 }));
 
 vi.mock("@/lib/realtime/publish", () => ({
