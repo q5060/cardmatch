@@ -163,6 +163,11 @@ export async function fetchAvatarDataUrl(
 ): Promise<string | null> {
   if (!avatarUrl) return null;
 
+  // Stored inline by /api/auth/update-profile; safe to pass through to ImageResponse.
+  if (avatarUrl.startsWith("data:")) {
+    return avatarUrl;
+  }
+
   if (avatarUrl.startsWith("/api/avatar/")) {
     try {
       const match = avatarUrl.match(/\/api\/avatar\/(\d+)/);

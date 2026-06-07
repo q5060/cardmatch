@@ -5,6 +5,7 @@ import {
   buildShareUrl,
   buildThreadsShareUrl,
   buildTwitterShareUrl,
+  fetchAvatarDataUrl,
   getWinnerDisplayName,
   getWinnerLabelForViewer,
   resolveSiteOrigin,
@@ -47,6 +48,17 @@ describe("matchShare", () => {
     expect(text).toContain("Alice");
     expect(text).toContain("Bob");
     expect(text).toContain("台北卡牌屋");
+  });
+
+  it("fetchAvatarDataUrl returns data URLs unchanged", async () => {
+    const dataUrl = "data:image/png;base64,iVBORw0KGgo=";
+    await expect(fetchAvatarDataUrl(dataUrl, "https://cardmatch.test")).resolves.toBe(
+      dataUrl,
+    );
+  });
+
+  it("fetchAvatarDataUrl returns null for empty avatar", async () => {
+    await expect(fetchAvatarDataUrl(null, "https://cardmatch.test")).resolves.toBeNull();
   });
 
   it("builds social intent URLs with encoded params", () => {
