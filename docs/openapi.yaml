@@ -1,0 +1,1611 @@
+openapi: 3.0.3
+info:
+  title: CardMatch API
+  description: |
+    CardMatch REST API（Next.js App Router `/api/*`）。
+
+    認證使用 iron-session cookie `cardmatch_session`。登入或註冊成功後，後續請求需帶上此 cookie。
+
+    約戰邀請、接受對戰、發布地圖公告等部分流程使用 Next.js Server Actions，見 `API_DOCUMENTATION.md` 附錄。
+  version: 1.0.0
+  contact:
+    name: CardMatch Team
+
+servers:
+  - url: http://localhost:3000
+    description: 本機開發
+
+tags:
+  - name: Auth
+    description: 註冊、登入、個人檔案與隱私
+  - name: Decks
+    description: 牌組查詢與編輯
+  - name: Cards
+    description: 卡牌圖鑑
+  - name: Battle
+    description: 約戰地圖、配對佇列、戰績
+  - name: Matches
+    description: 進行中對戰與對戰聊天
+  - name: Friendships
+    description: 好友關係與私訊
+  - name: Notifications
+    description: 站內通知
+  - name: Blocks
+    description: 封鎖列表
+  - name: Search
+    description: 全站搜尋
+  - name: Avatar
+    description: 頭像圖片
+  - name: Realtime
+    description: Server-Sent Events 即時推送
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: 登入
+      operationId: authLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: 登入成功，設定 session cookie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 帳號停權中
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: 登出
+      operationId: authLogout
+      responses:
+        "200":
+          description: 清除 session cookie
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: 註冊
+      operationId: authRegister
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: 註冊成功並自動登入
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: 電子郵件已被註冊
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: 取得目前使用者
+      operationId: authMe
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: 使用者資料
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: 未登入或帳號停權（`SUSPENDED`）
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: 忘記密碼
+      description: 若 email 已註冊且未停權，寄送臨時密碼。為防枚舉，一律回傳相同成功訊息。
+      operationId: authForgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForgotPasswordResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: 變更密碼
+      operationId: authChangePassword
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/auth/change-email:
+    post:
+      tags: [Auth]
+      summary: 變更 Email
+      operationId: authChangeEmail
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeEmailRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Email 已被使用
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/auth/update-profile:
+    post:
+      tags: [Auth]
+      summary: 更新個人檔案
+      operationId: authUpdateProfile
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileForm"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdatedProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/auth/update-privacy:
+    post:
+      tags: [Auth]
+      summary: 更新隱私設定
+      operationId: authUpdatePrivacy
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePrivacyRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacySettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/decks:
+    get:
+      tags: [Decks]
+      summary: 列出我的牌組
+      operationId: listDecks
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeckSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/decks/reorder:
+    patch:
+      tags: [Decks]
+      summary: 調整牌組排序
+      operationId: reorderDecks
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderDecksRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          description: INVALID_BODY / DUPLICATE_IDS / INCOMPLETE_ORDER / INVALID_DECK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/decks/{id}:
+    parameters:
+      - $ref: "#/components/parameters/DeckId"
+    get:
+      tags: [Decks]
+      summary: 取得牌組詳情
+      operationId: getDeck
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: viewOnly
+          in: query
+          schema:
+            type: boolean
+          description: 設為 true 時可讀取他人公開或好友可見牌組
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeckDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      tags: [Decks]
+      summary: 儲存牌組內容
+      operationId: updateDeckJson
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deckJson]
+              properties:
+                deckJson:
+                  type: string
+                  description: 牌組 JSON 字串
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeckUpdateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [Decks]
+      summary: 刪除牌組
+      operationId: deleteDeck
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/cards:
+    get:
+      tags: [Cards]
+      summary: 卡牌圖鑑分頁查詢
+      operationId: listCards
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: POKEMON、支援者、物品、寶可夢道具、競技場、ENERGY
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: 寶可夢屬性（僅 category=POKEMON）
+        - name: stage
+          in: query
+          schema:
+            type: string
+          description: 進化階段（僅 category=POKEMON）
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: 卡牌名稱關鍵字
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardsPageResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/battle/queue:
+    get:
+      tags: [Battle]
+      summary: 隨機配對佇列狀態
+      operationId: getBattleQueue
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueStatusResponse"
+        "401":
+          description: 未登入
+
+  /api/battle/snapshot:
+    get:
+      tags: [Battle]
+      summary: 地圖約戰公告快照
+      operationId: getBattleSnapshot
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BattleSnapshotResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/battle/deck-preview:
+    get:
+      tags: [Battle]
+      summary: 預覽公開披露的牌組
+      operationId: getDeckPreview
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: deckId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: spotId
+          in: query
+          schema:
+            type: string
+          description: 與 matchId 二擇一
+        - name: matchId
+          in: query
+          schema:
+            type: integer
+          description: 與 spotId 二擇一
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisclosedDeckPreview"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 牌組內容未公開
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/battles:
+    post:
+      tags: [Battle]
+      summary: 提交／確認對戰結果
+      operationId: submitBattleResult
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitBattleResultRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BattleResultSubmitResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/matches/active:
+    get:
+      tags: [Matches]
+      summary: 取得進行中對戰
+      operationId: getActiveMatch
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveMatchPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/matches/{matchId}/messages:
+    parameters:
+      - $ref: "#/components/parameters/MatchId"
+    get:
+      tags: [Matches]
+      summary: 對戰聊天紀錄
+      operationId: listMatchMessages
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: afterTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: 僅回傳此時間之後的訊息（增量拉取）
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchMessagesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: 非參與者或對戰狀態不允許聊天
+    post:
+      tags: [Matches]
+      summary: 發送對戰聊天訊息
+      operationId: sendMatchMessage
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageResponse"
+        "400":
+          description: BAD_JSON / EMPTY
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/friendships/{friendshipId}:
+    parameters:
+      - $ref: "#/components/parameters/FriendshipId"
+    patch:
+      tags: [Friendships]
+      summary: 接受或拒絕好友邀請
+      operationId: respondFriendship
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [ACCEPT, REJECT]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendshipActionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/friendships/{friendshipId}/messages:
+    parameters:
+      - $ref: "#/components/parameters/FriendshipId"
+    get:
+      tags: [Friendships]
+      summary: 好友私訊紀錄
+      operationId: listFriendMessages
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: afterTime
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FriendMessagesResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 已封鎖（BLOCKED）
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Friendships]
+      summary: 發送好友私訊
+      operationId: sendFriendMessage
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageResponse"
+        "400":
+          description: BAD_JSON / EMPTY
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 已封鎖（BLOCKED）
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/notifications:
+    get:
+      tags: [Notifications]
+      summary: 通知列表
+      operationId: listNotifications
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: unreadOnly
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      tags: [Notifications]
+      summary: 標記單則通知已讀
+      operationId: markNotificationRead
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [notificationId]
+              properties:
+                notificationId:
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/notifications/mark-all-read:
+    post:
+      tags: [Notifications]
+      summary: 全部標記已讀
+      operationId: markAllNotificationsRead
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/blocks:
+    get:
+      tags: [Blocks]
+      summary: 我封鎖的使用者列表
+      operationId: listBlocks
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BlockedUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/search:
+    get:
+      tags: [Search]
+      summary: 搜尋使用者、約戰地點、卡店
+      operationId: search
+      security:
+        - cookieAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+      responses:
+        "200":
+          description: q 少於 2 字元時回傳空陣列
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  oneOf:
+                    - $ref: "#/components/schemas/SearchUserResult"
+                    - $ref: "#/components/schemas/SearchSpotResult"
+                    - $ref: "#/components/schemas/SearchShopResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/avatar/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Avatar]
+      summary: 取得使用者頭像二進位
+      operationId: getAvatar
+      responses:
+        "200":
+          description: 圖片二進位
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: 無頭像或 userId 無效
+
+  /api/realtime/stream:
+    get:
+      tags: [Realtime]
+      summary: SSE 即時事件串流
+      description: |
+        Server-Sent Events。連線成功後先收到 `{ "type": "connected" }`，之後推送：
+
+        - `match.updated` — 對戰狀態變更
+        - `match.completed` — 對戰完成（含分享 payload）
+        - `message.new` — 對戰或好友新訊息
+        - `notification.new` — 未讀通知數更新
+
+        每 25 秒送 `: ping` 註解行維持連線。
+      operationId: realtimeStream
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: 純文字 Unauthorized
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: cardmatch_session
+      description: iron-session cookie，登入或註冊後自動設定
+
+  parameters:
+    DeckId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    MatchId:
+      name: matchId
+      in: path
+      required: true
+      schema:
+        type: integer
+    FriendshipId:
+      name: friendshipId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: 請求參數錯誤
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: 未登入或認證失敗
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: 無權限
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: 資源不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: 伺服器錯誤
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          enum: [true]
+
+    SuccessResponse:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          enum: [true]
+
+    Visibility:
+      type: string
+      enum: [PUBLIC, FRIENDS, PRIVATE]
+
+    PlayFormat:
+      type: string
+      enum: [OPEN, STANDARD, ANY]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required: [email, password, displayName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        displayName:
+          type: string
+          maxLength: 40
+
+    ForgotPasswordResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    ChangeEmailRequest:
+      type: object
+      required: [newEmail, currentPassword]
+      properties:
+        newEmail:
+          type: string
+          format: email
+        currentPassword:
+          type: string
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        displayName:
+          type: string
+        bio:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          description: MALE | FEMALE | OTHER
+        age:
+          type: integer
+          nullable: true
+        profileComplete:
+          type: boolean
+        profileMissingFields:
+          type: array
+          items:
+            type: string
+        battleRecordVisibility:
+          $ref: "#/components/schemas/Visibility"
+        winrateVisibility:
+          $ref: "#/components/schemas/Visibility"
+        defaultShopId:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+
+    UpdateProfileForm:
+      type: object
+      required: [displayName]
+      properties:
+        displayName:
+          type: string
+          maxLength: 50
+        bio:
+          type: string
+          maxLength: 500
+        gender:
+          type: string
+        age:
+          type: string
+        avatar:
+          type: string
+          format: binary
+          description: JPEG/PNG/WebP，≤2MB
+        banner:
+          type: string
+          format: binary
+          description: JPEG/PNG/WebP，≤3MB
+
+    UpdatedProfile:
+      allOf:
+        - $ref: "#/components/schemas/UserProfile"
+        - type: object
+          properties:
+            bannerUrl:
+              type: string
+              nullable: true
+
+    UpdatePrivacyRequest:
+      type: object
+      required: [battleRecordVisibility, winrateVisibility]
+      properties:
+        battleRecordVisibility:
+          $ref: "#/components/schemas/Visibility"
+        winrateVisibility:
+          $ref: "#/components/schemas/Visibility"
+
+    PrivacySettings:
+      type: object
+      properties:
+        id:
+          type: integer
+        displayName:
+          type: string
+        battleRecordVisibility:
+          $ref: "#/components/schemas/Visibility"
+        winrateVisibility:
+          $ref: "#/components/schemas/Visibility"
+
+    DeckSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: 對應資料庫 title
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+        cardCount:
+          type: integer
+
+    DeckDetail:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: integer
+        title:
+          type: string
+        notes:
+          type: string
+        visibility:
+          $ref: "#/components/schemas/Visibility"
+        deckJson:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ReorderDecksRequest:
+      type: object
+      required: [deckIds]
+      properties:
+        deckIds:
+          type: array
+          items:
+            type: string
+          description: 須包含使用者全部牌組 ID，順序即顯示順序
+
+    DeckUpdateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        deck:
+          $ref: "#/components/schemas/DeckDetail"
+
+    Card:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        category:
+          type: string
+        stage:
+          type: string
+          nullable: true
+        type:
+          type: string
+          nullable: true
+        hp:
+          type: integer
+          nullable: true
+        subType:
+          type: string
+          nullable: true
+        isAceSpec:
+          type: boolean
+        regulationMark:
+          type: string
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        sourceUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CardsPageResponse:
+      type: object
+      properties:
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/Card"
+        totalPages:
+          type: integer
+        currentPage:
+          type: integer
+        hasMore:
+          type: boolean
+
+    QueueStatusResponse:
+      oneOf:
+        - type: object
+          properties:
+            inQueue:
+              type: boolean
+              enum: [false]
+        - type: object
+          required: [inQueue]
+          properties:
+            inQueue:
+              type: boolean
+              enum: [true]
+            shopId:
+              type: string
+              nullable: true
+            shopName:
+              type: string
+              nullable: true
+            scope:
+              type: string
+              enum: [shop, any]
+            joinedAt:
+              type: string
+              format: date-time
+            lat:
+              type: number
+              nullable: true
+            lng:
+              type: number
+              nullable: true
+            radiusKm:
+              type: number
+              nullable: true
+            playFormat:
+              $ref: "#/components/schemas/PlayFormat"
+
+    MapAnnouncement:
+      type: object
+      properties:
+        spotId:
+          type: string
+        userId:
+          type: integer
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        gender:
+          type: string
+        age:
+          type: integer
+          nullable: true
+        bio:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        label:
+          type: string
+        timeNote:
+          type: string
+        playNote:
+          type: string
+        playFormat:
+          $ref: "#/components/schemas/PlayFormat"
+        shopId:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        deck:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            title:
+              type: string
+            visibility:
+              type: string
+            canViewCards:
+              type: boolean
+
+    BattleSnapshotResponse:
+      type: object
+      properties:
+        announcements:
+          type: array
+          items:
+            $ref: "#/components/schemas/MapAnnouncement"
+        myAnnouncement:
+          allOf:
+            - $ref: "#/components/schemas/MapAnnouncement"
+          nullable: true
+
+    DisclosedDeckPreview:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        visibility:
+          type: string
+        canViewCards:
+          type: boolean
+        cards:
+          type: array
+          items:
+            type: object
+
+    SubmitBattleResultRequest:
+      type: object
+      required: [matchId, winnerId]
+      properties:
+        matchId:
+          oneOf:
+            - type: integer
+            - type: string
+        winnerId:
+          type: integer
+        addFriend:
+          type: boolean
+          default: false
+
+    BattleResultSubmitResponse:
+      type: object
+      properties:
+        battleResult:
+          $ref: "#/components/schemas/BattleResult"
+
+    BattleResult:
+      type: object
+      properties:
+        id:
+          type: string
+        matchId:
+          type: integer
+        winnerId:
+          type: integer
+          nullable: true
+        playerAAgreed:
+          type: boolean
+        playerBAgreed:
+          type: boolean
+        status:
+          type: string
+          description: PENDING | AGREED
+
+    MatchPlayer:
+      type: object
+      properties:
+        id:
+          type: integer
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        gender:
+          type: string
+        age:
+          type: integer
+          nullable: true
+
+    ActiveMatch:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        invitedById:
+          type: integer
+        playerAId:
+          type: integer
+        playerBId:
+          type: integer
+        playerAReady:
+          type: boolean
+        playerBReady:
+          type: boolean
+        cancelRequestedBy:
+          type: integer
+          nullable: true
+        meetLat:
+          type: number
+        meetLng:
+          type: number
+        meetLabel:
+          type: string
+        playerA:
+          $ref: "#/components/schemas/MatchPlayer"
+        playerB:
+          $ref: "#/components/schemas/MatchPlayer"
+        myDeck:
+          type: object
+          nullable: true
+        theirDeck:
+          type: object
+          nullable: true
+
+    ActiveMatchPayload:
+      type: object
+      properties:
+        activeMatch:
+          allOf:
+            - $ref: "#/components/schemas/ActiveMatch"
+          nullable: true
+        battleResult:
+          allOf:
+            - $ref: "#/components/schemas/BattleResult"
+          nullable: true
+
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        senderId:
+          type: integer
+        body:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        sender:
+          type: object
+          properties:
+            id:
+              type: integer
+            displayName:
+              type: string
+
+    ChatMessageRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          maxLength: 4000
+
+    ChatMessageResponse:
+      type: object
+      properties:
+        message:
+          $ref: "#/components/schemas/ChatMessage"
+
+    MatchMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+
+    FriendMessagesResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        totalCount:
+          type: integer
+        offset:
+          type: integer
+        limit:
+          type: integer
+        hasMore:
+          type: boolean
+
+    FriendshipActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        senderId:
+          type: integer
+          nullable: true
+        referenceId:
+          type: string
+          nullable: true
+        data:
+          nullable: true
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    NotificationsResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        unreadCount:
+          type: integer
+        total:
+          type: integer
+
+    BlockedUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        blockedAt:
+          type: string
+          format: date-time
+
+    SearchUserResult:
+      type: object
+      required: [type, id, displayName]
+      properties:
+        type:
+          type: string
+          enum: [user]
+        id:
+          type: integer
+        displayName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+
+    SearchSpotResult:
+      type: object
+      required: [type, id, label]
+      properties:
+        type:
+          type: string
+          enum: [spot]
+        id:
+          type: string
+        label:
+          type: string
+
+    SearchShopResult:
+      type: object
+      required: [type, id, name]
+      properties:
+        type:
+          type: string
+          enum: [shop]
+        id:
+          type: string
+        name:
+          type: string
+        addressNote:
+          type: string

@@ -192,6 +192,14 @@ GitHub Actions 會在 push / pull request 時自動執行 lint、unit、integrat
 
 ---
 
+## API 文件
+
+REST API 說明見 [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md)；機器可讀規格見 [`docs/openapi.yaml`](docs/openapi.yaml)。可將 yaml 匯入 [Swagger Editor](https://editor.swagger.io/) 預覽互動文件。
+
+約戰邀請、接受對戰、發布地圖公告等流程使用 Next.js Server Actions，列於 `API_DOCUMENTATION.md` 附錄。
+
+---
+
 ## 常用指令
 
 | 指令 | 說明 |
