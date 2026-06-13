@@ -1,11 +1,13 @@
 "use server";
 
-import { createInviteMatch } from "@/lib/matchInvite";
+import { createInviteMatch, publishInviteMatchRealtime } from "@/lib/matchInvite";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { MATCH_STATUS } from "@/lib/constants";
+import { assertUserOwnsDeck } from "@/lib/matchDeck";
 import { assertNotBlocked } from "@/lib/block";
+import { STALE_ANNOUNCEMENT_ERROR } from "@/lib/meetSpotErrors";
 import {
   acceptInviteForUser,
   setReadyForUser,
@@ -13,7 +15,14 @@ import {
 import {
   getMatchSharePayload,
   type FinishMatchResult,
+  type MatchSharePayload,
 } from "@/lib/matchShare";
+import {
+  battleResultNoteUpdateData,
+  getBattleResultNoteFields,
+  isValidNoteVisibility,
+  MATCH_NOTE_MAX_LENGTH,
+} from "@/lib/matchNotes";
 import {
   publishMatchCompleted,
   publishMatchSnapshot,
@@ -30,39 +39,114 @@ function isParticipant(m: { playerAId: number; playerBId: number }, userId: numb
   return m.playerAId === userId || m.playerBId === userId;
 }
 
-export async function sendInviteFromSpot(spotId: string) {
+export async function sendInviteFromSpot(
+  spotId: string,
+  inviterDeckId?: string | null,
+): Promise<{ error: "STALE_ANNOUNCEMENT" | null }> {
   const userId = await requireUserId();
 
-  const spot = await prisma.meetSpot.findUnique({
-    where: { id: spotId },
-    include: { user: { select: { displayName: true } } },
-  });
-  if (
-    !spot ||
-    !spot.looking ||
-    !spot.active ||
-    !spot.expiresAt ||
-    spot.expiresAt <= new Date()
-  ) {
-    throw new Error("此公告已失效或不存在");
+  let deckId = inviterDeckId?.trim() || null;
+  if (deckId) {
+    await assertUserOwnsDeck(userId, deckId);
+  } else {
+    deckId = null;
   }
 
-  const targetUserId = spot.userId;
-  if (targetUserId === userId) throw new Error("無法邀請自己");
-  await assertNotBlocked(userId, targetUserId);
+  let inviteeId: number;
+  let match: Awaited<ReturnType<typeof createInviteMatch>>;
+  try {
+    match = await prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const claimed = await tx.meetSpot.updateMany({
+        where: {
+          id: spotId,
+          looking: true,
+          active: true,
+          expiresAt: { gt: now },
+        },
+        data: { looking: false },
+      });
+      if (claimed.count === 0) {
+        throw new Error(STALE_ANNOUNCEMENT_ERROR);
+      }
 
-  await createInviteMatch({
-    inviterId: userId,
-    targetUserId,
-    meet: {
-      lat: spot.lat,
-      lng: spot.lng,
-      label: spot.label,
-      shopId: spot.shopId,
-    },
-    source: "spot",
-    spotLabelForNotification: spot.label,
+      const spot = await tx.meetSpot.findUnique({
+        where: { id: spotId },
+        include: {
+          deck: { select: { id: true } },
+        },
+      });
+      if (!spot) throw new Error(STALE_ANNOUNCEMENT_ERROR);
+
+      inviteeId = spot.userId;
+      if (inviteeId === userId) throw new Error("無法邀請自己");
+      await assertNotBlocked(userId, inviteeId);
+
+      return createInviteMatch(
+        {
+          inviterId: userId,
+          targetUserId: inviteeId,
+          meet: {
+            lat: spot.lat,
+            lng: spot.lng,
+            label: spot.label,
+            shopId: spot.shopId,
+          },
+          source: "spot",
+          spotLabelForNotification: spot.label,
+          publisherId: inviteeId,
+          publisherDeckId: spot.deckId,
+          inviterDeckId: deckId,
+        },
+        tx,
+        { deferPublish: true },
+      );
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === STALE_ANNOUNCEMENT_ERROR) {
+      return { error: "STALE_ANNOUNCEMENT" };
+    }
+    throw e;
+  }
+
+  await publishInviteMatchRealtime(
+    match.id,
+    "spot",
+    inviteeId!,
+    match.playerAId,
+    match.playerBId,
+  );
+
+  return { error: null };
+}
+
+export async function setMatchDeck(matchId: string, deckId: string | null) {
+  const userId = await requireUserId();
+  const id = parseInt(matchId, 10);
+  const match = await prisma.match.findUnique({ where: { id } });
+  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
+  if (match.status !== MATCH_STATUS.ACCEPTED) {
+    throw new Error("目前無法變更牌組");
+  }
+
+  const isA = match.playerAId === userId;
+  if (isA && match.playerAReady) throw new Error("已準備，請先取消準備再變更牌組");
+  if (!isA && match.playerBReady) throw new Error("已準備，請先取消準備再變更牌組");
+
+  let nextDeckId: string | null = deckId?.trim() || null;
+  if (nextDeckId) {
+    await assertUserOwnsDeck(userId, nextDeckId);
+  } else {
+    nextDeckId = null;
+  }
+
+  await prisma.match.update({
+    where: { id },
+    data: isA ? { playerADeckId: nextDeckId } : { playerBDeckId: nextDeckId },
   });
+
+  await publishMatchSnapshot(id);
+  revalidatePath("/battle");
 }
 
 export async function acceptInvite(matchId: string) {
@@ -143,10 +227,47 @@ export async function cancelMatch(matchId: string) {
     if (match.invitedById !== userId) {
       throw new Error("只有邀請者可以取消邀請");
     }
-    await prisma.match.update({
-      where: { id },
-      data: { status: MATCH_STATUS.CANCELLED },
+
+    // The invitee is the player who is NOT the inviter
+    const inviteeId = match.invitedById === match.playerAId ? match.playerBId : match.playerAId;
+
+    await prisma.$transaction(async (tx) => {
+      // Cancel the match
+      await tx.match.update({
+        where: { id },
+        data: { status: MATCH_STATUS.CANCELLED },
+      });
+
+      // Restore the invitee's battle announcement (set looking: true)
+      // so it reappears on the map for others to see
+      await tx.meetSpot.updateMany({
+        where: {
+          userId: inviteeId,
+          active: true,
+          looking: false,
+          expiresAt: { gt: new Date() },
+        },
+        data: { looking: true },
+      });
+
+      // Notify the invitee that the invite was cancelled
+      await tx.notification.create({
+        data: {
+          userId: inviteeId,
+          type: "SPOT_INVITE",
+          referenceId: id.toString(),
+          senderId: userId,
+          data: JSON.stringify({
+            kind: "invite_cancelled",
+            title: "約戰邀請已取消",
+            body: "對方已取消邀請，您的約戰公告已重新上線",
+          }),
+          read: false,
+        },
+      });
     });
+
+    await publishNotification(inviteeId);
   } else if (match.status === MATCH_STATUS.ACCEPTED || match.status === MATCH_STATUS.IN_PROGRESS) {
     // Both players need to agree to cancel
     const otherPlayerId = match.playerAId === userId ? match.playerBId : match.playerAId;
@@ -334,12 +455,17 @@ export async function finishMatch(
     }
   });
 
-  await publishMatchSnapshot(id);
-  await publishNotification(otherId);
-
   if (completed) {
-    await publishMatchCompleted(id);
-    const share = await getMatchSharePayload(id);
+    const published = await publishMatchCompleted(id);
+    void publishMatchSnapshot(id);
+    void publishNotification(otherId);
+
+    const share =
+      published
+        ? userId === published.playerAId
+          ? published.shareA
+          : published.shareB
+        : await getMatchSharePayload(id, userId);
     if (share) {
       revalidatePath("/battle");
       revalidatePath("/profile");
@@ -347,6 +473,9 @@ export async function finishMatch(
       revalidatePath(`/battle/result/${id}`);
       return { completed: true, share };
     }
+  } else {
+    await publishMatchSnapshot(id);
+    await publishNotification(otherId);
   }
 
   revalidatePath("/battle");
@@ -403,4 +532,47 @@ export async function requestFriendAfterMatch(matchId: string) {
 
   revalidatePath("/friends");
   revalidatePath("/battle");
+}
+
+export async function updateMatchNotes(
+  matchId: string,
+  notes: string,
+  visibility: string,
+): Promise<MatchSharePayload> {
+  const userId = await requireUserId();
+  const id = parseInt(matchId, 10);
+  if (Number.isNaN(id)) throw new Error("無效的對戰編號");
+
+  const match = await prisma.match.findUnique({
+    where: { id },
+    include: { battleResults: true },
+  });
+  if (!match || !isParticipant(match, userId)) throw new Error("找不到約戰");
+  if (match.status !== MATCH_STATUS.COMPLETED) throw new Error("約戰尚未完成");
+
+  const br = match.battleResults[0];
+  if (!br || br.status !== "AGREED") throw new Error("對戰結果尚未確認");
+
+  if (!isValidNoteVisibility(visibility)) throw new Error("無效的公開設定");
+
+  const trimmed = notes.trim().slice(0, MATCH_NOTE_MAX_LENGTH);
+  const { field } = getBattleResultNoteFields(
+    br,
+    match.playerAId,
+    match.playerBId,
+    userId,
+  );
+
+  await prisma.battleResult.update({
+    where: { matchId: id },
+    data: battleResultNoteUpdateData(field, trimmed, visibility),
+  });
+
+  const share = await getMatchSharePayload(id, userId);
+  if (!share) throw new Error("找不到對戰結果");
+
+  revalidatePath("/battle");
+  revalidatePath("/profile");
+  revalidatePath(`/battle/result/${id}`);
+  return share;
 }

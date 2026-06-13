@@ -192,12 +192,21 @@ GitHub Actions 會在 push / pull request 時自動執行 lint、unit、integrat
 
 ---
 
+## API 文件
+
+REST API 說明見 [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md)；機器可讀規格見 [`docs/openapi.yaml`](docs/openapi.yaml)。可將 yaml 匯入 [Swagger Editor](https://editor.swagger.io/) 預覽互動文件。
+
+約戰邀請、接受對戰、發布地圖公告等流程使用 Next.js Server Actions，列於 `API_DOCUMENTATION.md` 附錄。
+
+---
+
 ## 常用指令
 
 | 指令 | 說明 |
 |------|------|
 | `npm run dev` | 開發模式 |
-| `npm run build` | 正式建置（`prisma migrate deploy` + `generate` + `next build`） |
+| `npm run build` | 正式建置（`prisma generate` + `next build`） |
+| `npm run db:deploy` | 對正式／遠端 DB 執行 `prisma migrate deploy`（含重試） |
 | `npm run start` | 以正式模式啟動（需先 `build`） |
 | `npm run lint` | ESLint |
 | `npm run db:migrate` | Prisma migrate dev |
@@ -262,7 +271,9 @@ REDIS_URL=redis://127.0.0.1:6379
 
 ## 部署到 Vercel
 
-專案已設定為 **PostgreSQL + Redis 即時 bus**，建置時會自動執行 `prisma migrate deploy`（見 `package.json` 的 `build` script）。`vercel.json` 預設區域為東京（`hnd1`）。
+專案已設定為 **PostgreSQL + Redis 即時 bus**。`vercel.json` 預設區域為東京（`hnd1`）。
+
+**Vercel build 不跑 migration**（避免多個 deploy 同時搶 Postgres advisory lock 而 P1002 失敗）。Schema 有變更時請用下方「資料庫 migration」其中一種方式套用。
 
 ### 1. 建立 PostgreSQL
 
@@ -282,10 +293,25 @@ REDIS_URL=redis://127.0.0.1:6379
 
 | 變數 | 值 |
 |------|-----|
-| `DATABASE_URL` | Postgres 連線字串（Vercel 整合會自動注入） |
+| `DATABASE_URL` | Postgres 連線字串（Neon 建議用 **Pooled** / `-pooler` 主機名，給 runtime 用） |
+| `DIRECT_DATABASE_URL` | **Neon 必填**：Dashboard → Connect → **Direct connection**（非 `-pooler`）。Migration 需直連，否則可能 P1002 advisory lock timeout |
 | `SESSION_SECRET` | 至少 32 字元的強隨機字串 |
 | `REALTIME_BUS` | `redis` |
 | `REDIS_URL` | Upstash 的 `rediss://...` |
+
+若使用 Vercel Postgres 整合，通常只需 `DATABASE_URL`（本機 `db:deploy` 會在未設定時 fallback 成同一 URL）。
+
+### 資料庫 migration（Production）
+
+`npm run build` **不會** migrate。Schema 有更新時，擇一：
+
+1. **GitHub Actions（建議）** — 在 repo **Settings → Secrets and variables → Actions** 新增 `DATABASE_URL`、`DIRECT_DATABASE_URL`（Neon 直連 URL）。push 到 `main` 且 `prisma/` 有變更時，`.github/workflows/migrate-production.yml` 會自動 `npm run db:deploy`。
+2. **本機手動** — 對正式庫執行一次：
+   ```bash
+   DATABASE_URL="postgresql://..." DIRECT_DATABASE_URL="postgresql://...(Neon Direct)..." npm run db:deploy
+   ```
+
+若只是改程式、沒有新的 migration 檔，**不必**跑 migrate，直接 Vercel Deploy 即可。
 
 ### 4. 匯入 GitHub 並部署
 

@@ -5,6 +5,7 @@ import {
   buildShareUrl,
   buildThreadsShareUrl,
   buildTwitterShareUrl,
+  fetchAvatarDataUrl,
   getWinnerDisplayName,
   getWinnerLabelForViewer,
   resolveSiteOrigin,
@@ -16,8 +17,8 @@ const sampleShare: MatchSharePayload = {
   completedAt: "2026-06-01T12:00:00.000Z",
   meetLabel: "台北卡牌屋",
   winnerId: 10,
-  playerA: { id: 10, displayName: "Alice", avatarUrl: null },
-  playerB: { id: 20, displayName: "Bob", avatarUrl: null },
+  playerA: { id: 10, displayName: "Alice", avatarUrl: null, deck: null },
+  playerB: { id: 20, displayName: "Bob", avatarUrl: null, deck: null },
 };
 
 describe("matchShare", () => {
@@ -39,9 +40,7 @@ describe("matchShare", () => {
   });
 
   it("getWinnerLabelForViewer shows winner display name", () => {
-    expect(getWinnerLabelForViewer(sampleShare, 10)).toBe("Alice 獲勝");
-    expect(getWinnerLabelForViewer(sampleShare, 20)).toBe("Alice 獲勝");
-    expect(getWinnerLabelForViewer(sampleShare, null)).toBe("Alice 獲勝");
+    expect(getWinnerLabelForViewer(sampleShare)).toBe("Alice 獲勝");
   });
 
   it("buildSharePostText includes players and location", () => {
@@ -49,6 +48,17 @@ describe("matchShare", () => {
     expect(text).toContain("Alice");
     expect(text).toContain("Bob");
     expect(text).toContain("台北卡牌屋");
+  });
+
+  it("fetchAvatarDataUrl returns data URLs unchanged", async () => {
+    const dataUrl = "data:image/png;base64,iVBORw0KGgo=";
+    await expect(fetchAvatarDataUrl(dataUrl, "https://cardmatch.test")).resolves.toBe(
+      dataUrl,
+    );
+  });
+
+  it("fetchAvatarDataUrl returns null for empty avatar", async () => {
+    await expect(fetchAvatarDataUrl(null, "https://cardmatch.test")).resolves.toBeNull();
   });
 
   it("builds social intent URLs with encoded params", () => {

@@ -85,8 +85,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   }, [connect]);
 
   useEffect(() => {
-    connect();
+    const id = window.setTimeout(() => connect(), 0);
     return () => {
+      window.clearTimeout(id);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       esRef.current?.close();
       esRef.current = null;

@@ -6,6 +6,7 @@ import Link from "next/link";
 import {
   getNotificationBody,
   getNotificationTitle,
+  isActiveSpotInvite,
 } from "@/lib/notificationDisplay";
 
 interface NotificationItem {
@@ -122,13 +123,12 @@ export function NotificationDropdown({
             {notifications.map((notification) => {
               const title = getNotificationTitle(notification.type, notification.data);
               const body = getNotificationBody(notification.type, notification.data);
-              const isSpotInvite =
-                notification.type === "SPOT_INVITE" || notification.type === "RANDOM_MATCH";
+              const isSpotInvite = isActiveSpotInvite(notification.type, notification.data) || notification.type === "RANDOM_MATCH";
               return (
                 <Link
                   key={notification.id}
                   href={getNotificationLink(notification)}
-                  onClick={async (e) => {
+                  onClick={async () => {
                     onClose();
                     // Mark as read
                     try {

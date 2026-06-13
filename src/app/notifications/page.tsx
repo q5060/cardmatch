@@ -6,6 +6,7 @@ import { Bell } from "lucide-react";
 import {
   getNotificationBody,
   getNotificationTitle,
+  isActiveSpotInvite,
 } from "@/lib/notificationDisplay";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { BackLink } from "@/components/ui/BackLink";
@@ -70,7 +71,7 @@ export default async function NotificationsPage() {
             const title = getNotificationTitle(notification.type, notification.data);
             const body = getNotificationBody(notification.type, notification.data);
             const isPriorityInvite =
-              (notification.type === "SPOT_INVITE" || notification.type === "RANDOM_MATCH") &&
+              (isActiveSpotInvite(notification.type, notification.data) || notification.type === "RANDOM_MATCH") &&
               !notification.read;
             const unread = !notification.read;
 

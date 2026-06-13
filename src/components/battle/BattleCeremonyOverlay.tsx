@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ExternalLink, Swords, UserRound, X } from "lucide-react";
 import type { CeremonyState } from "@/hooks/useMatchCeremony";
+import { PlayerIdentificationBlock } from "@/components/profile/PlayerIdentificationBlock";
 
 const BATTLE_START_MS = 1200;
 const INVITE_ACCEPTED_MS = 2500;
@@ -180,34 +181,28 @@ export function BattleCeremonyOverlay({ ceremony, onDismiss, inviteActions }: Pr
           </button>
         </div>
 
-        <div className="mt-5 flex flex-col items-center text-center">
-          <Link
-            href={profileHref}
-            className="rounded-full transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            aria-label={`查看 ${ceremony.opponentName} 的個人檔案`}
-          >
-            <PlayerAvatar
-              name={ceremony.opponentName}
-              avatarUrl={ceremony.opponentAvatarUrl}
-            />
-          </Link>
-          <h2 id="ceremony-invite-title" className="mt-4 text-xl font-bold text-foreground">
+        <div className="mt-5 space-y-4">
+          <h2 id="ceremony-invite-title" className="text-center text-lg font-bold text-foreground">
+            新約戰邀請
+          </h2>
+          <PlayerIdentificationBlock
+            player={{
+              displayName: ceremony.opponentName,
+              avatarUrl: ceremony.opponentAvatarUrl,
+              gender: ceremony.opponentGender,
+              age: ceremony.opponentAge,
+            }}
+          />
+          <p className="text-center text-sm font-medium text-foreground">{ceremony.meetLabel}</p>
+          <div className="flex justify-center">
             <Link
               href={profileHref}
-              className="text-primary underline-offset-2 hover:underline"
+              className="btn btn-outline btn-sm inline-flex items-center gap-1.5"
             >
-              {ceremony.opponentName}
+              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              查看個人檔案
             </Link>
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">邀請你對戰</p>
-          <p className="mt-3 text-sm font-medium text-foreground">{ceremony.meetLabel}</p>
-          <Link
-            href={profileHref}
-            className="btn btn-outline btn-sm mt-4 inline-flex items-center gap-1.5"
-          >
-            <ExternalLink className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            查看個人檔案
-          </Link>
+          </div>
         </div>
 
         {inviteActions ? (

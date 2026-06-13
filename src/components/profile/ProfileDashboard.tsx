@@ -1,12 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
-  ArrowLeft,
   Calendar,
   Layers,
   Swords,
@@ -17,6 +16,7 @@ import {
 } from "lucide-react";
 import type { ProfileBattleStats, ProfileMatchFeedRow, TopOpponent } from "@/lib/queries";
 import { MatchFeedList } from "@/components/profile/MatchFeedList";
+import { profileMetaLine } from "@/lib/profile";
 import { BattleTimeHistogram } from "@/components/profile/BattleTimeHistogram";
 import { TopOpponentsPanel } from "@/components/profile/TopOpponentsPanel";
 import { PROFILE_RECENT_MATCHES } from "@/lib/constants";
@@ -123,6 +123,8 @@ export type ProfileDashboardProps = {
     bio: string;
     avatarUrl: string | null;
     bannerUrl?: string | null;
+    gender?: string;
+    age?: number | null;
     createdAt: string;
   };
   battleStats: ProfileBattleStats;
@@ -153,22 +155,17 @@ function ProfileDashboardInner({
   friendshipStatus,
   user,
   battleStats,
-  battleRecordVisibility,
-  winrateVisibility,
   battleRecordsHiddenReason,
   winrateHiddenReason,
   deckCount,
-  publicDeckCount,
   recentFeed,
   allMatches,
   topOpponents,
   allMatchesHref,
   blockedByViewer = false,
   interactionBlocked = false,
-  isAdmin = false,
   decksSlot,
 }: ProfileDashboardProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const tab = normalizeTab(searchParams.get("tab"), variant);
   const tabs = variant === "other" ? TABS_OTHER : TABS_SELF;
@@ -190,18 +187,6 @@ function ProfileDashboardInner({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [moreMenuOpen]);
 
-  const setTab = useCallback(
-    (next: ProfileTabId) => {
-      const q = new URLSearchParams(searchParams.toString());
-      if (next === "overview") q.delete("tab");
-      else q.set("tab", next);
-      const s = q.toString();
-      const path = s ? `${profileBasePath}?${s}` : profileBasePath;
-      router.replace(path, { scroll: false });
-    },
-    [router, searchParams, profileBasePath],
-  );
-
   const joined = useMemo(
     () =>
       new Date(user.createdAt).toLocaleDateString("zh-Hant", {
@@ -210,6 +195,11 @@ function ProfileDashboardInner({
         day: "numeric",
       }),
     [user.createdAt],
+  );
+
+  const profileMeta = useMemo(
+    () => profileMetaLine(user.gender, user.age),
+    [user.gender, user.age],
   );
 
   const statTiles = useMemo(() => {
@@ -258,7 +248,7 @@ function ProfileDashboardInner({
     ];
 
     return base;
-  }, [variant, battleStats, deckCount, publicDeckCount, winrateHiddenReason]);
+  }, [battleStats, deckCount, winrateHiddenReason]);
 
   // const headerBlock =
   //   variant === "other" ? (
@@ -350,8 +340,9 @@ function ProfileDashboardInner({
                     <Calendar className="h-3.5 w-3.5" aria-hidden />
                     加入於 {joined}
                   </span>
+                  {profileMeta ? <span>{profileMeta}</span> : null}
                 </p>
-                
+
                 {user.bio ? (
                   <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">{user.bio}</p>
                 ) : (
@@ -590,11 +581,16 @@ function ProfileDashboardInner({
           >
             {tabs.map((t) => {
               const active = tab === t.id;
+              const q = new URLSearchParams(searchParams.toString());
+              if (t.id === "overview") q.delete("tab");
+              else q.set("tab", t.id);
+              const qs = q.toString();
+              const href = qs ? `${profileBasePath}?${qs}` : profileBasePath;
               return (
-                <button
+                <Link
                   key={t.id}
-                  type="button"
-                  onClick={() => setTab(t.id)}
+                  href={href}
+                  scroll={false}
                   className={`shrink-0 border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors sm:px-4 ${
                     active
                       ? "border-primary text-primary"
@@ -602,7 +598,7 @@ function ProfileDashboardInner({
                   }`}
                 >
                   {t.label}
-                </button>
+                </Link>
               );
             })}
           </nav>
@@ -613,11 +609,7 @@ function ProfileDashboardInner({
         {tab === "overview" && (
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
             <div className="space-y-6">
-              <div
-                className={`grid gap-3 sm:grid-cols-2 ${
-                  variant === "other" ? "lg:grid-cols-3" : "lg:grid-cols-4"
-                }`}
-              >
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {statTiles.map(({ icon: Icon, value, label, hint }) => (
                   <div key={label} className="card card-hover flex gap-3 p-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">

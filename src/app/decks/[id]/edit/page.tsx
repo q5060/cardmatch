@@ -17,6 +17,8 @@ type DeckCard = {
   imageUrl?: string | null;
   count: number;
   category?: string;
+  subType?: string | null;
+  isAceSpec?: boolean;
 };
 
 type LibraryCard = {
@@ -37,6 +39,15 @@ type CardFilters = {
   search: string;
 };
 
+type AddToDeckResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+type FeedbackMessage = {
+  type: "error" | "success";
+  text: string;
+};
+
 export default function DeckCompositionEditor() {
   const router = useRouter();
   const { id } = useParams();
@@ -55,6 +66,8 @@ export default function DeckCompositionEditor() {
     stage: "",
     search: "",
   });
+  const [recentlyAddedId, setRecentlyAddedId] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
 
   const fetchLibrary = useCallback(
     async (targetPage: number, append = false) => {
@@ -120,76 +133,74 @@ export default function DeckCompositionEditor() {
     void fetchLibrary(1, false);
   }, [fetchLibrary]);
 
+  useEffect(() => {
+    if (recentlyAddedId === null) return;
+    const id = window.setTimeout(() => setRecentlyAddedId(null), 1200);
+    return () => window.clearTimeout(id);
+  }, [recentlyAddedId]);
+
+  useEffect(() => {
+    if (!feedback) return;
+    const id = window.setTimeout(() => setFeedback(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [feedback]);
+
   const handleLoadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
     void fetchLibrary(nextPage, true);
   };
 
-  const addToDeck = (card: LibraryCard) => {
-    // 1. 計算目前總牌數
-    const totalCount = cards.reduce((acc, curr) => acc + curr.count, 0);
+  const getDeckCount = (cardId: number) =>
+    cards.find((c) => c.id === cardId)?.count ?? 0;
+
+  const handleSetDeckCount = (card: LibraryCard | DeckCard, targetCount: number) => {
+    if (targetCount < 0) return;
     
-    // 限制總數不能超過 60
-    if (totalCount >= 60) {
-      alert("牌組已達 60 張上限！");
-      return;
-    }
-
+    let maxAllowed = 4;
+    const isBasicEnergy = 
+      (card.category === "ENERGY" && card.subType === "Basic") || 
+      (card.name.includes("基本") && card.name.includes("能量"));
+    if (isBasicEnergy) maxAllowed = 60;
+    if (card.isAceSpec) maxAllowed = 1;
+    
     setCards((prevCards) => {
-      // 2. 檢查這張卡片是否已經在牌組裡
-      const existingCardIndex = prevCards.findIndex((c) => c.id === card.id);
-
-      if (existingCardIndex > -1) {
-        // 3. 如果已存在，檢查是否超過 4 張限制 (能量卡通常不限，這裡可依需求調整)
-        const isBasicEnergy = card.category === "ENERGY" && card.subType === "Basic";
-        if (!isBasicEnergy && prevCards[existingCardIndex].count >= 4) {
-          alert("同名卡片（除基本能量外）最多只能放入 4 張！");
-          return prevCards;
-        }
-
-        if (card.isAceSpec && prevCards[existingCardIndex].count >= 1) {
-          alert("AceSpec 最多只能放入 1 張！");
-          return prevCards;
-        }
-
-        // 複製陣列並更新特定卡片的數量
-        const newCards = [...prevCards];
-        newCards[existingCardIndex] = {
-          ...newCards[existingCardIndex],
-          count: newCards[existingCardIndex].count + 1,
-        };
-        return newCards;
-      } else {
-        // 4. 如果是新卡片，新增一個物件，初始 count 為 1
-        // 只存入必要的資訊，避免 deckJson 過於龐大
-        return [
-          ...prevCards,
-          {
-            id: card.id,
-            name: card.name,
-            imageUrl: card.imageUrl, // 建議存入圖片 URL 方便左側清單顯示
-            count: 1,
-            category: card.category,
-          },
-        ];
-      }
-    });
-  };
-
-  const removeFromDeck = (cardId: number) => {
-    setCards((prevCards) => {
-      const existingCard = prevCards.find((c) => c.id === cardId);
+      const existingCard = prevCards.find((c) => c.id === card.id);
       
-      if (existingCard && existingCard.count > 1) {
-        // 數量大於 1，則減 1
-        return prevCards.map((c) =>
-          c.id === cardId ? { ...c, count: c.count - 1 } : c
-        );
-      } else {
-        // 數量為 1，直接從陣列移除
-        return prevCards.filter((c) => c.id !== cardId);
+      let newCount = targetCount;
+      if (newCount > maxAllowed) {
+        setFeedback({ type: "error", text: `此卡片最多只能放入 ${maxAllowed} 張！` });
+        newCount = maxAllowed;
       }
+      
+      const otherCardsCount = prevCards.reduce((acc, c) => acc + (c.id === card.id ? 0 : c.count), 0);
+      if (otherCardsCount + newCount > 60) {
+        newCount = 60 - otherCardsCount;
+        if (newCount !== targetCount) {
+          setFeedback({ type: "error", text: "牌組已達 60 張上限！" });
+        }
+      }
+
+      if (newCount === 0) {
+        return prevCards.filter((c) => c.id !== card.id);
+      }
+
+      if (existingCard) {
+        return prevCards.map((c) => c.id === card.id ? { ...c, count: newCount } : c);
+      }
+
+      return [
+        ...prevCards,
+        {
+          id: card.id,
+          name: card.name,
+          imageUrl: card.imageUrl,
+          count: newCount,
+          category: card.category,
+          subType: card.subType,
+          isAceSpec: card.isAceSpec,
+        },
+      ];
     });
   };
 
@@ -257,14 +268,33 @@ export default function DeckCompositionEditor() {
           </div>
         </div>
 
+        {feedback ? (
+          <div
+            className={`mb-6 motion-toast-in flex items-start justify-between gap-3 ${
+              feedback.type === "error" ? "alert-error" : "alert-success"
+            }`}
+            role={feedback.type === "error" ? "alert" : "status"}
+          >
+            <p>{feedback.text}</p>
+            <button
+              type="button"
+              className="shrink-0 underline-offset-2 hover:underline"
+              onClick={() => setFeedback(null)}
+              aria-label="關閉提示"
+            >
+              關閉
+            </button>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* 左側：目前牌組內容 (1-60張) */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-20 lg:self-start">
             <div className="bg-white rounded-2xl border p-5 shadow-sm">
               <h2 className="font-bold mb-4 flex justify-between">
                 牌組清單 <span>{cards.reduce((acc, curr) => acc + curr.count, 0)} / 60</span>
               </h2>
-              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+              <div className="space-y-2 max-h-[calc(100vh-14rem)] overflow-y-auto pr-2">
                 {cards.length === 0 ? (
                   <p className="text-center text-muted-foreground py-10">尚未加入卡片</p>
                 ) : (
@@ -276,14 +306,22 @@ export default function DeckCompositionEditor() {
                       </div>
                       <div className="flex items-center gap-1">
                       <button 
-                        onClick={() => addToDeck(card)}
-                        className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-primary transition-colors"
+                        onClick={() => handleSetDeckCount(card, card.count + 1)}
+                        className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-primary transition-colors disabled:opacity-50"
                         title="增加數量"
+                        disabled={
+                          cards.reduce((acc, c) => acc + c.count, 0) >= 60 || 
+                          (!(
+                            (card.category === "ENERGY" && card.subType === "Basic") || 
+                            (card.name.includes("基本") && card.name.includes("能量"))
+                          ) && card.count >= 4) ||
+                          (card.isAceSpec && card.count >= 1)
+                        }
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                       <button 
-                        onClick={() => removeFromDeck(card.id)}
+                        onClick={() => handleSetDeckCount(card, card.count - 1)}
                         className="p-1 hover:bg-neutral-200 rounded text-neutral-500 hover:text-red-600 transition-colors"
                         title="減少數量"
                       >
@@ -366,9 +404,17 @@ export default function DeckCompositionEditor() {
 
             {/* 卡片網格展示區域 */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {allCards.map((card) => (
+              {allCards.map((card) => {
+                const deckCount = getDeckCount(card.id);
+
+                return (
                 <div key={card.id} className="bg-white rounded-xl border p-2 hover:shadow-md group">
-                  <div className="aspect-[3/4] mb-2 bg-neutral-100 rounded overflow-hidden">
+                  <div className="aspect-[3/4] mb-2 bg-neutral-100 rounded overflow-hidden relative">
+                    {deckCount > 0 ? (
+                      <span className="absolute top-1 right-1 z-10 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                        x{deckCount}
+                      </span>
+                    ) : null}
                     {card.imageUrl ? (
                       <img 
                         src={card.imageUrl} 
@@ -386,15 +432,41 @@ export default function DeckCompositionEditor() {
                   </div>
                   <p className="text-xs font-bold truncate">{card.name}</p>
                   <p className="text-[10px] text-muted-foreground">{card.type} / {card.regulationMark}</p>
-                  {/* 待實作：卡片加入卡組的按鈕 */}
-                  <button 
-                    onClick={() => addToDeck(card)} 
-                    className="mt-2 w-full flex items-center justify-center gap-1 bg-primary text-white py-1 rounded-md hover:bg-primary/90 transition-colors text-xs"
-                  >
-                    <Plus className="w-3 h-3" /> 加入
-                  </button>
+                  
+                  <div className="mt-2 flex items-center justify-between border rounded-md overflow-hidden bg-neutral-50 h-8">
+                    <button 
+                      onClick={() => handleSetDeckCount(card, deckCount - 1)}
+                      className="w-8 h-full flex items-center justify-center hover:bg-neutral-200 text-neutral-600 transition-colors disabled:opacity-50"
+                      disabled={deckCount === 0}
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <input 
+                      type="number" 
+                      className="w-full text-center bg-transparent text-xs font-bold text-foreground focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={deckCount === 0 ? "" : deckCount}
+                      placeholder="0"
+                      min={0}
+                      onChange={(e) => {
+                         const val = parseInt(e.target.value);
+                         handleSetDeckCount(card, isNaN(val) ? 0 : val);
+                      }}
+                    />
+                    <button 
+                      onClick={() => handleSetDeckCount(card, deckCount + 1)} 
+                      className="w-8 h-full flex items-center justify-center hover:bg-primary/10 text-primary transition-colors disabled:opacity-50"
+                      disabled={
+                        deckCount >= 60 || 
+                        (!((card.category === "ENERGY" && card.subType === "Basic")) && deckCount >= 4) ||
+                        (card.isAceSpec && deckCount >= 1)
+                      }
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
             {hasMore && (
               <div className="mt-8 flex justify-center">

@@ -5,6 +5,12 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: path.resolve(__dirname, ".env.test") });
 loadEnv({ path: path.resolve(__dirname, ".env.test.example") });
 
+/** Same DB for webServer, globalSetup migrations, and testPrisma in specs. */
+const E2E_DATABASE_URL =
+  process.env.DATABASE_URL ??
+  "postgresql://cardmatch:cardmatch@localhost:5432/cardmatch_test";
+process.env.DATABASE_URL = E2E_DATABASE_URL;
+
 const port = process.env.PLAYWRIGHT_PORT ?? "3001";
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`;
 
@@ -33,9 +39,7 @@ export default defineConfig({
     env: {
       ...process.env,
       PORT: port,
-      DATABASE_URL:
-        process.env.DATABASE_URL ??
-        "postgresql://cardmatch:cardmatch@localhost:5432/cardmatch_test",
+      DATABASE_URL: E2E_DATABASE_URL,
       SESSION_SECRET:
         process.env.SESSION_SECRET ??
         "test-session-secret-at-least-32-chars-long",

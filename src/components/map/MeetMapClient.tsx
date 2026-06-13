@@ -57,6 +57,7 @@ export type MapAnnouncementPin = {
   lng: number;
   label: string;
   playNote?: string;
+  playFormatLabel?: string;
   expiresAt?: string;
   isOwn?: boolean;
 };
@@ -478,6 +479,9 @@ export function MeetMapClient({
           <Popup>
             <strong>{a.displayName}</strong>
             <div className="text-xs text-muted-foreground">{a.label}</div>
+            {a.playFormatLabel ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">賽制：{a.playFormatLabel}</p>
+            ) : null}
             {a.playNote ? <p className="mt-1 text-xs line-clamp-3">{a.playNote}</p> : null}
             {a.expiresAt ? (
               <p className="mt-0.5 text-xs text-muted-foreground">

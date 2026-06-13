@@ -20,6 +20,7 @@ export default function NewDeckPage() {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [visibility, setVisibility] = useState("PUBLIC");
+  const [officialCode, setOfficialCode] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -38,9 +39,10 @@ export default function NewDeckPage() {
       formData.append("title", title);
       formData.append("notes", notes);
       formData.append("visibility", visibility);
+      formData.append("officialCode", officialCode);
       const newDeck = await createDeck(formData);
       if (newDeck?.id) {
-      // 關鍵：導向到「組成編輯」頁面
+      // 導向到「組成編輯」頁面
       router.push(`/decks/${newDeck.id}/edit`);
     }
       router.refresh();
@@ -76,7 +78,7 @@ export default function NewDeckPage() {
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="例如：惡系 - 惡食大王 ex"
+              placeholder="例如：魔靈多龍"
               className="input-field"
               maxLength={120}
               required
@@ -129,6 +131,21 @@ export default function NewDeckPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        <div>
+          <label htmlFor="officialCode" className="mb-1.5 block text-sm font-medium text-foreground">
+            官方牌組代碼 (選填)
+          </label>
+          <input
+            id="officialCode"
+            name="officialCode" // 確保 formData 能抓到
+            type="text"
+            value={officialCode}
+            onChange={(e) => setOfficialCode(e.target.value)}
+            placeholder="輸入官方網站的代碼以自動匯入"
+            className="input-field"
+          />
         </div>
 
         <div className="flex justify-end gap-3">

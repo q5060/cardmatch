@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // Enums stored as strings; validate in app with TS unions in lib/constants.ts
@@ -18,6 +19,10 @@ model User {
   avatarUrl       String?
   bannerUrl       String?  // 個人檔案橫幅
   defaultShopId   String?  // 常去的店家
+
+  // 實體會面識別（約戰必填）
+  gender          String   @default("") // MALE | FEMALE | OTHER
+  age             Int?     // 確切歲數
   
   // 隱私設定
   battleRecordVisibility String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
@@ -43,7 +48,15 @@ model User {
   reportsReceived    UserReport[]     @relation("ReportsReceived")
   blocksMade         UserBlock[]      @relation("BlocksMade")
   blocksReceived     UserBlock[]      @relation("BlocksReceived")
+  avatar             Avatar?
   shopReports        ShopReport[]
+}
+
+model Avatar {
+  userId   Int    @id
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data     Bytes
+  mimeType String
 }
 
 model UserReport {
@@ -80,8 +93,13 @@ model Deck {
   notes      String   @default("")
   visibility String   @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
   deckJson   String?
+  sortOrder  Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  meetSpots      MeetSpot[]
+  matchesAsDeckA Match[]  @relation("MatchPlayerADeck")
+  matchesAsDeckB Match[]  @relation("MatchPlayerBDeck")
 }
 
 model MeetSpot {
@@ -92,14 +110,20 @@ model MeetSpot {
   lng       Float
   label     String
   timeNote  String    @default("")
-  playNote  String    @default("") // 約戰說明：格式、程度等
+  playNote    String    @default("") // 約戰說明：程度等
+  playFormat  String    @default("ANY") // OPEN | STANDARD | ANY
   active    Boolean   @default(true)
   looking   Boolean   @default(false)
   shopId    String?
   shop      Shop?     @relation(fields: [shopId], references: [id], onDelete: SetNull)
+  deckId    String?
+  deck      Deck?     @relation(fields: [deckId], references: [id], onDelete: SetNull)
   expiresAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+
+  @@index([active, looking, expiresAt])
+  @@index([shopId])
 }
 
 model Shop {
@@ -164,12 +188,19 @@ model Match {
   meetLabel    String
   shopId       String?
   shop         Shop?    @relation(fields: [shopId], references: [id])
+  playerADeckId String?
+  playerBDeckId String?
+  playerADeck   Deck?   @relation("MatchPlayerADeck", fields: [playerADeckId], references: [id], onDelete: SetNull)
+  playerBDeck   Deck?   @relation("MatchPlayerBDeck", fields: [playerBDeckId], references: [id], onDelete: SetNull)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   messages      Message[]
   battleResults BattleResult[]
   reports       UserReport[]
+
+  @@index([playerAId, status])
+  @@index([playerBId, status])
 }
 
 model Message {
@@ -215,6 +246,10 @@ model BattleResult {
   playerAAgreed Boolean  @default(false)
   playerBAgreed Boolean  @default(false)
   status        String   @default("PENDING") // PENDING | AGREED
+  playerANotes           String @default("")
+  playerANotesVisibility String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
+  playerBNotes           String @default("")
+  playerBNotesVisibility String @default("PUBLIC") // PUBLIC | FRIENDS | PRIVATE
   createdAt     DateTime @default(now())
 }
 
@@ -228,6 +263,8 @@ model Notification {
   data        String?  // JSON string for additional data like notification message
   read        Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  @@index([userId, read])
 }
 
 model Card {
@@ -256,8 +293,9 @@ model MatchQueueEntry {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   shopId   String?
   shop     Shop?    @relation(fields: [shopId], references: [id], onDelete: SetNull)
-  playNote String   @default("")
-  lat      Float?   // Map center latitude for random matching
+  playNote   String   @default("")
+  playFormat String   @default("ANY") // OPEN | STANDARD | ANY
+  lat        Float?   // Map center latitude for random matching
   lng      Float?   // Map center longitude for random matching
   radiusKm Float?   // Search radius in km for random matching
   joinedAt DateTime @default(now())

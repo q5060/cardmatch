@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { MATCH_ACTIVE_STATUSES, MATCH_STATUS } from "@/lib/constants";
+import { deckIdsForInviteMatch } from "@/lib/matchDeck";
 import { publishMatchSnapshot, publishNotification } from "@/lib/realtime/publish";
 import { revalidatePath } from "next/cache";
 
@@ -20,9 +21,37 @@ export type CreateInviteParams = {
   source: CreateInviteSource;
   /** Spot invite only: label shown in notification (defaults to meet.label) */
   spotLabelForNotification?: string;
+  /** Spot invite: publisher's deck from announcement */
+  publisherDeckId?: string | null;
+  /** Spot invite: inviter's optional deck */
+  inviterDeckId?: string | null;
+  publisherId?: number;
 };
 
 type Db = Prisma.TransactionClient | typeof prisma;
+
+export type CreateInviteOptions = {
+  /** Defer SSE publish until after an enclosing transaction commits. */
+  deferPublish?: boolean;
+};
+
+export async function publishInviteMatchRealtime(
+  matchId: number,
+  source: CreateInviteSource,
+  targetUserId: number,
+  playerAId: number,
+  playerBId: number,
+) {
+  const isRandom = source === "random";
+  await publishMatchSnapshot(matchId);
+  if (isRandom) {
+    await publishNotification(playerAId);
+    await publishNotification(playerBId);
+  } else {
+    await publishNotification(targetUserId);
+  }
+  revalidatePath("/battle");
+}
 
 async function assertCanCreateInvite(
   db: Db,
@@ -70,7 +99,11 @@ async function assertCanCreateInvite(
 
 /** Create a match. For random matches, status is ACCEPTED immediately (no invite step).
  *  For spot invites, status is INVITE_PENDING and only the invitee is notified. */
-export async function createInviteMatch(params: CreateInviteParams, db: Db = prisma) {
+export async function createInviteMatch(
+  params: CreateInviteParams,
+  db: Db = prisma,
+  options?: CreateInviteOptions,
+) {
   const { inviterId, targetUserId, meet, source } = params;
   const { playerAId, playerBId } = await assertCanCreateInvite(db, inviterId, targetUserId);
 
@@ -83,6 +116,18 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
 
   const isRandom = source === "random";
 
+  const deckIds =
+    !isRandom && params.publisherId != null
+      ? deckIdsForInviteMatch({
+          playerAId,
+          playerBId,
+          publisherId: params.publisherId,
+          inviterId,
+          publisherDeckId: params.publisherDeckId,
+          inviterDeckId: params.inviterDeckId,
+        })
+      : { playerADeckId: null as string | null, playerBDeckId: null as string | null };
+
   const match = await db.match.create({
     data: {
       playerAId,
@@ -94,6 +139,8 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
       meetLng: meet.lng,
       meetLabel: labelShort,
       shopId: meet.shopId,
+      playerADeckId: deckIds.playerADeckId,
+      playerBDeckId: deckIds.playerBDeckId,
     },
   });
 
@@ -125,9 +172,6 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
         },
       ],
     });
-    await publishMatchSnapshot(match.id);
-    await publishNotification(playerAId);
-    await publishNotification(playerBId);
   } else {
     // Spot invite — only notify the invitee
     const spotLabel = params.spotLabelForNotification ?? meet.label;
@@ -147,10 +191,17 @@ export async function createInviteMatch(params: CreateInviteParams, db: Db = pri
         read: false,
       },
     });
-    await publishMatchSnapshot(match.id);
-    await publishNotification(targetUserId);
   }
 
-  revalidatePath("/battle");
+  if (!options?.deferPublish) {
+    await publishInviteMatchRealtime(
+      match.id,
+      source,
+      targetUserId,
+      playerAId,
+      playerBId,
+    );
+  }
+
   return match;
 }

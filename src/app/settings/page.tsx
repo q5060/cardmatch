@@ -4,11 +4,13 @@ import { useState, useEffect, Suspense } from "react";
 import { redirect, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { User, Lock, Shield, LogOut, Plus, Trash2, Edit2, Layers, UserX, ShieldAlert } from "lucide-react";
+import { User, Lock, Shield, LogOut, Layers, UserX, ShieldAlert } from "lucide-react";
+import { SettingsDecksPanel } from "@/components/settings/SettingsDecksPanel";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Alert } from "@/components/ui/Alert";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { BlockedUsersList } from "@/components/settings/BlockedUsersList";
+import { USER_GENDER } from "@/lib/constants";
+import { USER_GENDER_LABELS } from "@/lib/profile";
 
 interface UserSettings {
   id: number;
@@ -17,6 +19,10 @@ interface UserSettings {
   bio: string;
   avatarUrl: string | null;
   bannerUrl: string | null;
+  gender: string;
+  age: number | null;
+  profileComplete?: boolean;
+  profileMissingFields?: string[];
   battleRecordVisibility: "PUBLIC" | "FRIENDS" | "PRIVATE";
   winrateVisibility: "PUBLIC" | "FRIENDS" | "PRIVATE";
   defaultShopId: string | null;
@@ -59,6 +65,8 @@ function SettingsContent() {
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const [gender, setGender] = useState("");
+  const [age, setAge] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -74,6 +82,9 @@ function SettingsContent() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
 
   const [decks, setDecks] = useState<Deck[]>([]);
   const [decksLoading, setDecksLoading] = useState(false);
@@ -98,6 +109,8 @@ function SettingsContent() {
         setUser(data);
         setDisplayName(data.displayName || "");
         setBio(data.bio || "");
+        setGender(data.gender || "");
+        setAge(data.age != null ? String(data.age) : "");
         setBattleRecordVisibility(data.battleRecordVisibility || "PUBLIC");
         setWinrateVisibility(data.winrateVisibility || "PUBLIC");
 
@@ -152,6 +165,8 @@ function SettingsContent() {
       const formData = new FormData();
       formData.append("displayName", displayName);
       formData.append("bio", bio);
+      formData.append("gender", gender);
+      formData.append("age", age);
       if (avatarFile) formData.append("avatar", avatarFile);
       if (bannerFile) formData.append("banner", bannerFile);
 
@@ -243,6 +258,38 @@ function SettingsContent() {
     }
   };
 
+  const handleChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newEmail)) {
+      setMessage({ type: "error", text: "Email 格式不正確" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newEmail, currentPassword: emailPassword }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Email 更改失敗");
+      }
+      setUser((prev) => (prev ? { ...prev, email: newEmail } : prev));
+      setMessage({ type: "success", text: "Email 已成功更改" });
+      setNewEmail("");
+      setEmailPassword("");
+    } catch (error: unknown) {
+      setMessage({
+        type: "error",
+        text: error instanceof Error ? error.message : "Email 更改失敗",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
@@ -313,6 +360,48 @@ function SettingsContent() {
           {activeTab === "account" && (
             <div className="card space-y-6 p-6">
               <h2 className="text-lg font-semibold text-foreground">帳號設定</h2>
+              <p className="text-sm text-muted-foreground">
+                性別、年齡與大頭貼為選填，填寫後可在實體約戰時幫助對手認出你。
+              </p>
+
+              {/* Email change section */}
+              <div className="rounded-xl border border-border bg-neutral-50/60 p-4">
+                <p className="mb-3 text-sm font-medium text-foreground">變更 Email</p>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  目前 Email：<span className="font-medium text-foreground">{user.email}</span>
+                </p>
+                <form onSubmit={handleChangeEmail} className="space-y-3">
+                  <label className="block text-sm font-medium text-foreground">
+                    <span className="text-muted-foreground">新 Email</span>
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="input-field mt-2"
+                      placeholder="輸入新的 Email 地址"
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-foreground">
+                    <span className="text-muted-foreground">確認目前密碼</span>
+                    <input
+                      type="password"
+                      value={emailPassword}
+                      onChange={(e) => setEmailPassword(e.target.value)}
+                      className="input-field mt-2"
+                      placeholder="輸入目前密碼以確認身份"
+                      autoComplete="current-password"
+                    />
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={loading || !newEmail || !emailPassword}
+                    className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loading ? "更新中..." : "更改 Email"}
+                  </button>
+                </form>
+              </div>
 
               <form onSubmit={handleProfileUpdate} className="space-y-5">
                 <label className="block text-sm font-medium text-foreground">
@@ -335,6 +424,38 @@ function SettingsContent() {
                     placeholder="用一段話介紹自己"
                     rows={3}
                   />
+                </label>
+
+                <label className="block text-sm font-medium text-foreground">
+                  <span className="text-muted-foreground">性別</span>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    className="input-field mt-2"
+                  >
+                    <option value="">不填</option>
+                    {Object.values(USER_GENDER).map((g) => (
+                      <option key={g} value={g}>
+                        {USER_GENDER_LABELS[g]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-foreground">
+                  <span className="text-muted-foreground">年齡</span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                    className="input-field mt-2"
+                    placeholder="例：25"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    請填寫實際歲數（正整數）
+                  </p>
                 </label>
 
                 <div>
@@ -397,53 +518,13 @@ function SettingsContent() {
           )}
 
           {activeTab === "decks" && (
-            <div className="card space-y-6 p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-foreground">管理牌組</h2>
-                <Link href="/decks/new" className="btn btn-primary btn-sm">
-                  <Plus className="h-4 w-4" aria-hidden />
-                  新增牌組
-                </Link>
-              </div>
-
-              {decks.length === 0 ? (
-                <EmptyState title="您還沒有建立任何牌組" description="點擊上方按鈕新增第一個牌組" />
-              ) : (
-                <ul className="space-y-3">
-                  {decks.map((deck) => (
-                    <li
-                      key={deck.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-border bg-black/[0.02] p-4"
-                    >
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-foreground">{deck.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {deck.cardCount} 張牌卡 · {deck.visibility}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 gap-1">
-                        <Link
-                          href={`/decks/${deck.id}/edit`}
-                          className="btn btn-ghost p-2"
-                          aria-label="編輯"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleDeckDelete(deck.id)}
-                          disabled={decksLoading}
-                          className="btn btn-ghost p-2 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                          aria-label="刪除"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <SettingsDecksPanel
+              decks={decks}
+              onDecksChange={setDecks}
+              decksLoading={decksLoading}
+              onDelete={handleDeckDelete}
+              onMessage={setMessage}
+            />
           )}
 
           {activeTab === "privacy" && (

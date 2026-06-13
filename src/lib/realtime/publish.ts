@@ -39,18 +39,30 @@ async function publishMatchUpdatedToPlayer(
 
 /** Notify both players to open the result share screen. */
 export async function publishMatchCompleted(matchId: number) {
-  const share = await getMatchSharePayload(matchId);
-  if (!share) return;
-
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     select: { playerAId: true, playerBId: true },
   });
-  if (!match) return;
+  if (!match) return null;
 
-  const event: RealtimeEvent = { type: "match.completed", matchId, share };
-  publishToUser(match.playerAId, event);
-  publishToUser(match.playerBId, event);
+  const [shareA, shareB] = await Promise.all([
+    getMatchSharePayload(matchId, match.playerAId),
+    getMatchSharePayload(matchId, match.playerBId),
+  ]);
+  if (!shareA || !shareB) return null;
+
+  publishToUser(match.playerAId, {
+    type: "match.completed",
+    matchId,
+    share: shareA,
+  });
+  publishToUser(match.playerBId, {
+    type: "match.completed",
+    matchId,
+    share: shareB,
+  });
+
+  return { playerAId: match.playerAId, shareA, shareB };
 }
 
 /** Push current match snapshot to both participants (or cleared state if match ended). */

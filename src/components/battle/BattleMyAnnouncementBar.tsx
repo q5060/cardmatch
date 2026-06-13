@@ -2,6 +2,7 @@
 
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { formatExpiresAt } from "@/lib/format";
+import { parsePlayFormat, PLAY_FORMAT_LABELS } from "@/lib/playFormat";
 import type { MapShopPin } from "@/components/map/MeetMap";
 
 type Props = {
@@ -32,6 +33,14 @@ export function BattleMyAnnouncementBar({
             {announcement.shopId ? "卡店" : "自訂地點"}
           </span>
         </p>
+        <p className="mt-1 text-xs text-foreground">
+          賽制：{PLAY_FORMAT_LABELS[parsePlayFormat(announcement.playFormat)]}
+        </p>
+        {announcement.deck ? (
+          <p className="mt-1 text-xs text-foreground">
+            牌組：{announcement.deck.title}
+          </p>
+        ) : null}
         {announcement.playNote ? (
           <p className="mt-1 line-clamp-2 text-xs text-foreground">{announcement.playNote}</p>
         ) : null}

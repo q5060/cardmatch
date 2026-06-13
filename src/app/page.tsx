@@ -158,7 +158,7 @@ export default async function Home() {
                   <ArrowRight className="h-4 w-4 opacity-95" strokeWidth={2.25} aria-hidden />
                 </Link>
                 <Link href="/profile" className="btn btn-outline btn-lg font-semibold">
-                  編輯個人檔案
+                  查看個人檔案
                 </Link>
               </>
             ) : (

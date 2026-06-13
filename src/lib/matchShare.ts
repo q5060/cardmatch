@@ -1,10 +1,25 @@
 import prisma from "@/lib/prisma";
 import { MATCH_STATUS } from "@/lib/constants";
+import {
+  getMatchDeckSidesForViewer,
+  matchDeckInclude,
+  type DeckSummaryWithCards,
+} from "@/lib/matchDeck";
+import {
+  resolveMatchPlayerNote,
+  type MatchSharePlayerNote,
+} from "@/lib/matchNotes";
+import { readFile } from "fs/promises";
+import path from "path";
+
+export type { MatchSharePlayerNote };
 
 export type MatchSharePlayer = {
   id: number;
   displayName: string;
   avatarUrl: string | null;
+  deck: DeckSummaryWithCards | null;
+  note?: MatchSharePlayerNote | null;
 };
 
 export type MatchSharePayload = {
@@ -36,6 +51,7 @@ export function buildShareUrl(matchId: number, origin?: string): string {
 
 export async function getMatchSharePayload(
   matchId: number,
+  viewerId?: number | null,
 ): Promise<MatchSharePayload | null> {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -43,6 +59,7 @@ export async function getMatchSharePayload(
       playerA: { select: { id: true, displayName: true, avatarUrl: true } },
       playerB: { select: { id: true, displayName: true, avatarUrl: true } },
       battleResults: true,
+      ...matchDeckInclude,
     },
   });
 
@@ -51,13 +68,38 @@ export async function getMatchSharePayload(
   const br = match.battleResults[0];
   if (!br || br.status !== "AGREED") return null;
 
+  const decks = await getMatchDeckSidesForViewer(match, viewerId ?? null, {
+    bypassVisibilityForParticipant: true,
+  });
+  const viewerCanEditA =
+    viewerId !== null && viewerId !== undefined && match.playerAId === viewerId;
+  const viewerCanEditB =
+    viewerId !== null && viewerId !== undefined && match.playerBId === viewerId;
+
+  const [noteA, noteB] = await Promise.all([
+    resolveMatchPlayerNote({
+      ownerId: match.playerAId,
+      viewerId: viewerId ?? null,
+      notes: br.playerANotes,
+      visibility: br.playerANotesVisibility,
+      canEdit: viewerCanEditA,
+    }),
+    resolveMatchPlayerNote({
+      ownerId: match.playerBId,
+      viewerId: viewerId ?? null,
+      notes: br.playerBNotes,
+      visibility: br.playerBNotesVisibility,
+      canEdit: viewerCanEditB,
+    }),
+  ]);
+
   return {
     matchId: match.id,
     completedAt: match.updatedAt.toISOString(),
     meetLabel: match.meetLabel,
     winnerId: br.winnerId,
-    playerA: match.playerA,
-    playerB: match.playerB,
+    playerA: { ...match.playerA, deck: decks.playerA, note: noteA },
+    playerB: { ...match.playerB, deck: decks.playerB, note: noteB },
   };
 }
 
@@ -77,10 +119,7 @@ export function getWinnerDisplayName(share: MatchSharePayload): string {
 }
 
 /** Winner line on result card: always「{displayName} 獲勝」or 平手. */
-export function getWinnerLabelForViewer(
-  share: MatchSharePayload,
-  _viewerId?: number | null,
-): string {
+export function getWinnerLabelForViewer(share: MatchSharePayload): string {
   return getWinnerDisplayName(share);
 }
 
@@ -123,6 +162,32 @@ export async function fetchAvatarDataUrl(
   siteOrigin: string,
 ): Promise<string | null> {
   if (!avatarUrl) return null;
+
+  // Stored inline by /api/auth/update-profile; safe to pass through to ImageResponse.
+  if (avatarUrl.startsWith("data:")) {
+    return avatarUrl;
+  }
+
+  if (avatarUrl.startsWith("/api/avatar/")) {
+    try {
+      const match = avatarUrl.match(/\/api\/avatar\/(\d+)/);
+      if (match) {
+        const userId = parseInt(match[1], 10);
+        const avatar = await prisma.avatar.findUnique({
+          where: { userId },
+          select: { data: true, mimeType: true },
+        });
+        if (avatar) {
+          const base64 = avatar.data.toString("base64");
+          return `data:${avatar.mimeType};base64,${base64}`;
+        }
+      }
+    } catch {
+      // fallback to fetch
+    }
+  }
+
+
   const url = avatarUrl.startsWith("http")
     ? avatarUrl
     : `${siteOrigin}${avatarUrl.startsWith("/") ? "" : "/"}${avatarUrl}`;

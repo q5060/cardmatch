@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { UserRound } from "lucide-react";
 import type { MapAnnouncementDTO } from "@/lib/queries";
+import { parsePlayFormat, PLAY_FORMAT_LABELS } from "@/lib/playFormat";
 import { staggerClass } from "@/lib/motion";
 
 type Props = {
@@ -42,7 +43,9 @@ export function BattleNearbyPlayersList({ announcements, onSelect }: Props) {
             </div>
             <span className="min-w-0 flex-1">
               <span className="block font-semibold text-foreground">{ann.displayName}</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">{ann.label}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {PLAY_FORMAT_LABELS[parsePlayFormat(ann.playFormat)]} · {ann.label}
+              </span>
             </span>
           </button>
         </li>

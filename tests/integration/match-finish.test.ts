@@ -55,7 +55,9 @@ describe("finishMatch (server action)", () => {
     await loginAsUser("target@example.com");
     const second = await finishMatch(match.id.toString(), inviter.id, false);
     expect(second.completed).toBe(true);
-    expect(second.share?.matchId).toBe(match.id);
+    if (second.completed) {
+      expect(second.share?.matchId).toBe(match.id);
+    }
 
     const row = await testPrisma.match.findUnique({ where: { id: match.id } });
     expect(row?.status).toBe(MATCH_STATUS.COMPLETED);

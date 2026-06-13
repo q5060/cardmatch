@@ -12,6 +12,7 @@ import {
   type MatchSharePayload,
 } from "@/lib/matchShare";
 import { MatchResultShareCard } from "@/components/battle/MatchResultShareCard";
+import { MatchResultNotesPanel } from "@/components/battle/MatchResultNotesPanel";
 import { IconFacebook, IconThreads, IconX } from "@/components/battle/SharePlatformIcons";
 
 type Props = {
@@ -47,20 +48,21 @@ function ShareIconButton({
 }
 
 export function BattleResultShareScreen({ share, viewerId, onDone }: Props) {
+  const [shareState, setShareState] = useState(share);
   const [linkCopied, setLinkCopied] = useState(false);
   const [fbCopied, setFbCopied] = useState(false);
 
   const shareUrl = useMemo(() => {
     const origin =
       typeof window !== "undefined" ? window.location.origin : undefined;
-    return buildShareUrl(share.matchId, origin);
-  }, [share.matchId]);
+    return buildShareUrl(shareState.matchId, origin);
+  }, [shareState.matchId]);
 
   const ogImageUrl = `${shareUrl}/opengraph-image`;
-  const postText = buildSharePostText(share);
+  const postText = buildSharePostText(shareState);
   const clipboardText = useMemo(
-    () => buildShareClipboardText(share, shareUrl),
-    [share, shareUrl],
+    () => buildShareClipboardText(shareState, shareUrl),
+    [shareState, shareUrl],
   );
 
   const flashCopied = useCallback((setter: (v: boolean) => void) => {
@@ -98,13 +100,16 @@ export function BattleResultShareScreen({ share, viewerId, onDone }: Props) {
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">對戰完成</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          分享這場對戰的結果連結，好友可在 X、Facebook、Threads 等平台看到預覽圖。
-        </p>
+        <h1 className="text-2xl font-bold text-foreground">對戰結束</h1>
       </div>
 
-      <MatchResultShareCard share={share} viewerId={viewerId} />
+      <MatchResultShareCard share={shareState} viewerId={viewerId} />
+
+      <MatchResultNotesPanel
+        share={shareState}
+        viewerId={viewerId}
+        onShareUpdate={setShareState}
+      />
 
       <div className="space-y-2">
         <label className="text-xs font-medium text-muted-foreground">分享連結</label>
@@ -166,7 +171,7 @@ export function BattleResultShareScreen({ share, viewerId, onDone }: Props) {
         </button>
         <a
           href={ogImageUrl}
-          download={`cardmatch-match-${share.matchId}.png`}
+          download={`cardmatch-match-${shareState.matchId}.png`}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-outline"

@@ -37,20 +37,24 @@ import {
   sendInviteFromSpot,
   setReady,
 } from "@/actions/match";
+import { MatchDeckSelection } from "@/components/battle/MatchDeckSelection";
+import { BattleDeckCardsPanel } from "@/components/battle/BattleDeckCardsPanel";
+import { MatchDeckSummaryLine } from "@/components/battle/MatchDeckSummaryLine";
+import { DisclosedDeckViewer } from "@/components/battle/DisclosedDeckViewer";
 import { clearBattleAnnouncement, refreshShops } from "@/actions/meetSpot";
 import { MATCH_STATUS } from "@/lib/constants";
 import type { ActiveMatchDTO, BattleResultDTO } from "@/lib/matchDto";
 import type { MapAnnouncementDTO } from "@/lib/queries";
+import { parsePlayFormat, PLAY_FORMAT_LABELS } from "@/lib/playFormat";
 import type { QueueStatus } from "@/actions/matchQueue";
 import {
   useRealtimeConnected,
   useRealtimeEvent,
 } from "@/hooks/useRealtimeEvent";
-import { useMatchCeremony } from "@/hooks/useMatchCeremony";
-import { BattleCeremonyOverlay } from "@/components/battle/BattleCeremonyOverlay";
 import { BattleReadyStrip } from "@/components/battle/BattleReadyStrip";
 import { BattleResultShareScreen } from "@/components/battle/BattleResultShareScreen";
 import { MatchReportDialog } from "@/components/battle/MatchReportDialog";
+import { profileMetaLine } from "@/lib/profile";
 import type { MatchSharePayload } from "@/lib/matchShare";
 import type { RealtimeEvent } from "@/lib/realtime/types";
 
@@ -119,13 +123,8 @@ export function BattleClient({
   const [randomMatchCircle, setRandomMatchCircle] = useState<{ centerLat: number; centerLng: number; radiusKm: number } | null>(null);
   const [shareScreen, setShareScreen] = useState<MatchSharePayload | null>(null);
   const [matchReportOpen, setMatchReportOpen] = useState(false);
-  const seenInviteMatchIdRef = useRef<number | null>(null);
   const autoCleanedRef = useRef<number | null>(null);
   const isFlyingRef = useRef(false);
-
-  const isIncomingInvite =
-    activeMatch?.status === MATCH_STATUS.INVITE_PENDING &&
-    activeMatch.invitedById !== userId;
 
   const mapPins: MapAnnouncementPin[] = useMemo(() => {
     const pins: MapAnnouncementPin[] = announcements
@@ -139,6 +138,7 @@ export function BattleClient({
         lng: a.lng,
         label: a.label,
         playNote: a.playNote || undefined,
+        playFormatLabel: PLAY_FORMAT_LABELS[parsePlayFormat(a.playFormat)],
         expiresAt: a.expiresAt,
         isOwn: false,
       }));
@@ -152,6 +152,7 @@ export function BattleClient({
         lng: myAnnouncement.lng,
         label: myAnnouncement.label,
         playNote: myAnnouncement.playNote || undefined,
+        playFormatLabel: PLAY_FORMAT_LABELS[parsePlayFormat(myAnnouncement.playFormat)],
         expiresAt: myAnnouncement.expiresAt,
         isOwn: true,
       });
@@ -227,18 +228,7 @@ export function BattleClient({
       if (document.visibilityState === "visible") void syncMapSnapshot();
     }, ms);
     return () => window.clearInterval(id);
-  }, [activeMatch, myAnnouncement, sseConnected, syncMapSnapshot]);
-
-  useEffect(() => {
-    if (!isIncomingInvite) {
-      document.title = "對戰 | CardMatch";
-      return;
-    }
-    document.title = "（新邀請）對戰 | CardMatch";
-    return () => {
-      document.title = "對戰 | CardMatch";
-    };
-  }, [isIncomingInvite]);
+  }, [Boolean(activeMatch), Boolean(myAnnouncement), sseConnected, syncMapSnapshot]);
 
   /** Open a specific shop on mount (e.g. navigated from search results) */
   useEffect(() => {
@@ -306,21 +296,17 @@ export function BattleClient({
   }
 
   /** Match state fallback when SSE is disconnected. */
+  const hasActiveMatch = activeMatch != null;
   useEffect(() => {
-    if (!activeMatch || sseConnected) return;
-    const syncStatuses = new Set<string>([
-      MATCH_STATUS.ACCEPTED,
-      MATCH_STATUS.INVITE_PENDING,
-      MATCH_STATUS.IN_PROGRESS,
-    ]);
-    if (!syncStatuses.has(activeMatch.status)) return;
+    if (sseConnected || isGuest) return;
 
+    const pollMs = hasActiveMatch ? 30_000 : 15_000;
     const id = window.setInterval(() => {
       if (document.visibilityState === "visible") void syncActiveMatch();
-    }, 30_000);
+    }, pollMs);
 
     return () => window.clearInterval(id);
-  }, [activeMatch?.id, activeMatch?.status, sseConnected, syncActiveMatch]);
+  }, [hasActiveMatch, isGuest, sseConnected, syncActiveMatch]);
 
   // Periodically refresh shop counts (every 10 seconds)
   useEffect(() => {
@@ -341,6 +327,29 @@ export function BattleClient({
     startTransition(async () => {
       try {
         await action();
+        await refresh();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "操作失敗");
+      }
+    });
+  }
+
+  function runInviteFromSpot(
+    spotId: string,
+    inviterDeckId: string | null,
+    onSuccess?: () => void,
+  ) {
+    setErr(null);
+    startTransition(async () => {
+      try {
+        const result = await sendInviteFromSpot(spotId, inviterDeckId);
+        if (result && result.error === "STALE_ANNOUNCEMENT") {
+          onSuccess?.();
+          await refresh();
+          setErr("該約戰公告不存在");
+          return;
+        }
+        onSuccess?.();
         await refresh();
       } catch (e) {
         setErr(e instanceof Error ? e.message : "操作失敗");
@@ -447,12 +456,6 @@ export function BattleClient({
       : activeMatch.playerAReady
     : false;
 
-  const { ceremony, dismissCeremony } = useMatchCeremony(
-    activeMatch,
-    userId ?? 0,
-    seenInviteMatchIdRef,
-  );
-
   if (shareScreen && userId !== null) {
     return (
       <BattleResultShareScreen
@@ -468,52 +471,9 @@ export function BattleClient({
 
   if (activeMatch && userId !== null) {
     const st = activeMatch.status;
-    const showCeremony =
-      ceremony !== null && ceremony.matchId === activeMatch.id;
 
     return (
       <div className="space-y-6">
-        {showCeremony ? (
-          <BattleCeremonyOverlay
-            key={`${ceremony.matchId}-${ceremony.kind}`}
-            ceremony={ceremony}
-            onDismiss={dismissCeremony}
-            inviteActions={
-              ceremony.kind === "incoming_invite" ? (
-                <>
-                  <button
-                    type="button"
-                    data-testid="accept-invite"
-                    disabled={pending}
-                    onClick={() =>
-                      run(async () => {
-                        await acceptInvite(activeMatch.id.toString());
-                        dismissCeremony();
-                      })
-                    }
-                    className="btn btn-primary min-w-[7rem]"
-                  >
-                    接受約戰
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() =>
-                      run(async () => {
-                        await rejectInvite(activeMatch.id.toString());
-                        dismissCeremony();
-                      })
-                    }
-                    className="btn btn-outline border-red-200 font-semibold text-red-700 hover:bg-red-50"
-                  >
-                    拒絕
-                  </button>
-                </>
-              ) : undefined
-            }
-          />
-        ) : null}
-
         <div key={st} className="motion-fade-in-up space-y-6">
         <div className="card card-hover p-5">
           <div className="flex items-start justify-between gap-3">
@@ -529,7 +489,7 @@ export function BattleClient({
               </button>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground">
             對手：
             {otherPlayerId && otherPlayer ? (
               <Link
@@ -541,6 +501,12 @@ export function BattleClient({
             ) : (
               otherPlayer?.displayName
             )}
+            {otherPlayer && profileMetaLine(otherPlayer.gender, otherPlayer.age) ? (
+              <span className="text-foreground">
+                {" "}
+                · {profileMetaLine(otherPlayer.gender, otherPlayer.age)}
+              </span>
+            ) : null}
           </p>
           <LocationNavBlock
             className="mt-3"
@@ -579,26 +545,65 @@ export function BattleClient({
               }`}
           >
             {activeMatch.invitedById === userId ? (
-              <p className="text-foreground">已送出邀請，等待對方回應。</p>
+              <>
+                <p className="text-foreground">已送出邀請，等待對方回應。</p>
+                {activeMatch.myDeck ? (
+                  <DisclosedDeckViewer
+                    deck={activeMatch.myDeck}
+                    matchId={activeMatch.id}
+                    label="你的牌組"
+                  />
+                ) : (
+                  <MatchDeckSummaryLine label="你的牌組" deck={activeMatch.myDeck} />
+                )}
+              </>
             ) : (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                   約戰邀請
                 </p>
-                <p className="text-lg font-semibold text-foreground">
-                  {otherPlayerId && otherPlayer ? (
-                    <Link
-                      href={`/profile/${otherPlayerId}`}
-                      className="text-primary underline-offset-2 hover:underline"
-                    >
-                      {otherPlayer.displayName}
-                    </Link>
-                  ) : (
-                    otherPlayer?.displayName
-                  )}
-                  <span className="font-normal text-foreground"> 邀請你約戰</span>
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1">
+                {otherPlayer ? (
+                  <>
+                    <p className="text-lg font-semibold text-foreground">
+                      {otherPlayerId ? (
+                        <Link
+                          href={`/profile/${otherPlayerId}`}
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          {otherPlayer.displayName}
+                        </Link>
+                      ) : (
+                        otherPlayer.displayName
+                      )}
+                      {profileMetaLine(otherPlayer.gender, otherPlayer.age) ? (
+                        <span className="ml-2 text-sm font-normal text-muted-foreground">
+                          {profileMetaLine(otherPlayer.gender, otherPlayer.age)}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="text-sm text-muted-foreground">邀請你約戰</p>
+                    {activeMatch.theirDeck ? (
+                      <DisclosedDeckViewer
+                        deck={activeMatch.theirDeck}
+                        matchId={activeMatch.id}
+                        label="對方牌組"
+                      />
+                    ) : (
+                      <MatchDeckSummaryLine
+                        label="對方牌組"
+                        deck={activeMatch.theirDeck}
+                      />
+                    )}
+                    {activeMatch.myDeck ? (
+                      <DisclosedDeckViewer
+                        deck={activeMatch.myDeck}
+                        matchId={activeMatch.id}
+                        label="你的牌組"
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+                <div className="flex flex-wrap gap-2 pt-3">
                   {/* {otherPlayerId ? (
                     <Link
                       href={`/profile/${otherPlayerId}`}
@@ -653,7 +658,7 @@ export function BattleClient({
         ) : null}
 
         {(st === MATCH_STATUS.ACCEPTED || st === MATCH_STATUS.IN_PROGRESS) && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
             <MeetMap
               shops={shopsData}
               announcements={[]}
@@ -724,6 +729,14 @@ export function BattleClient({
                 </div>
               </>
             ) : (
+              <>
+              <MatchDeckSelection
+                activeMatch={activeMatch}
+                myReady={myReady}
+                disabled={pending}
+                onUpdated={() => void refresh()}
+                onError={setErr}
+              />
               <BattleReadyStrip
                 activeMatch={activeMatch}
                 userId={userId}
@@ -759,12 +772,14 @@ export function BattleClient({
                   請求取消約戰
                 </button>
               </BattleReadyStrip>
+              </>
             )}
           </div>
         )}
 
         {st === MATCH_STATUS.IN_PROGRESS && (
           <div className="card card-hover space-y-4 p-5">
+            <BattleDeckCardsPanel activeMatch={activeMatch} />
             {activeMatch.cancelRequestedBy && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <p className="text-sm text-amber-700 mb-2">
@@ -1132,12 +1147,13 @@ export function BattleClient({
             onInvite={
               isGuest
                 ? undefined
-                : () => {
+                : (inviterDeckId) => {
                     if (!sheetAnnouncement) return;
-                    run(async () => {
-                      await sendInviteFromSpot(sheetAnnouncement.spotId);
-                      setSheetAnnouncement(null);
-                    });
+                    runInviteFromSpot(
+                      sheetAnnouncement.spotId,
+                      inviterDeckId,
+                      () => setSheetAnnouncement(null),
+                    );
                   }
             }
             onClear={
@@ -1226,12 +1242,13 @@ export function BattleClient({
           onInvite={
             isGuest
               ? undefined
-              : () => {
+              : (inviterDeckId) => {
                   if (!sheetAnnouncement) return;
-                  run(async () => {
-                    await sendInviteFromSpot(sheetAnnouncement.spotId);
-                    setSheetAnnouncement(null);
-                  });
+                  runInviteFromSpot(
+                    sheetAnnouncement.spotId,
+                    inviterDeckId,
+                    () => setSheetAnnouncement(null),
+                  );
                 }
           }
           onClear={

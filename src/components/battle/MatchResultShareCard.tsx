@@ -1,10 +1,12 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Calendar, MapPin, Trophy, UserRound } from "lucide-react";
 import type { MatchSharePayload, MatchSharePlayer } from "@/lib/matchShare";
 import {
   formatMatchShareDate,
   getWinnerLabelForViewer,
 } from "@/lib/matchShare";
+import { MatchResultDeckBlock } from "@/components/battle/MatchResultDeckBlock";
 
 type Props = {
   share: MatchSharePayload;
@@ -51,7 +53,14 @@ function PlayerColumn({
         ) : null}
       </div>
       <div className="w-full text-center">
-        <p className="text-base font-bold text-foreground sm:text-lg">{player.displayName}</p>
+        <Link
+          href={`/profile/${player.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-base font-bold text-foreground underline-offset-2 hover:underline sm:text-lg"
+        >
+          {player.displayName}
+        </Link>
         {isDraw ? (
           <p className="mt-1 text-xs text-muted-foreground">平手</p>
         ) : isWinner ? (
@@ -64,7 +73,7 @@ function PlayerColumn({
   );
 }
 
-export function MatchResultShareCard({ share, viewerId }: Props) {
+export function MatchResultShareCard({ share }: Props) {
   const isDraw = share.winnerId === null;
   const aWins = share.winnerId === share.playerA.id;
   const bWins = share.winnerId === share.playerB.id;
@@ -77,7 +86,7 @@ export function MatchResultShareCard({ share, viewerId }: Props) {
         </p>
         <p className="mt-1 text-lg font-bold text-foreground sm:text-xl">對戰結果</p>
         <p className="mt-2 text-sm font-semibold text-primary">
-          {getWinnerLabelForViewer(share, viewerId)}
+          {getWinnerLabelForViewer(share)}
         </p>
       </div>
 
@@ -96,6 +105,11 @@ export function MatchResultShareCard({ share, viewerId }: Props) {
           本場為平手
         </p>
       ) : null}
+
+      <div className="grid gap-3 border-t border-black/[0.06] px-5 py-4 sm:grid-cols-2 sm:px-6">
+        <MatchResultDeckBlock deck={share.playerA.deck} playerLabel={share.playerA.displayName} />
+        <MatchResultDeckBlock deck={share.playerB.deck} playerLabel={share.playerB.displayName} />
+      </div>
 
       <div className="flex flex-col items-center gap-2 border-t border-black/[0.06] px-5 py-4 text-center text-sm text-muted-foreground sm:px-6">
         <p className="flex items-center justify-center gap-2">

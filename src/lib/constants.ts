@@ -47,8 +47,26 @@ export const PROFILE_ALL_MATCHES = 100;
 /** How long a random-match queue entry stays valid (ms). */
 export const MATCH_QUEUE_TTL_MS = 30 * 60 * 1000;
 
+/** Random-match play format — validate with isPlayFormat in lib/playFormat.ts */
+export const PLAY_FORMAT = {
+  OPEN: "OPEN",
+  STANDARD: "STANDARD",
+  ANY: "ANY",
+} as const;
+
+export type PlayFormat = (typeof PLAY_FORMAT)[keyof typeof PLAY_FORMAT];
+
 export const BATTLE_OUTCOME = {
   WIN: "WIN",
   LOSS: "LOSS",
   DRAW: "DRAW",
 } as const;
+
+/** Profile gender — validate with isUserGender in lib/profile.ts */
+export const USER_GENDER = {
+  MALE: "MALE",
+  FEMALE: "FEMALE",
+  OTHER: "OTHER",
+} as const;
+
+export type UserGender = (typeof USER_GENDER)[keyof typeof USER_GENDER];

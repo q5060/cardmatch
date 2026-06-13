@@ -191,7 +191,7 @@ Playwright 啟動 production build（port 3001），`global-setup` 執行 migrat
 ### `match-report.spec.ts` — 對戰檢舉 UI
 | 案例 | 驗證內容 |
 |------|----------|
-| 登入後檢舉對手 | 對話框勾選、確認；成功訊息；DB：`CANCELLED` + `UserReport` |
+| 註冊後檢舉對手 | UI 註冊 A、DB 建立 B（避免覆寫 session）；對話框確認；`activeMatch` 清空；DB：`CANCELLED` + `UserReport` |
 
 ---
 

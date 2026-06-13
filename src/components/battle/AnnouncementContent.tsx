@@ -1,17 +1,20 @@
 "use client";
 
-import Image from "next/image";
+import { useState } from "react";
 import Link from "next/link";
-import { UserRound } from "lucide-react";
 import type { MapAnnouncementDTO } from "@/lib/queries";
 import { formatExpiresAt } from "@/lib/format";
+import { parsePlayFormat, PLAY_FORMAT_LABELS } from "@/lib/playFormat";
 import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
+import { PlayerIdentificationBlock } from "@/components/profile/PlayerIdentificationBlock";
+import { DeckPickerField } from "@/components/battle/DeckPickerField";
+import { DisclosedDeckViewer } from "@/components/battle/DisclosedDeckViewer";
 
 type Props = {
   announcement: MapAnnouncementDTO;
   isOwn: boolean;
   pending?: boolean;
-  onInvite?: () => void;
+  onInvite?: (inviterDeckId: string | null) => void;
   onClear?: () => void;
 };
 
@@ -22,35 +25,45 @@ export function AnnouncementContent({
   onInvite,
   onClear,
 }: Props) {
+  const [inviteDeckId, setInviteDeckId] = useState<string | null>(null);
+
   return (
     <div className="flex flex-col h-full space-y-4 p-5">
-      {/* User Info */}
-      <div className="flex items-center gap-3">
-        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-border bg-neutral-100">
-          {announcement.avatarUrl ? (
-            <Image
-              src={announcement.avatarUrl}
-              alt=""
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          ) : (
-            <span className="flex h-full w-full items-center justify-center text-muted-foreground">
-              <UserRound className="h-7 w-7" strokeWidth={1.5} />
-            </span>
-          )}
-        </div>
-        <div className="min-w-0">
-          <p className="font-semibold text-foreground">{announcement.displayName}</p>
-        </div>
-      </div>
+      <PlayerIdentificationBlock
+        player={{
+          displayName: announcement.displayName,
+          avatarUrl: announcement.avatarUrl,
+          gender: announcement.gender,
+          age: announcement.age,
+        }}
+      />
 
       <LocationNavBlock
         label={announcement.label}
         lat={announcement.lat}
         lng={announcement.lng}
       />
+
+      {announcement.deck && !isOwn ? (
+        <DisclosedDeckViewer
+          deck={announcement.deck}
+          spotId={announcement.spotId}
+          label="使用牌組"
+        />
+      ) : null}
+      {announcement.deck && isOwn ? (
+        <p className="text-sm text-foreground">
+          <span className="text-muted-foreground">使用牌組：</span>
+          <span className="font-medium">{announcement.deck.title}</span>
+        </p>
+      ) : null}
+
+      <p className="text-sm text-foreground">
+        <span className="text-muted-foreground">賽制：</span>
+        <span className="font-medium">
+          {PLAY_FORMAT_LABELS[parsePlayFormat(announcement.playFormat)]}
+        </span>
+      </p>
 
       {announcement.playNote ? (
         <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
@@ -65,18 +78,24 @@ export function AnnouncementContent({
         </p>
       ) : null}
 
-      {/* Expires */}
       <p className="text-xs text-muted-foreground">
         公告至 {formatExpiresAt(announcement.expiresAt)}
       </p>
 
       {!isOwn && onInvite ? (
-        <div className="mt-auto border-t border-border pt-4">
+        <div className="mt-auto space-y-3 border-t border-border pt-4">
+          <DeckPickerField
+            value={inviteDeckId}
+            onChange={setInviteDeckId}
+            disabled={pending}
+            label="邀請時使用的牌組（選填）"
+            id="invite-deck-picker"
+          />
           <button
             type="button"
             data-testid="send-invite"
             disabled={pending}
-            onClick={onInvite}
+            onClick={() => onInvite(inviteDeckId)}
             className="btn btn-primary w-full"
           >
             {pending ? "處理中…" : "邀請對戰"}

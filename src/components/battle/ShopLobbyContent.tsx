@@ -7,6 +7,7 @@ import type { MapShopPin } from "@/components/map/MeetMap";
 import type { MapAnnouncementDTO, ShopEventDTO } from "@/lib/queries";
 import { fetchShopLobby, clearBattleAnnouncement } from "@/actions/meetSpot";
 import { formatExpiresAt } from "@/lib/format";
+import { parsePlayFormat, PLAY_FORMAT_LABELS } from "@/lib/playFormat";
 import { LocationNavBlock } from "@/components/ui/LocationNavBlock";
 import { ShopInfoPanel } from "@/components/battle/ShopInfoPanel";
 
@@ -129,6 +130,9 @@ export function ShopLobbyContent({
                     <div className="min-w-0">
                       <p className="font-medium text-foreground">
                         {p.displayName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        賽制：{PLAY_FORMAT_LABELS[parsePlayFormat(p.playFormat)]}
                       </p>
                       {p.playNote ? (
                         <p className="text-xs text-foreground line-clamp-2">{p.playNote}</p>
